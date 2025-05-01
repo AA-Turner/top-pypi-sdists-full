@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_user_contact_method`
 
-Refer to the Terraform Registry for docs: [`pagerduty_user_contact_method`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method).
+Refer to the Terraform Registry for docs: [`pagerduty_user_contact_method`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class UserContactMethod(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.userContactMethod.UserContactMethod",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method pagerduty_user_contact_method}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method pagerduty_user_contact_method}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class UserContactMethod(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method pagerduty_user_contact_method} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method pagerduty_user_contact_method} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#address UserContactMethod#address}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#label UserContactMethod#label}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#type UserContactMethod#type}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#user_id UserContactMethod#user_id}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#country_code UserContactMethod#country_code}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#id UserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param send_short_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#send_short_email UserContactMethod#send_short_email}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#address UserContactMethod#address}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#label UserContactMethod#label}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#type UserContactMethod#type}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#user_id UserContactMethod#user_id}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#country_code UserContactMethod#country_code}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#id UserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param send_short_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#send_short_email UserContactMethod#send_short_email}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class UserContactMethod(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the UserContactMethod to import.
-        :param import_from_id: The id of the existing UserContactMethod that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing UserContactMethod that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the UserContactMethod to import is found.
         '''
         if __debug__:
@@ -341,13 +341,13 @@ class UserContactMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#address UserContactMethod#address}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#label UserContactMethod#label}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#type UserContactMethod#type}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#user_id UserContactMethod#user_id}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#country_code UserContactMethod#country_code}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#id UserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param send_short_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#send_short_email UserContactMethod#send_short_email}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#address UserContactMethod#address}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#label UserContactMethod#label}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#type UserContactMethod#type}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#user_id UserContactMethod#user_id}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#country_code UserContactMethod#country_code}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#id UserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param send_short_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#send_short_email UserContactMethod#send_short_email}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -460,41 +460,41 @@ class UserContactMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#address UserContactMethod#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#address UserContactMethod#address}.'''
         result = self._values.get("address")
         assert result is not None, "Required property 'address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#label UserContactMethod#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#label UserContactMethod#label}.'''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#type UserContactMethod#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#type UserContactMethod#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#user_id UserContactMethod#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#user_id UserContactMethod#user_id}.'''
         result = self._values.get("user_id")
         assert result is not None, "Required property 'user_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def country_code(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#country_code UserContactMethod#country_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#country_code UserContactMethod#country_code}.'''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#id UserContactMethod#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#id UserContactMethod#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -506,7 +506,7 @@ class UserContactMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def send_short_email(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_contact_method#send_short_email UserContactMethod#send_short_email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_contact_method#send_short_email UserContactMethod#send_short_email}.'''
         result = self._values.get("send_short_email")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

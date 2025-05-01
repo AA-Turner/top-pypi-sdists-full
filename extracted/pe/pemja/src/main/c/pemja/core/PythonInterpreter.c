@@ -17,6 +17,17 @@
 #include "MainInterpreter.h"
 #include "PythonInterpreter.h"
 
+// use windows mingw32
+#if (defined(_WIN32) || defined(_WIN64))
+    PyMODINIT_FUNC PyInit_pemja_core(void) {
+        // Sine pemja_core is not a true Python extension module,
+        // we just use it to provide native functions, returning NULL
+        // is enough.
+        return NULL;
+    }
+#else
+#endif
+
 // ---------------------------------- jni functions ------------------------
 
 
@@ -40,24 +51,13 @@ JNI_OnUnload(JavaVM *vm, void *reserved)
 
 /*
  * Class:     pemja_core_PythonInterpreter_MainInterpreter
- * Method:    setPythonHome
+ * Method:    initialize
  * Signature: (Ljava/lang/String;)V
  */
- JNIEXPORT void JNICALL Java_pemja_core_PythonInterpreter_00024MainInterpreter_setPythonHome
-   (JNIEnv *env, jobject obj, jstring home)
- {
-     JcpPy_setPythonHome(env, home);
- }
-
-/*
- * Class:     pemja_core_PythonInterpreter_MainInterpreter
- * Method:    initialize
- * Signature: (V)V
- */
 JNIEXPORT void JNICALL Java_pemja_core_PythonInterpreter_00024MainInterpreter_initialize
-  (JNIEnv *env, jobject obj)
+  (JNIEnv *env, jobject obj, jstring python_home)
 {
-    JcpPy_Initialize(env);
+    JcpPy_Initialize(env, python_home);
 }
 
 /*

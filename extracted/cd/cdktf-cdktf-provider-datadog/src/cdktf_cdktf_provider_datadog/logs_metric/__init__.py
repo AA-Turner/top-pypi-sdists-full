@@ -1,7 +1,7 @@
 r'''
 # `datadog_logs_metric`
 
-Refer to the Terraform Registry for docs: [`datadog_logs_metric`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric).
+Refer to the Terraform Registry for docs: [`datadog_logs_metric`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogsMetric(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.logsMetric.LogsMetric",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric datadog_logs_metric}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric datadog_logs_metric}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class LogsMetric(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric datadog_logs_metric} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric datadog_logs_metric} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#compute LogsMetric#compute}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#filter LogsMetric#filter}
-        :param name: The name of the log-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#name LogsMetric#name}
-        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#group_by LogsMetric#group_by}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#id LogsMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#compute LogsMetric#compute}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#filter LogsMetric#filter}
+        :param name: The name of the log-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#name LogsMetric#name}
+        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#group_by LogsMetric#group_by}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#id LogsMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class LogsMetric(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogsMetric to import.
-        :param import_from_id: The id of the existing LogsMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogsMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogsMetric to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class LogsMetric(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Valid values are ``count``, ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#aggregation_type LogsMetric#aggregation_type}
-        :param include_percentiles: Toggle to include/exclude percentiles for a distribution metric. Defaults to false. Can only be applied to metrics that have an ``aggregation_type`` of distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#include_percentiles LogsMetric#include_percentiles}
-        :param path: The path to the value the log-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#path LogsMetric#path}
+        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Valid values are ``count``, ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#aggregation_type LogsMetric#aggregation_type}
+        :param include_percentiles: Toggle to include/exclude percentiles for a distribution metric. Defaults to false. Can only be applied to metrics that have an ``aggregation_type`` of distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#include_percentiles LogsMetric#include_percentiles}
+        :param path: The path to the value the log-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#path LogsMetric#path}
         '''
         value = LogsMetricCompute(
             aggregation_type=aggregation_type,
@@ -150,7 +150,7 @@ class LogsMetric(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, query: builtins.str) -> None:
         '''
-        :param query: The search query - following the log search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#query LogsMetric#query}
+        :param query: The search query - following the log search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#query LogsMetric#query}
         '''
         value = LogsMetricFilter(query=query)
 
@@ -275,9 +275,9 @@ class LogsMetricCompute:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Valid values are ``count``, ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#aggregation_type LogsMetric#aggregation_type}
-        :param include_percentiles: Toggle to include/exclude percentiles for a distribution metric. Defaults to false. Can only be applied to metrics that have an ``aggregation_type`` of distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#include_percentiles LogsMetric#include_percentiles}
-        :param path: The path to the value the log-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#path LogsMetric#path}
+        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Valid values are ``count``, ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#aggregation_type LogsMetric#aggregation_type}
+        :param include_percentiles: Toggle to include/exclude percentiles for a distribution metric. Defaults to false. Can only be applied to metrics that have an ``aggregation_type`` of distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#include_percentiles LogsMetric#include_percentiles}
+        :param path: The path to the value the log-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#path LogsMetric#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ece69d0f5c15ac4ac00f169a3f6f99f77302dfb788d0ca728bd991e079f8258f)
@@ -296,7 +296,7 @@ class LogsMetricCompute:
     def aggregation_type(self) -> builtins.str:
         '''The type of aggregation to use. This field can't be updated after creation. Valid values are ``count``, ``distribution``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#aggregation_type LogsMetric#aggregation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#aggregation_type LogsMetric#aggregation_type}
         '''
         result = self._values.get("aggregation_type")
         assert result is not None, "Required property 'aggregation_type' is missing"
@@ -310,7 +310,7 @@ class LogsMetricCompute:
 
         Defaults to false. Can only be applied to metrics that have an ``aggregation_type`` of distribution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#include_percentiles LogsMetric#include_percentiles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#include_percentiles LogsMetric#include_percentiles}
         '''
         result = self._values.get("include_percentiles")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -321,7 +321,7 @@ class LogsMetricCompute:
 
         This field can't be updated after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#path LogsMetric#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#path LogsMetric#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -480,11 +480,11 @@ class LogsMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#compute LogsMetric#compute}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#filter LogsMetric#filter}
-        :param name: The name of the log-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#name LogsMetric#name}
-        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#group_by LogsMetric#group_by}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#id LogsMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#compute LogsMetric#compute}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#filter LogsMetric#filter}
+        :param name: The name of the log-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#name LogsMetric#name}
+        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#group_by LogsMetric#group_by}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#id LogsMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -598,7 +598,7 @@ class LogsMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def compute(self) -> LogsMetricCompute:
         '''compute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#compute LogsMetric#compute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#compute LogsMetric#compute}
         '''
         result = self._values.get("compute")
         assert result is not None, "Required property 'compute' is missing"
@@ -608,7 +608,7 @@ class LogsMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> "LogsMetricFilter":
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#filter LogsMetric#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#filter LogsMetric#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -618,7 +618,7 @@ class LogsMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the log-based metric. This field can't be updated after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#name LogsMetric#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#name LogsMetric#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -630,14 +630,14 @@ class LogsMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsMetricGroupBy"]]]:
         '''group_by block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#group_by LogsMetric#group_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#group_by LogsMetric#group_by}
         '''
         result = self._values.get("group_by")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsMetricGroupBy"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#id LogsMetric#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#id LogsMetric#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -665,7 +665,7 @@ class LogsMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class LogsMetricFilter:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: The search query - following the log search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#query LogsMetric#query}
+        :param query: The search query - following the log search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#query LogsMetric#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__08deadc2a1e5afa556ba2a8f3a5d96057e2edf0cff8d1cb724a46587b65ed1fb)
@@ -678,7 +678,7 @@ class LogsMetricFilter:
     def query(self) -> builtins.str:
         '''The search query - following the log search syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#query LogsMetric#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#query LogsMetric#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -754,8 +754,8 @@ class LogsMetricFilterOutputReference(
 class LogsMetricGroupBy:
     def __init__(self, *, path: builtins.str, tag_name: builtins.str) -> None:
         '''
-        :param path: The path to the value the log-based metric will be aggregated over. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#path LogsMetric#path}
-        :param tag_name: Name of the tag that gets created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#tag_name LogsMetric#tag_name}
+        :param path: The path to the value the log-based metric will be aggregated over. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#path LogsMetric#path}
+        :param tag_name: Name of the tag that gets created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#tag_name LogsMetric#tag_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90c933ef8cc2621b649c393be9dc471b26d581742318440b2ac908d4c2a11d3e)
@@ -770,7 +770,7 @@ class LogsMetricGroupBy:
     def path(self) -> builtins.str:
         '''The path to the value the log-based metric will be aggregated over.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#path LogsMetric#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#path LogsMetric#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -780,7 +780,7 @@ class LogsMetricGroupBy:
     def tag_name(self) -> builtins.str:
         '''Name of the tag that gets created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_metric#tag_name LogsMetric#tag_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_metric#tag_name LogsMetric#tag_name}
         '''
         result = self._values.get("tag_name")
         assert result is not None, "Required property 'tag_name' is missing"

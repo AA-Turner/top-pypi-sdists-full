@@ -1,7 +1,7 @@
 r'''
 # `datadog_security_notification_rule`
 
-Refer to the Terraform Registry for docs: [`datadog_security_notification_rule`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule).
+Refer to the Terraform Registry for docs: [`datadog_security_notification_rule`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityNotificationRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.securityNotificationRule.SecurityNotificationRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule datadog_security_notification_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule datadog_security_notification_rule}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class SecurityNotificationRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule datadog_security_notification_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule datadog_security_notification_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the rule (must be unique). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#name SecurityNotificationRule#name}
+        :param name: The name of the rule (must be unique). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#name SecurityNotificationRule#name}
         :param targets: The list of handle targets for the notifications. A target must be prefixed with an
-        :param enabled: Indicates whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#enabled SecurityNotificationRule#enabled}
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#selectors SecurityNotificationRule#selectors}
-        :param time_aggregation: Specifies the time period, in seconds, used to aggregate the notification. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#time_aggregation SecurityNotificationRule#time_aggregation}
+        :param enabled: Indicates whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#enabled SecurityNotificationRule#enabled}
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#selectors SecurityNotificationRule#selectors}
+        :param time_aggregation: Specifies the time period, in seconds, used to aggregate the notification. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#time_aggregation SecurityNotificationRule#time_aggregation}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class SecurityNotificationRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityNotificationRule to import.
-        :param import_from_id: The id of the existing SecurityNotificationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityNotificationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityNotificationRule to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class SecurityNotificationRule(
         severities: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param rule_types: Specifies security rule types for filtering signals and vulnerabilities that generate notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#rule_types SecurityNotificationRule#rule_types}
-        :param trigger_source: The type of security issues the rule applies to. Use ``security_signals`` for rules based on security signals and ``security_findings`` for those based on vulnerabilities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#trigger_source SecurityNotificationRule#trigger_source}
-        :param query: Comprises one or several key:value pairs for filtering security issues based on tags and attributes. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#query SecurityNotificationRule#query}
-        :param severities: The security rules severities to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#severities SecurityNotificationRule#severities}
+        :param rule_types: Specifies security rule types for filtering signals and vulnerabilities that generate notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#rule_types SecurityNotificationRule#rule_types}
+        :param trigger_source: The type of security issues the rule applies to. Use ``security_signals`` for rules based on security signals and ``security_findings`` for those based on vulnerabilities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#trigger_source SecurityNotificationRule#trigger_source}
+        :param query: Comprises one or several key:value pairs for filtering security issues based on tags and attributes. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#query SecurityNotificationRule#query}
+        :param severities: The security rules severities to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#severities SecurityNotificationRule#severities}
         '''
         value = SecurityNotificationRuleSelectors(
             rule_types=rule_types,
@@ -344,11 +344,11 @@ class SecurityNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the rule (must be unique). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#name SecurityNotificationRule#name}
+        :param name: The name of the rule (must be unique). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#name SecurityNotificationRule#name}
         :param targets: The list of handle targets for the notifications. A target must be prefixed with an
-        :param enabled: Indicates whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#enabled SecurityNotificationRule#enabled}
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#selectors SecurityNotificationRule#selectors}
-        :param time_aggregation: Specifies the time period, in seconds, used to aggregate the notification. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#time_aggregation SecurityNotificationRule#time_aggregation}
+        :param enabled: Indicates whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#enabled SecurityNotificationRule#enabled}
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#selectors SecurityNotificationRule#selectors}
+        :param time_aggregation: Specifies the time period, in seconds, used to aggregate the notification. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#time_aggregation SecurityNotificationRule#time_aggregation}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,7 +461,7 @@ class SecurityNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the rule (must be unique).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#name SecurityNotificationRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#name SecurityNotificationRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -477,7 +477,7 @@ class SecurityNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         . It can be an email address (@bob@email.com), or any installed integration. For example, a Slack recipient (@slack-ops), or a Teams recipient (@teams-ops).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#targets SecurityNotificationRule#targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#targets SecurityNotificationRule#targets}
         '''
         result = self._values.get("targets")
         assert result is not None, "Required property 'targets' is missing"
@@ -489,7 +489,7 @@ class SecurityNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the rule is enabled. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#enabled SecurityNotificationRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#enabled SecurityNotificationRule#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -498,7 +498,7 @@ class SecurityNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def selectors(self) -> typing.Optional["SecurityNotificationRuleSelectors"]:
         '''selectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#selectors SecurityNotificationRule#selectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#selectors SecurityNotificationRule#selectors}
         '''
         result = self._values.get("selectors")
         return typing.cast(typing.Optional["SecurityNotificationRuleSelectors"], result)
@@ -507,7 +507,7 @@ class SecurityNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def time_aggregation(self) -> typing.Optional[jsii.Number]:
         '''Specifies the time period, in seconds, used to aggregate the notification. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#time_aggregation SecurityNotificationRule#time_aggregation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#time_aggregation SecurityNotificationRule#time_aggregation}
         '''
         result = self._values.get("time_aggregation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -544,10 +544,10 @@ class SecurityNotificationRuleSelectors:
         severities: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param rule_types: Specifies security rule types for filtering signals and vulnerabilities that generate notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#rule_types SecurityNotificationRule#rule_types}
-        :param trigger_source: The type of security issues the rule applies to. Use ``security_signals`` for rules based on security signals and ``security_findings`` for those based on vulnerabilities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#trigger_source SecurityNotificationRule#trigger_source}
-        :param query: Comprises one or several key:value pairs for filtering security issues based on tags and attributes. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#query SecurityNotificationRule#query}
-        :param severities: The security rules severities to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#severities SecurityNotificationRule#severities}
+        :param rule_types: Specifies security rule types for filtering signals and vulnerabilities that generate notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#rule_types SecurityNotificationRule#rule_types}
+        :param trigger_source: The type of security issues the rule applies to. Use ``security_signals`` for rules based on security signals and ``security_findings`` for those based on vulnerabilities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#trigger_source SecurityNotificationRule#trigger_source}
+        :param query: Comprises one or several key:value pairs for filtering security issues based on tags and attributes. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#query SecurityNotificationRule#query}
+        :param severities: The security rules severities to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#severities SecurityNotificationRule#severities}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85427c7f32c92d0f02932b4ae4c14186883a68488ede0f5649b64fd4f8a9b6b1)
@@ -568,7 +568,7 @@ class SecurityNotificationRuleSelectors:
     def rule_types(self) -> typing.List[builtins.str]:
         '''Specifies security rule types for filtering signals and vulnerabilities that generate notifications.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#rule_types SecurityNotificationRule#rule_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#rule_types SecurityNotificationRule#rule_types}
         '''
         result = self._values.get("rule_types")
         assert result is not None, "Required property 'rule_types' is missing"
@@ -580,7 +580,7 @@ class SecurityNotificationRuleSelectors:
 
         Use ``security_signals`` for rules based on security signals and ``security_findings`` for those based on vulnerabilities.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#trigger_source SecurityNotificationRule#trigger_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#trigger_source SecurityNotificationRule#trigger_source}
         '''
         result = self._values.get("trigger_source")
         assert result is not None, "Required property 'trigger_source' is missing"
@@ -590,7 +590,7 @@ class SecurityNotificationRuleSelectors:
     def query(self) -> typing.Optional[builtins.str]:
         '''Comprises one or several key:value pairs for filtering security issues based on tags and attributes. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#query SecurityNotificationRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#query SecurityNotificationRule#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -599,7 +599,7 @@ class SecurityNotificationRuleSelectors:
     def severities(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The security rules severities to consider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_notification_rule#severities SecurityNotificationRule#severities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_notification_rule#severities SecurityNotificationRule#severities}
         '''
         result = self._values.get("severities")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

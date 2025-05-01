@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_confluent_account`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_confluent_account`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account).
+Refer to the Terraform Registry for docs: [`datadog_integration_confluent_account`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationConfluentAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationConfluentAccount.IntegrationConfluentAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account datadog_integration_confluent_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account datadog_integration_confluent_account}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class IntegrationConfluentAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account datadog_integration_confluent_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account datadog_integration_confluent_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_key: The API key associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#api_key IntegrationConfluentAccount#api_key}
-        :param api_secret: The API secret associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#api_secret IntegrationConfluentAccount#api_secret}
-        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#tags IntegrationConfluentAccount#tags}
+        :param api_key: The API key associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#api_key IntegrationConfluentAccount#api_key}
+        :param api_secret: The API secret associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#api_secret IntegrationConfluentAccount#api_secret}
+        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#tags IntegrationConfluentAccount#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class IntegrationConfluentAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationConfluentAccount to import.
-        :param import_from_id: The id of the existing IntegrationConfluentAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationConfluentAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationConfluentAccount to import is found.
         '''
         if __debug__:
@@ -233,9 +233,9 @@ class IntegrationConfluentAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_key: The API key associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#api_key IntegrationConfluentAccount#api_key}
-        :param api_secret: The API secret associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#api_secret IntegrationConfluentAccount#api_secret}
-        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#tags IntegrationConfluentAccount#tags}
+        :param api_key: The API key associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#api_key IntegrationConfluentAccount#api_key}
+        :param api_secret: The API secret associated with your Confluent account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#api_secret IntegrationConfluentAccount#api_secret}
+        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#tags IntegrationConfluentAccount#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,7 +340,7 @@ class IntegrationConfluentAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_key(self) -> builtins.str:
         '''The API key associated with your Confluent account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#api_key IntegrationConfluentAccount#api_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#api_key IntegrationConfluentAccount#api_key}
         '''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
@@ -350,7 +350,7 @@ class IntegrationConfluentAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_secret(self) -> builtins.str:
         '''The API secret associated with your Confluent account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#api_secret IntegrationConfluentAccount#api_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#api_secret IntegrationConfluentAccount#api_secret}
         '''
         result = self._values.get("api_secret")
         assert result is not None, "Required property 'api_secret' is missing"
@@ -360,7 +360,7 @@ class IntegrationConfluentAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_account#tags IntegrationConfluentAccount#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_account#tags IntegrationConfluentAccount#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

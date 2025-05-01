@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_gcp`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_gcp`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp).
+Refer to the Terraform Registry for docs: [`datadog_integration_gcp`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationGcp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationGcp.IntegrationGcp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp datadog_integration_gcp}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp datadog_integration_gcp}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class IntegrationGcp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp datadog_integration_gcp} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp datadog_integration_gcp} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param client_email: Your email found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#client_email IntegrationGcp#client_email}
-        :param client_id: Your ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#client_id IntegrationGcp#client_id}
-        :param private_key: Your private key name found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#private_key IntegrationGcp#private_key}
-        :param private_key_id: Your private key ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#private_key_id IntegrationGcp#private_key_id}
-        :param project_id: Your Google Cloud project ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#project_id IntegrationGcp#project_id}
-        :param automute: Silence monitors for expected GCE instance shutdowns. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#automute IntegrationGcp#automute}
-        :param cloud_run_revision_filters: Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#cloud_run_revision_filters IntegrationGcp#cloud_run_revision_filters}
-        :param cspm_resource_collection_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#cspm_resource_collection_enabled IntegrationGcp#cspm_resource_collection_enabled}
-        :param host_filters: Limit the GCE instances that are pulled into Datadog by using tags. Only hosts that match one of the defined tags are imported into Datadog. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#host_filters IntegrationGcp#host_filters}
-        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#is_resource_change_collection_enabled IntegrationGcp#is_resource_change_collection_enabled}
-        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#is_security_command_center_enabled IntegrationGcp#is_security_command_center_enabled}
-        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#resource_collection_enabled IntegrationGcp#resource_collection_enabled}
+        :param client_email: Your email found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#client_email IntegrationGcp#client_email}
+        :param client_id: Your ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#client_id IntegrationGcp#client_id}
+        :param private_key: Your private key name found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#private_key IntegrationGcp#private_key}
+        :param private_key_id: Your private key ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#private_key_id IntegrationGcp#private_key_id}
+        :param project_id: Your Google Cloud project ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#project_id IntegrationGcp#project_id}
+        :param automute: Silence monitors for expected GCE instance shutdowns. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#automute IntegrationGcp#automute}
+        :param cloud_run_revision_filters: Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#cloud_run_revision_filters IntegrationGcp#cloud_run_revision_filters}
+        :param cspm_resource_collection_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#cspm_resource_collection_enabled IntegrationGcp#cspm_resource_collection_enabled}
+        :param host_filters: Limit the GCE instances that are pulled into Datadog by using tags. Only hosts that match one of the defined tags are imported into Datadog. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#host_filters IntegrationGcp#host_filters}
+        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#is_resource_change_collection_enabled IntegrationGcp#is_resource_change_collection_enabled}
+        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#is_security_command_center_enabled IntegrationGcp#is_security_command_center_enabled}
+        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#resource_collection_enabled IntegrationGcp#resource_collection_enabled}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class IntegrationGcp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationGcp to import.
-        :param import_from_id: The id of the existing IntegrationGcp that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationGcp that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationGcp to import is found.
         '''
         if __debug__:
@@ -490,18 +490,18 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param client_email: Your email found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#client_email IntegrationGcp#client_email}
-        :param client_id: Your ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#client_id IntegrationGcp#client_id}
-        :param private_key: Your private key name found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#private_key IntegrationGcp#private_key}
-        :param private_key_id: Your private key ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#private_key_id IntegrationGcp#private_key_id}
-        :param project_id: Your Google Cloud project ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#project_id IntegrationGcp#project_id}
-        :param automute: Silence monitors for expected GCE instance shutdowns. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#automute IntegrationGcp#automute}
-        :param cloud_run_revision_filters: Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#cloud_run_revision_filters IntegrationGcp#cloud_run_revision_filters}
-        :param cspm_resource_collection_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#cspm_resource_collection_enabled IntegrationGcp#cspm_resource_collection_enabled}
-        :param host_filters: Limit the GCE instances that are pulled into Datadog by using tags. Only hosts that match one of the defined tags are imported into Datadog. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#host_filters IntegrationGcp#host_filters}
-        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#is_resource_change_collection_enabled IntegrationGcp#is_resource_change_collection_enabled}
-        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#is_security_command_center_enabled IntegrationGcp#is_security_command_center_enabled}
-        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#resource_collection_enabled IntegrationGcp#resource_collection_enabled}
+        :param client_email: Your email found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#client_email IntegrationGcp#client_email}
+        :param client_id: Your ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#client_id IntegrationGcp#client_id}
+        :param private_key: Your private key name found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#private_key IntegrationGcp#private_key}
+        :param private_key_id: Your private key ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#private_key_id IntegrationGcp#private_key_id}
+        :param project_id: Your Google Cloud project ID found in your JSON service account key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#project_id IntegrationGcp#project_id}
+        :param automute: Silence monitors for expected GCE instance shutdowns. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#automute IntegrationGcp#automute}
+        :param cloud_run_revision_filters: Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#cloud_run_revision_filters IntegrationGcp#cloud_run_revision_filters}
+        :param cspm_resource_collection_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#cspm_resource_collection_enabled IntegrationGcp#cspm_resource_collection_enabled}
+        :param host_filters: Limit the GCE instances that are pulled into Datadog by using tags. Only hosts that match one of the defined tags are imported into Datadog. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#host_filters IntegrationGcp#host_filters}
+        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#is_resource_change_collection_enabled IntegrationGcp#is_resource_change_collection_enabled}
+        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#is_security_command_center_enabled IntegrationGcp#is_security_command_center_enabled}
+        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#resource_collection_enabled IntegrationGcp#resource_collection_enabled}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -630,7 +630,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_email(self) -> builtins.str:
         '''Your email found in your JSON service account key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#client_email IntegrationGcp#client_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#client_email IntegrationGcp#client_email}
         '''
         result = self._values.get("client_email")
         assert result is not None, "Required property 'client_email' is missing"
@@ -640,7 +640,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_id(self) -> builtins.str:
         '''Your ID found in your JSON service account key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#client_id IntegrationGcp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#client_id IntegrationGcp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -650,7 +650,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private_key(self) -> builtins.str:
         '''Your private key name found in your JSON service account key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#private_key IntegrationGcp#private_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#private_key IntegrationGcp#private_key}
         '''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
@@ -660,7 +660,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private_key_id(self) -> builtins.str:
         '''Your private key ID found in your JSON service account key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#private_key_id IntegrationGcp#private_key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#private_key_id IntegrationGcp#private_key_id}
         '''
         result = self._values.get("private_key_id")
         assert result is not None, "Required property 'private_key_id' is missing"
@@ -670,7 +670,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project_id(self) -> builtins.str:
         '''Your Google Cloud project ID found in your JSON service account key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#project_id IntegrationGcp#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#project_id IntegrationGcp#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -682,7 +682,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Silence monitors for expected GCE instance shutdowns. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#automute IntegrationGcp#automute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#automute IntegrationGcp#automute}
         '''
         result = self._values.get("automute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -691,7 +691,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cloud_run_revision_filters(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#cloud_run_revision_filters IntegrationGcp#cloud_run_revision_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#cloud_run_revision_filters IntegrationGcp#cloud_run_revision_filters}
         '''
         result = self._values.get("cloud_run_revision_filters")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -704,7 +704,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If enabled, requires ``resource_collection_enabled`` to also be enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#cspm_resource_collection_enabled IntegrationGcp#cspm_resource_collection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#cspm_resource_collection_enabled IntegrationGcp#cspm_resource_collection_enabled}
         '''
         result = self._values.get("cspm_resource_collection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -715,7 +715,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only hosts that match one of the defined tags are imported into Datadog. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#host_filters IntegrationGcp#host_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#host_filters IntegrationGcp#host_filters}
         '''
         result = self._values.get("host_filters")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -726,7 +726,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When enabled, Datadog scans for all resource change data in your Google Cloud environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#is_resource_change_collection_enabled IntegrationGcp#is_resource_change_collection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#is_resource_change_collection_enabled IntegrationGcp#is_resource_change_collection_enabled}
         '''
         result = self._values.get("is_resource_change_collection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -739,7 +739,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note: This requires additional permissions on the service account. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#is_security_command_center_enabled IntegrationGcp#is_security_command_center_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#is_security_command_center_enabled IntegrationGcp#is_security_command_center_enabled}
         '''
         result = self._values.get("is_security_command_center_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -750,7 +750,7 @@ class IntegrationGcpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When enabled, Datadog scans for all resources in your GCP environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_gcp#resource_collection_enabled IntegrationGcp#resource_collection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_gcp#resource_collection_enabled IntegrationGcp#resource_collection_enabled}
         '''
         result = self._values.get("resource_collection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

@@ -1,3 +1,4 @@
+import json
 import pendulum
 import requests
 import os
@@ -5,7 +6,17 @@ import os
 from github_heatmap.loader.base_loader import BaseLoader
 from github_heatmap.loader.config import WEREAD_BASE_URL, WEREAD_HISTORY_URL
 
-
+headers = {
+    'User-Agent': "WeRead/8.2.5 WRBrand/xiaomi Dalvik/2.1.0 (Linux; U; Android 12; Redmi Note 7 Pro Build/SQ3A.220705.004)",
+    'Connection': "Keep-Alive",
+    'Accept-Encoding': "gzip",
+    'baseapi': "32",
+    'appver': "8.2.5.10163885",
+    'osver': "12",
+    'channelId': "11",
+    'basever': "8.2.5.10163885",
+    'Content-Type': "application/json; charset=UTF-8"
+}
 class WereadLoader(BaseLoader):
     track_color = "#2EA8F7"
     unit = "mins"
@@ -13,9 +24,9 @@ class WereadLoader(BaseLoader):
     def __init__(self, from_year, to_year, _type, **kwargs):
         super().__init__(from_year, to_year, _type)
         self.weread_cookie = kwargs.get("weread_cookie", "")
-        if not self.weread_cookie:
-            self.weread_cookie = self.get_cookie()
         self.session = requests.Session()
+        self.session.headers = headers
+        self.refresh_token()
         self._make_years_list()
 
     @classmethod
@@ -28,18 +39,21 @@ class WereadLoader(BaseLoader):
             help="",
         )
 
-    def get_cookie(self):
-        url = os.getenv("CC_URL")
-        if not url:
-            url = "https://cookiecloud.malinkang.com/"
-        id = os.getenv("CC_ID")
-        password = os.getenv("CC_PASSWORD")
-        cookie = os.getenv("WEREAD_COOKIE")
-        if url and id and password:
-            cookie = self.try_get_cloud_cookie(url, id, password)
-        if not cookie or not cookie.strip():
-            raise Exception("没有找到cookie，请按照文档填写cookie")
-        return cookie
+    def refresh_token(self):
+        weread = json.loads(os.getenv("WEREAD"))
+        body = {"deviceId": weread.get("generatedDeviceId"), "refreshToken": weread.get("refreshToken")}
+        r = self.session.post(
+            "https://api.notionhub.app/refresh-weread-token", json=body
+        )
+        if r.ok:
+            response_data = r.json()
+            vid = response_data.get("vid")
+            accessToken = response_data.get("accessToken")
+            if vid and accessToken:
+                self.session.headers.update({"vid": str(vid), "accessToken": accessToken})
+        else:
+            print("Failed to refresh token")
+       
     
     def try_get_cloud_cookie(self,url, id, password):
         if url.endswith("/"):
@@ -82,7 +96,7 @@ class WereadLoader(BaseLoader):
                 self.number_list.append(v)
 
     def get_all_track_data(self):
-        self.session.cookies = self.parse_cookie_string(self.weread_cookie)
+        # self.session.cookies = self.parse_cookie_string(self.weread_cookie)
         self.make_track_dict()
         self.make_special_number()
         return self.number_by_date_dict, self.year_list

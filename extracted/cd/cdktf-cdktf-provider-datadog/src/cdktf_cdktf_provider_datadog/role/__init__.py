@@ -1,7 +1,7 @@
 r'''
 # `datadog_role`
 
-Refer to the Terraform Registry for docs: [`datadog_role`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role).
+Refer to the Terraform Registry for docs: [`datadog_role`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Role(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.role.Role",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role datadog_role}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role datadog_role}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class Role(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role datadog_role} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role datadog_role} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#name Role#name}
-        :param default_permissions_opt_out: If set to ``true``, the role does not have default (restricted) permissions unless they are explicitly set. The ``include_restricted`` attribute for the ``datadog_permissions`` data source must be set to ``true`` to manage default permissions in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#default_permissions_opt_out Role#default_permissions_opt_out}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#id Role#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#permission Role#permission}
-        :param validate: If set to ``false``, skip the validation call done during plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#validate Role#validate}
+        :param name: Name of the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#name Role#name}
+        :param default_permissions_opt_out: If set to ``true``, the role does not have default (restricted) permissions unless they are explicitly set. The ``include_restricted`` attribute for the ``datadog_permissions`` data source must be set to ``true`` to manage default permissions in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#default_permissions_opt_out Role#default_permissions_opt_out}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#id Role#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#permission Role#permission}
+        :param validate: If set to ``false``, skip the validation call done during plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#validate Role#validate}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class Role(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Role to import.
-        :param import_from_id: The id of the existing Role that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Role that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Role to import is found.
         '''
         if __debug__:
@@ -309,11 +309,11 @@ class RoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#name Role#name}
-        :param default_permissions_opt_out: If set to ``true``, the role does not have default (restricted) permissions unless they are explicitly set. The ``include_restricted`` attribute for the ``datadog_permissions`` data source must be set to ``true`` to manage default permissions in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#default_permissions_opt_out Role#default_permissions_opt_out}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#id Role#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#permission Role#permission}
-        :param validate: If set to ``false``, skip the validation call done during plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#validate Role#validate}
+        :param name: Name of the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#name Role#name}
+        :param default_permissions_opt_out: If set to ``true``, the role does not have default (restricted) permissions unless they are explicitly set. The ``include_restricted`` attribute for the ``datadog_permissions`` data source must be set to ``true`` to manage default permissions in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#default_permissions_opt_out Role#default_permissions_opt_out}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#id Role#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#permission Role#permission}
+        :param validate: If set to ``false``, skip the validation call done during plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#validate Role#validate}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -425,7 +425,7 @@ class RoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#name Role#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#name Role#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -439,14 +439,14 @@ class RoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The ``include_restricted`` attribute for the ``datadog_permissions`` data source must be set to ``true`` to manage default permissions in Terraform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#default_permissions_opt_out Role#default_permissions_opt_out}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#default_permissions_opt_out Role#default_permissions_opt_out}
         '''
         result = self._values.get("default_permissions_opt_out")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#id Role#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#id Role#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -460,7 +460,7 @@ class RoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RolePermission"]]]:
         '''permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#permission Role#permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#permission Role#permission}
         '''
         result = self._values.get("permission")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RolePermission"]]], result)
@@ -471,7 +471,7 @@ class RoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to ``false``, skip the validation call done during plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#validate Role#validate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#validate Role#validate}
         '''
         result = self._values.get("validate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -496,7 +496,7 @@ class RoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class RolePermission:
     def __init__(self, *, id: builtins.str) -> None:
         '''
-        :param id: ID of the permission to assign. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#id Role#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: ID of the permission to assign. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#id Role#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a05a28dd2868e21f4ed088b3e670108a7f6ec36dcf0a5bd28b8b780b02566a88)
@@ -509,7 +509,7 @@ class RolePermission:
     def id(self) -> builtins.str:
         '''ID of the permission to assign.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/role#id Role#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/role#id Role#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

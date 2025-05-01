@@ -995,7 +995,6 @@ def _add_routes(
             ports2=ports2,
             **bundle.settings,
         )
-        c.plot()
         routes_dict.update(dict(zip(route_names, routes_list)))
         c.routes = routes_dict
     return c
@@ -1230,7 +1229,7 @@ def _split_route_link(s: str) -> tuple[str, list[str], str]:
         if s.count(":") == 2:
             s = s.replace(":", "", 1)
             s = s.replace(":", "-", 1)
-            warnings.warn(warning)
+            warnings.warn(warning, stacklevel=3)
         else:
             raise error
 

@@ -73,6 +73,10 @@ class ExperimentEvaluationOptions:
     user_persisted_values: typing.Optional[dict]
     def __new__(cls,disable_exposure_logging:builtins.bool=False, user_persisted_values:typing.Optional[dict]=None): ...
 
+class FailureDetails:
+    reason: builtins.str
+    error: typing.Optional[builtins.str]
+
 class FeatureGate:
     name: builtins.str
     value: builtins.bool
@@ -83,6 +87,14 @@ class FeatureGate:
 class FeatureGateEvaluationOptions:
     disable_exposure_logging: builtins.bool
     def __new__(cls,disable_exposure_logging:builtins.bool=False): ...
+
+class InitializeDetails:
+    duration: builtins.float
+    init_success: builtins.bool
+    is_config_spec_ready: builtins.bool
+    is_id_list_ready: typing.Optional[builtins.bool]
+    source: builtins.str
+    failure_details: typing.Optional[FailureDetails]
 
 class Layer:
     name: builtins.str
@@ -128,6 +140,15 @@ class StatsigBasePy:
     def initialize(self) -> typing.Any:
         ...
 
+    def initialize_with_details(self) -> typing.Any:
+        ...
+
+    def get_initialize_details(self) -> InitializeDetails:
+        ...
+
+    def is_initialized(self) -> builtins.bool:
+        ...
+
     def flush_events(self) -> typing.Any:
         ...
 
@@ -167,19 +188,49 @@ class StatsigBasePy:
     def get_client_initialize_response(self, user:StatsigUser, hash:typing.Optional[builtins.str]=None, client_sdk_key:typing.Optional[builtins.str]=None, include_local_overrides:typing.Optional[builtins.bool]=None) -> builtins.str:
         ...
 
-    def override_gate(self, gate_name:builtins.str, value:builtins.bool) -> None:
+    def override_gate(self, gate_name:builtins.str, value:builtins.bool, id:typing.Optional[builtins.str]=None) -> None:
         ...
 
-    def override_dynamic_config(self, config_name:builtins.str, value:dict) -> None:
+    def override_dynamic_config(self, config_name:builtins.str, value:dict, id:typing.Optional[builtins.str]=None) -> None:
         ...
 
-    def override_experiment(self, experiment_name:builtins.str, value:dict) -> None:
+    def override_experiment(self, experiment_name:builtins.str, value:dict, id:typing.Optional[builtins.str]=None) -> None:
         ...
 
-    def override_layer(self, layer_name:builtins.str, value:dict) -> None:
+    def override_layer(self, layer_name:builtins.str, value:dict, id:typing.Optional[builtins.str]=None) -> None:
         ...
 
-    def override_experiment_by_group_name(self, experiment_name:builtins.str, group_name:builtins.str) -> None:
+    def override_experiment_by_group_name(self, experiment_name:builtins.str, group_name:builtins.str, id:typing.Optional[builtins.str]=None) -> None:
+        ...
+
+    def remove_gate_override(self, gate_name:builtins.str, id:typing.Optional[builtins.str]=None) -> None:
+        ...
+
+    def remove_dynamic_config_override(self, config_name:builtins.str, id:typing.Optional[builtins.str]=None) -> None:
+        ...
+
+    def remove_experiment_override(self, experiment_name:builtins.str, id:typing.Optional[builtins.str]=None) -> None:
+        ...
+
+    def remove_layer_override(self, layer_name:builtins.str, id:typing.Optional[builtins.str]=None) -> None:
+        ...
+
+    def remove_all_overrides(self) -> None:
+        ...
+
+    def get_feature_gate_list(self) -> builtins.list[builtins.str]:
+        ...
+
+    def get_dynamic_config_list(self) -> builtins.list[builtins.str]:
+        ...
+
+    def get_experiment_list(self) -> builtins.list[builtins.str]:
+        ...
+
+    def get_parameter_store_list(self) -> builtins.list[builtins.str]:
+        ...
+
+    def identify(self, user:StatsigUser) -> None:
         ...
 
 
@@ -221,4 +272,7 @@ class StatsigUser:
     custom_ids: typing.Optional[dict]
     private_attributes: typing.Optional[dict]
     def __new__(cls,user_id:typing.Optional[builtins.str]=None, email:typing.Optional[builtins.str]=None, ip:typing.Optional[builtins.str]=None, country:typing.Optional[builtins.str]=None, locale:typing.Optional[builtins.str]=None, app_version:typing.Optional[builtins.str]=None, user_agent:typing.Optional[builtins.str]=None, custom:typing.Optional[dict]=None, custom_ids:typing.Optional[dict]=None, private_attributes:typing.Optional[dict]=None): ...
+    def __setattr__(self, name:builtins.str, value:typing.Any) -> None:
+        ...
+
 

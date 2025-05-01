@@ -73,12 +73,32 @@ if __name__ == '__main__':
     # )
     #
     # arun(f)
+    #
+    # response = zhipuai_client.images.generate(
+    #     model="cogview-3-flash",  # 填写需要调用的模型编码
+    #     prompt="一只可爱的小猫咪",
+    #     n=2,
+    #     # size="1024x1024"
+    # )
+    #
+    # arun(response)
 
-    response = zhipuai_client.images.generate(
-        model="cogview-3-flash",  # 填写需要调用的模型编码
-        prompt="一只可爱的小猫咪",
-        n=2,
-        # size="1024x1024"
+    c = zhipuai_client.chat.completions.create(
+        messages=[
+            {"role": "user", "content": [
+                {
+                    "type": "text",
+                    "text": "总结一下"
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://oss.ffire.cc/files/kling_watermark.png"
+                    }
+                }
+            ]
+             }],
+        model='glm-4v-flash',
     )
 
-    arun(response)
+    arun(c)

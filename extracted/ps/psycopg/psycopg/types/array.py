@@ -33,6 +33,8 @@ _unpack_dim = cast(Callable[[Buffer, int], "tuple[int, int]"], _struct_dim.unpac
 PY_TEXT = PyFormat.TEXT
 PQ_BINARY = pq.Format.BINARY
 
+ARRAY_NULL = b"\xff\xff\xff\xff"
+
 
 class BaseListDumper(RecursiveDumper):
     element_oid = INVALID_OID
@@ -52,8 +54,7 @@ class BaseListDumper(RecursiveDumper):
         Find the first non-null element of an eventually nested list
         """
         items = list(self._flatiter(L, set()))
-        types = {type(item): item for item in items}
-        if not types:
+        if not (types := {type(item): item for item in items}):
             return None
 
         if len(types) == 1:
@@ -62,8 +63,7 @@ class BaseListDumper(RecursiveDumper):
             # More than one type in the list. It might be still good, as long
             # as they dump with the same oid (e.g. IPv4Network, IPv6Network).
             dumpers = [self._tx.get_dumper(item, format) for item in types.values()]
-            oids = {d.oid for d in dumpers}
-            if len(oids) == 1:
+            if len({d.oid for d in dumpers}) == 1:
                 t, v = types.popitem()
             else:
                 raise e.DataError(
@@ -106,8 +106,7 @@ class BaseListDumper(RecursiveDumper):
         Return text info as fallback.
         """
         if base_oid:
-            info = self._tx.adapters.types.get(base_oid)
-            if info:
+            if info := self._tx.adapters.types.get(base_oid):
                 return info
 
         return self._tx.adapters.types["text"]
@@ -120,8 +119,7 @@ class ListDumper(BaseListDumper):
         if self.oid:
             return self.cls
 
-        item = self._find_list_element(obj, format)
-        if item is None:
+        if (item := self._find_list_element(obj, format)) is None:
             return self.cls
 
         sd = self._tx.get_dumper(item, format)
@@ -132,8 +130,7 @@ class ListDumper(BaseListDumper):
         if self.oid:
             return self
 
-        item = self._find_list_element(obj, format)
-        if item is None:
+        if (item := self._find_list_element(obj, format)) is None:
             # Empty lists can only be dumped as text if the type is unknown.
             return self
 
@@ -170,8 +167,7 @@ class ListDumper(BaseListDumper):
                 if isinstance(item, list):
                     dump_list(item)
                 elif item is not None:
-                    ad = self._dump_item(item)
-                    if ad is None:
+                    if (ad := self._dump_item(item)) is None:
                         tokens.append(b"NULL")
                     else:
                         if needs_quotes(ad):
@@ -224,8 +220,7 @@ class ListBinaryDumper(BaseListDumper):
         if self.oid:
             return self.cls
 
-        item = self._find_list_element(obj, format)
-        if item is None:
+        if (item := self._find_list_element(obj, format)) is None:
             return (self.cls,)
 
         sd = self._tx.get_dumper(item, format)
@@ -236,8 +231,7 @@ class ListBinaryDumper(BaseListDumper):
         if self.oid:
             return self
 
-        item = self._find_list_element(obj, format)
-        if item is None:
+        if (item := self._find_list_element(obj, format)) is None:
             return ListDumper(self.cls, self._tx)
 
         sd = self._tx.get_dumper(item, format.from_pq(self.format))
@@ -283,7 +277,7 @@ class ListBinaryDumper(BaseListDumper):
                         data.append(item)
                     else:
                         hasnull = 1
-                        data.append(b"\xff\xff\xff\xff")
+                        data.append(ARRAY_NULL)
             else:
                 for item in L:
                     if not isinstance(item, self.cls):
@@ -396,15 +390,14 @@ def _load_text(
     if data and data[0] == b"["[0]:
         if isinstance(data, memoryview):
             data = bytes(data)
-        idx = data.find(b"=")
-        if idx == -1:
+
+        if (idx := data.find(b"=")) == -1:
             raise e.DataError("malformed array: no '=' after dimension information")
         data = data[idx + 1 :]
 
     re_parse = _get_array_parse_regexp(delimiter)
     for m in re_parse.finditer(data):
-        t = m.group(1)
-        if t == b"{":
+        if (t := m.group(1)) == b"{":
             if stack:
                 stack[-1].append(a)
             stack.append(a)

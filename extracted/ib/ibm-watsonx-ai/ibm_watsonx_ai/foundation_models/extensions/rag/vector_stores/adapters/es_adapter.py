@@ -11,7 +11,7 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vec
     LangChainVectorStoreAdapter,
 )
 
-from ibm_watsonx_ai.wml_client_error import MissingExtension, InvalidMultipleArguments
+from ibm_watsonx_ai.wml_client_error import MissingExtension
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 
@@ -233,17 +233,18 @@ class ElasticsearchVectorStore(LangChainVectorStoreAdapter[ElasticsearchStore]):
         self._index_properties = kwargs
         ###
 
-        if self._connection_id is None and vector_store is None:
-            raise InvalidMultipleArguments(["connection_id", "vector_store"])
-
         from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (
             VectorStoreConnector,
         )
 
         if vector_store is None:
-            self._datasource_type, connection_properties = self._connect_by_type(
-                cast(str, self._connection_id)
-            )
+            if self._client is not None and self._connection_id is not None:
+                self._datasource_type, connection_properties = self._connect_by_type(
+                    cast(str, self._connection_id)
+                )
+            else:
+                self._datasource_type, connection_properties = "elasticsearch", {}
+
             logger.info(f"Initializing vector store of type: {self._datasource_type}")
 
             # overwrite text and vector field names set in langchain_elasticsearch
@@ -307,9 +308,12 @@ class ElasticsearchVectorStore(LangChainVectorStoreAdapter[ElasticsearchStore]):
         :rtype: dict
         """
         strategy = self._index_properties.get("strategy")
-        if not isinstance(
-            strategy,
-            HybridStrategyElasticsearch,
+        if (
+            strategy is not None
+            and not isinstance(
+                strategy,
+                HybridStrategyElasticsearch,
+            )
         ) or (
             self._embedding is not None
             and not isinstance(self._embedding, BaseEmbeddings)
@@ -320,16 +324,19 @@ class ElasticsearchVectorStore(LangChainVectorStoreAdapter[ElasticsearchStore]):
                     "dense embeddings is an instance of `ibm_watsonx_ai.foundation_models.embeddings.BaseEmbeddings`."
                 )
             )
-        return {
+        data_dict = {
             "connection_id": self._connection_id,
             "embedding": (
                 self._embedding.to_dict() if self._embedding is not None else None
             ),
             "index_name": self._index_name,
             **self._index_properties,
-            "strategy": strategy.to_dict(),
             "datasource_type": self._datasource_type,
         }
+        if strategy is not None:
+            data_dict["strategy"] = strategy.to_dict()
+
+        return data_dict
 
     @classmethod
     def from_dict(
@@ -354,8 +361,9 @@ class ElasticsearchVectorStore(LangChainVectorStoreAdapter[ElasticsearchStore]):
         d["embedding"] = BaseEmbeddings.from_dict(
             data=d.get("embedding", {}), api_client=api_client
         )
-        d["strategy"] = HybridStrategyElasticsearch.from_dict(
-            data=d.get("strategy", {})
-        )
+
+        strategy_dict = d.get("strategy")
+        if strategy_dict is not None:
+            d["strategy"] = HybridStrategyElasticsearch.from_dict(data=strategy_dict)
 
         return cls(api_client, **d)

@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_service`
 
-Refer to the Terraform Registry for docs: [`pagerduty_service`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service).
+Refer to the Terraform Registry for docs: [`pagerduty_service`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Service(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.service.Service",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service pagerduty_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service pagerduty_service}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class Service(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service pagerduty_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service pagerduty_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#escalation_policy Service#escalation_policy}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#name Service#name}.
-        :param acknowledgement_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#acknowledgement_timeout Service#acknowledgement_timeout}.
-        :param alert_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_creation Service#alert_creation}.
-        :param alert_grouping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping Service#alert_grouping}.
-        :param alert_grouping_parameters: alert_grouping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping_parameters Service#alert_grouping_parameters}
-        :param alert_grouping_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping_timeout Service#alert_grouping_timeout}.
-        :param auto_pause_notifications_parameters: auto_pause_notifications_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#auto_pause_notifications_parameters Service#auto_pause_notifications_parameters}
-        :param auto_resolve_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#auto_resolve_timeout Service#auto_resolve_timeout}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#description Service#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incident_urgency_rule: incident_urgency_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#incident_urgency_rule Service#incident_urgency_rule}
-        :param response_play: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#response_play Service#response_play}.
-        :param scheduled_actions: scheduled_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#scheduled_actions Service#scheduled_actions}
-        :param support_hours: support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#support_hours Service#support_hours}
+        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#escalation_policy Service#escalation_policy}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#name Service#name}.
+        :param acknowledgement_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#acknowledgement_timeout Service#acknowledgement_timeout}.
+        :param alert_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_creation Service#alert_creation}.
+        :param alert_grouping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping Service#alert_grouping}.
+        :param alert_grouping_parameters: alert_grouping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping_parameters Service#alert_grouping_parameters}
+        :param alert_grouping_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping_timeout Service#alert_grouping_timeout}.
+        :param auto_pause_notifications_parameters: auto_pause_notifications_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#auto_pause_notifications_parameters Service#auto_pause_notifications_parameters}
+        :param auto_resolve_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#auto_resolve_timeout Service#auto_resolve_timeout}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#description Service#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incident_urgency_rule: incident_urgency_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#incident_urgency_rule Service#incident_urgency_rule}
+        :param response_play: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#response_play Service#response_play}.
+        :param scheduled_actions: scheduled_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#scheduled_actions Service#scheduled_actions}
+        :param support_hours: support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#support_hours Service#support_hours}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class Service(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Service to import.
-        :param import_from_id: The id of the existing Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Service to import is found.
         '''
         if __debug__:
@@ -164,8 +164,8 @@ class Service(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#config Service#config}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#config Service#config}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
         '''
         value = ServiceAlertGroupingParameters(config=config, type=type)
 
@@ -179,8 +179,8 @@ class Service(
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#enabled Service#enabled}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#timeout Service#timeout}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#enabled Service#enabled}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#timeout Service#timeout}.
         '''
         value = ServiceAutoPauseNotificationsParameters(
             enabled=enabled, timeout=timeout
@@ -198,10 +198,10 @@ class Service(
         urgency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
-        :param during_support_hours: during_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#during_support_hours Service#during_support_hours}
-        :param outside_support_hours: outside_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#outside_support_hours Service#outside_support_hours}
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
+        :param during_support_hours: during_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#during_support_hours Service#during_support_hours}
+        :param outside_support_hours: outside_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#outside_support_hours Service#outside_support_hours}
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.
         '''
         value = ServiceIncidentUrgencyRule(
             type=type,
@@ -236,11 +236,11 @@ class Service(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#days_of_week Service#days_of_week}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#end_time Service#end_time}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#start_time Service#start_time}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#time_zone Service#time_zone}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
+        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#days_of_week Service#days_of_week}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#end_time Service#end_time}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#start_time Service#start_time}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#time_zone Service#time_zone}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
         '''
         value = ServiceSupportHours(
             days_of_week=days_of_week,
@@ -588,8 +588,8 @@ class ServiceAlertGroupingParameters:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#config Service#config}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#config Service#config}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
         '''
         if isinstance(config, dict):
             config = ServiceAlertGroupingParametersConfig(**config)
@@ -607,14 +607,14 @@ class ServiceAlertGroupingParameters:
     def config(self) -> typing.Optional["ServiceAlertGroupingParametersConfig"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#config Service#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#config Service#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["ServiceAlertGroupingParametersConfig"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -650,10 +650,10 @@ class ServiceAlertGroupingParametersConfig:
         time_window: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#aggregate Service#aggregate}.
-        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#fields Service#fields}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#timeout Service#timeout}.
-        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#time_window Service#time_window}.
+        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#aggregate Service#aggregate}.
+        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#fields Service#fields}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#timeout Service#timeout}.
+        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#time_window Service#time_window}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47e3e66cf98954490b1a0cb8c29c8d5ded0300091d6c43f948a649d9a8c3536f)
@@ -673,25 +673,25 @@ class ServiceAlertGroupingParametersConfig:
 
     @builtins.property
     def aggregate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#aggregate Service#aggregate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#aggregate Service#aggregate}.'''
         result = self._values.get("aggregate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def fields(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#fields Service#fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#fields Service#fields}.'''
         result = self._values.get("fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#timeout Service#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#timeout Service#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def time_window(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#time_window Service#time_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#time_window Service#time_window}.'''
         result = self._values.get("time_window")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -857,10 +857,10 @@ class ServiceAlertGroupingParametersOutputReference(
         time_window: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#aggregate Service#aggregate}.
-        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#fields Service#fields}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#timeout Service#timeout}.
-        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#time_window Service#time_window}.
+        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#aggregate Service#aggregate}.
+        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#fields Service#fields}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#timeout Service#timeout}.
+        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#time_window Service#time_window}.
         '''
         value = ServiceAlertGroupingParametersConfig(
             aggregate=aggregate,
@@ -935,8 +935,8 @@ class ServiceAutoPauseNotificationsParameters:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#enabled Service#enabled}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#timeout Service#timeout}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#enabled Service#enabled}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#timeout Service#timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6ce414891957a7e891e007627697b9a6751a8e444a13b230595731543bdfd75)
@@ -952,13 +952,13 @@ class ServiceAutoPauseNotificationsParameters:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#enabled Service#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#enabled Service#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#timeout Service#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#timeout Service#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1122,21 +1122,21 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#escalation_policy Service#escalation_policy}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#name Service#name}.
-        :param acknowledgement_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#acknowledgement_timeout Service#acknowledgement_timeout}.
-        :param alert_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_creation Service#alert_creation}.
-        :param alert_grouping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping Service#alert_grouping}.
-        :param alert_grouping_parameters: alert_grouping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping_parameters Service#alert_grouping_parameters}
-        :param alert_grouping_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping_timeout Service#alert_grouping_timeout}.
-        :param auto_pause_notifications_parameters: auto_pause_notifications_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#auto_pause_notifications_parameters Service#auto_pause_notifications_parameters}
-        :param auto_resolve_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#auto_resolve_timeout Service#auto_resolve_timeout}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#description Service#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incident_urgency_rule: incident_urgency_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#incident_urgency_rule Service#incident_urgency_rule}
-        :param response_play: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#response_play Service#response_play}.
-        :param scheduled_actions: scheduled_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#scheduled_actions Service#scheduled_actions}
-        :param support_hours: support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#support_hours Service#support_hours}
+        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#escalation_policy Service#escalation_policy}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#name Service#name}.
+        :param acknowledgement_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#acknowledgement_timeout Service#acknowledgement_timeout}.
+        :param alert_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_creation Service#alert_creation}.
+        :param alert_grouping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping Service#alert_grouping}.
+        :param alert_grouping_parameters: alert_grouping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping_parameters Service#alert_grouping_parameters}
+        :param alert_grouping_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping_timeout Service#alert_grouping_timeout}.
+        :param auto_pause_notifications_parameters: auto_pause_notifications_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#auto_pause_notifications_parameters Service#auto_pause_notifications_parameters}
+        :param auto_resolve_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#auto_resolve_timeout Service#auto_resolve_timeout}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#description Service#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incident_urgency_rule: incident_urgency_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#incident_urgency_rule Service#incident_urgency_rule}
+        :param response_play: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#response_play Service#response_play}.
+        :param scheduled_actions: scheduled_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#scheduled_actions Service#scheduled_actions}
+        :param support_hours: support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#support_hours Service#support_hours}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1283,33 +1283,33 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def escalation_policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#escalation_policy Service#escalation_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#escalation_policy Service#escalation_policy}.'''
         result = self._values.get("escalation_policy")
         assert result is not None, "Required property 'escalation_policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#name Service#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#name Service#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def acknowledgement_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#acknowledgement_timeout Service#acknowledgement_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#acknowledgement_timeout Service#acknowledgement_timeout}.'''
         result = self._values.get("acknowledgement_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def alert_creation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_creation Service#alert_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_creation Service#alert_creation}.'''
         result = self._values.get("alert_creation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def alert_grouping(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping Service#alert_grouping}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping Service#alert_grouping}.'''
         result = self._values.get("alert_grouping")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1319,14 +1319,14 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ServiceAlertGroupingParameters]:
         '''alert_grouping_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping_parameters Service#alert_grouping_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping_parameters Service#alert_grouping_parameters}
         '''
         result = self._values.get("alert_grouping_parameters")
         return typing.cast(typing.Optional[ServiceAlertGroupingParameters], result)
 
     @builtins.property
     def alert_grouping_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#alert_grouping_timeout Service#alert_grouping_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#alert_grouping_timeout Service#alert_grouping_timeout}.'''
         result = self._values.get("alert_grouping_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1336,26 +1336,26 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ServiceAutoPauseNotificationsParameters]:
         '''auto_pause_notifications_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#auto_pause_notifications_parameters Service#auto_pause_notifications_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#auto_pause_notifications_parameters Service#auto_pause_notifications_parameters}
         '''
         result = self._values.get("auto_pause_notifications_parameters")
         return typing.cast(typing.Optional[ServiceAutoPauseNotificationsParameters], result)
 
     @builtins.property
     def auto_resolve_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#auto_resolve_timeout Service#auto_resolve_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#auto_resolve_timeout Service#auto_resolve_timeout}.'''
         result = self._values.get("auto_resolve_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#description Service#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#description Service#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#id Service#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#id Service#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1367,14 +1367,14 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def incident_urgency_rule(self) -> typing.Optional["ServiceIncidentUrgencyRule"]:
         '''incident_urgency_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#incident_urgency_rule Service#incident_urgency_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#incident_urgency_rule Service#incident_urgency_rule}
         '''
         result = self._values.get("incident_urgency_rule")
         return typing.cast(typing.Optional["ServiceIncidentUrgencyRule"], result)
 
     @builtins.property
     def response_play(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#response_play Service#response_play}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#response_play Service#response_play}.'''
         result = self._values.get("response_play")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1384,7 +1384,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceScheduledActions"]]]:
         '''scheduled_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#scheduled_actions Service#scheduled_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#scheduled_actions Service#scheduled_actions}
         '''
         result = self._values.get("scheduled_actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceScheduledActions"]]], result)
@@ -1393,7 +1393,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def support_hours(self) -> typing.Optional["ServiceSupportHours"]:
         '''support_hours block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#support_hours Service#support_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#support_hours Service#support_hours}
         '''
         result = self._values.get("support_hours")
         return typing.cast(typing.Optional["ServiceSupportHours"], result)
@@ -1430,10 +1430,10 @@ class ServiceIncidentUrgencyRule:
         urgency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
-        :param during_support_hours: during_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#during_support_hours Service#during_support_hours}
-        :param outside_support_hours: outside_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#outside_support_hours Service#outside_support_hours}
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
+        :param during_support_hours: during_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#during_support_hours Service#during_support_hours}
+        :param outside_support_hours: outside_support_hours block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#outside_support_hours Service#outside_support_hours}
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.
         '''
         if isinstance(during_support_hours, dict):
             during_support_hours = ServiceIncidentUrgencyRuleDuringSupportHours(**during_support_hours)
@@ -1457,7 +1457,7 @@ class ServiceIncidentUrgencyRule:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1468,7 +1468,7 @@ class ServiceIncidentUrgencyRule:
     ) -> typing.Optional["ServiceIncidentUrgencyRuleDuringSupportHours"]:
         '''during_support_hours block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#during_support_hours Service#during_support_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#during_support_hours Service#during_support_hours}
         '''
         result = self._values.get("during_support_hours")
         return typing.cast(typing.Optional["ServiceIncidentUrgencyRuleDuringSupportHours"], result)
@@ -1479,14 +1479,14 @@ class ServiceIncidentUrgencyRule:
     ) -> typing.Optional["ServiceIncidentUrgencyRuleOutsideSupportHours"]:
         '''outside_support_hours block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#outside_support_hours Service#outside_support_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#outside_support_hours Service#outside_support_hours}
         '''
         result = self._values.get("outside_support_hours")
         return typing.cast(typing.Optional["ServiceIncidentUrgencyRuleOutsideSupportHours"], result)
 
     @builtins.property
     def urgency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.'''
         result = self._values.get("urgency")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1515,8 +1515,8 @@ class ServiceIncidentUrgencyRuleDuringSupportHours:
         urgency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__986a1d9f43056ac806bf3825824b49cc4b3214b5b8d4f1d6dcdcc9fc70c80b73)
@@ -1530,13 +1530,13 @@ class ServiceIncidentUrgencyRuleDuringSupportHours:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def urgency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.'''
         result = self._values.get("urgency")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1660,8 +1660,8 @@ class ServiceIncidentUrgencyRuleOutputReference(
         urgency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.
         '''
         value = ServiceIncidentUrgencyRuleDuringSupportHours(
             type=type, urgency=urgency
@@ -1677,8 +1677,8 @@ class ServiceIncidentUrgencyRuleOutputReference(
         urgency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.
         '''
         value = ServiceIncidentUrgencyRuleOutsideSupportHours(
             type=type, urgency=urgency
@@ -1789,8 +1789,8 @@ class ServiceIncidentUrgencyRuleOutsideSupportHours:
         urgency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b8c3a4877ba41bc433e92312276aa302f1be63a8a83ad07d8098f09feaedb60)
@@ -1804,13 +1804,13 @@ class ServiceIncidentUrgencyRuleOutsideSupportHours:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def urgency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#urgency Service#urgency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#urgency Service#urgency}.'''
         result = self._values.get("urgency")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1920,9 +1920,9 @@ class ServiceScheduledActions:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param at: at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#at Service#at}
-        :param to_urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#to_urgency Service#to_urgency}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
+        :param at: at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#at Service#at}
+        :param to_urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#to_urgency Service#to_urgency}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04656fec363d8fe6efee120c718de82881d8a772471a901c94e2bf64664c4b6c)
@@ -1943,20 +1943,20 @@ class ServiceScheduledActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceScheduledActionsAt"]]]:
         '''at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#at Service#at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#at Service#at}
         '''
         result = self._values.get("at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceScheduledActionsAt"]]], result)
 
     @builtins.property
     def to_urgency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#to_urgency Service#to_urgency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#to_urgency Service#to_urgency}.'''
         result = self._values.get("to_urgency")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1985,8 +1985,8 @@ class ServiceScheduledActionsAt:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#name Service#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#name Service#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f24fca88236a42fd028cf776af5e351239030a624ddd3a6e61415a3d9c9774cb)
@@ -2000,13 +2000,13 @@ class ServiceScheduledActionsAt:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#name Service#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#name Service#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2425,11 +2425,11 @@ class ServiceSupportHours:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#days_of_week Service#days_of_week}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#end_time Service#end_time}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#start_time Service#start_time}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#time_zone Service#time_zone}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.
+        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#days_of_week Service#days_of_week}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#end_time Service#end_time}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#start_time Service#start_time}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#time_zone Service#time_zone}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3246dc3262ad144f0275bbd1e9bc54a33dd302342d35a98d3f8224ed8754fdba)
@@ -2452,31 +2452,31 @@ class ServiceSupportHours:
 
     @builtins.property
     def days_of_week(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#days_of_week Service#days_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#days_of_week Service#days_of_week}.'''
         result = self._values.get("days_of_week")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
     @builtins.property
     def end_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#end_time Service#end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#end_time Service#end_time}.'''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#start_time Service#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#start_time Service#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def time_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#time_zone Service#time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#time_zone Service#time_zone}.'''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service#type Service#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service#type Service#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 

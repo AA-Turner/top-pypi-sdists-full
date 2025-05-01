@@ -59,6 +59,7 @@ __all__ = (
     "ListSessionsPaginatorName",
     "MemoryTypeType",
     "NodeTypeType",
+    "OrchestrationTypeType",
     "PaginatorName",
     "ParameterTypeType",
     "PayloadTypeType",
@@ -181,6 +182,7 @@ NodeTypeType = Literal[
     "LexNode",
     "PromptNode",
 ]
+OrchestrationTypeType = Literal["CUSTOM_ORCHESTRATION", "DEFAULT"]
 ParameterTypeType = Literal["array", "boolean", "integer", "number", "string"]
 PayloadTypeType = Literal["RETURN_CONTROL", "TEXT"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
@@ -587,6 +589,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

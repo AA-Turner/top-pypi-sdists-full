@@ -436,6 +436,7 @@ from agilicus_api.model.list_policy_template_instances_response import ListPolic
 from agilicus_api.model.list_products_response import ListProductsResponse
 from agilicus_api.model.list_public_file_org_links_response import ListPublicFileOrgLinksResponse
 from agilicus_api.model.list_region_response import ListRegionResponse
+from agilicus_api.model.list_regional_locations_response import ListRegionalLocationsResponse
 from agilicus_api.model.list_resource_groups_response import ListResourceGroupsResponse
 from agilicus_api.model.list_resource_permissions_response import ListResourcePermissionsResponse
 from agilicus_api.model.list_resource_roles_response import ListResourceRolesResponse
@@ -621,6 +622,8 @@ from agilicus_api.model.region import Region
 from agilicus_api.model.region_routing import RegionRouting
 from agilicus_api.model.region_spec import RegionSpec
 from agilicus_api.model.region_status import RegionStatus
+from agilicus_api.model.regional_firewall_rule import RegionalFirewallRule
+from agilicus_api.model.regional_location import RegionalLocation
 from agilicus_api.model.remote_app_access_info import RemoteAppAccessInfo
 from agilicus_api.model.rendered_query_parameter import RenderedQueryParameter
 from agilicus_api.model.rendered_resource_permissions import RenderedResourcePermissions

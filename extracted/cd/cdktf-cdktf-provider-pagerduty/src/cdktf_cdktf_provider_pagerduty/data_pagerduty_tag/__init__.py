@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_tag`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_tag`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/tag).
+Refer to the Terraform Registry for docs: [`data_pagerduty_tag`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/tag).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyTag(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyTag.DataPagerdutyTag",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/tag pagerduty_tag}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/tag pagerduty_tag}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataPagerdutyTag(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/tag pagerduty_tag} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/tag pagerduty_tag} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param label: The label of the tag to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/tag#label DataPagerdutyTag#label}
+        :param label: The label of the tag to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/tag#label DataPagerdutyTag#label}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataPagerdutyTag(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyTag to import.
-        :param import_from_id: The id of the existing DataPagerdutyTag that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/tag#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyTag that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/tag#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyTag to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class DataPagerdutyTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param label: The label of the tag to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/tag#label DataPagerdutyTag#label}
+        :param label: The label of the tag to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/tag#label DataPagerdutyTag#label}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -285,7 +285,7 @@ class DataPagerdutyTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def label(self) -> builtins.str:
         '''The label of the tag to find in the PagerDuty API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/tag#label DataPagerdutyTag#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/tag#label DataPagerdutyTag#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"

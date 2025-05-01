@@ -2217,7 +2217,7 @@ class PkgExtnMetaNames(MetaNamesBase):
     _meta_props_definitions = [
         MetaProp("NAME", NAME, str, True, "Python 3.10 with pre-installed ML package"),
         MetaProp("DESCRIPTION", DESCRIPTION, str, False, "my_description"),
-        MetaProp("TYPE", TYPE, str, True, "conda_yml/custom_library"),
+        MetaProp("TYPE", TYPE, str, True, "requirements_txt/custom_library"),
     ]
 
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
@@ -2879,6 +2879,44 @@ class ParameterSetsMetaNames(MetaNamesBase):
 
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
         "Parameter Sets metanames"
+    )
+
+    def __init__(self) -> None:
+        MetaNamesBase.__init__(self, self._meta_props_definitions)
+
+
+class TextExtractionsV2ParametersMetaNames(MetaNamesBase):
+    MODE = "mode"
+    OCR_MODE = "ocr_mode"
+    LANGUAGES = "languages"
+    AUTO_ROTATION_CORRECTION = "auto_rotation_correction"
+    CREATE_EMBEDDED_IMAGES = "create_embedded_images"
+    OUTPUT_DPI = "output_dpi"
+    KVP_MODE = "kvp_mode"
+    OUTPUT_TOKENS_AND_BBOX = "output_tokens_and_bbox"
+
+    _meta_props_definitions = [
+        MetaProp("MODE", MODE, str, False, "high_quality"),
+        MetaProp("OCR_MODE", OCR_MODE, str, False, "enabled"),
+        MetaProp("LANGUAGES", LANGUAGES, list, False, ["en", "fr"]),
+        MetaProp(
+            "AUTO_ROTATION_CORRECTION", AUTO_ROTATION_CORRECTION, bool, False, False
+        ),
+        MetaProp(
+            "CREATE_EMBEDDED_IMAGES",
+            CREATE_EMBEDDED_IMAGES,
+            str,
+            False,
+            "enabled_placeholder",
+        ),
+        MetaProp("OUTPUT_DPI", OUTPUT_DPI, int, False, 72),
+        MetaProp("KVP_MODE", KVP_MODE, str, False, "invoice"),
+        MetaProp("OUTPUT_TOKENS_AND_BBOX", OUTPUT_TOKENS_AND_BBOX, bool, False, True),
+    ]
+
+    __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
+        "TextExtractionV2 Parameters",
+        note="For more details about TextExtractionV2 Parameters, see https://cloud.ibm.com/apidocs/watsonx-ai",
     )
 
     def __init__(self) -> None:

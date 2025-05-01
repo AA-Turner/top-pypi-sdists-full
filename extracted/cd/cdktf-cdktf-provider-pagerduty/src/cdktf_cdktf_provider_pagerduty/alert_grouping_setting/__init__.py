@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_alert_grouping_setting`
 
-Refer to the Terraform Registry for docs: [`pagerduty_alert_grouping_setting`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting).
+Refer to the Terraform Registry for docs: [`pagerduty_alert_grouping_setting`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AlertGroupingSetting(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.alertGroupingSetting.AlertGroupingSetting",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting pagerduty_alert_grouping_setting}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting pagerduty_alert_grouping_setting}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AlertGroupingSetting(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting pagerduty_alert_grouping_setting} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting pagerduty_alert_grouping_setting} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#name AlertGroupingSetting#name}.
-        :param services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#services AlertGroupingSetting#services}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#type AlertGroupingSetting#type}.
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#config AlertGroupingSetting#config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#description AlertGroupingSetting#description}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#name AlertGroupingSetting#name}.
+        :param services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#services AlertGroupingSetting#services}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#type AlertGroupingSetting#type}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#config AlertGroupingSetting#config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#description AlertGroupingSetting#description}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AlertGroupingSetting(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AlertGroupingSetting to import.
-        :param import_from_id: The id of the existing AlertGroupingSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AlertGroupingSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AlertGroupingSetting to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class AlertGroupingSetting(
         time_window: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#aggregate AlertGroupingSetting#aggregate}.
-        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#fields AlertGroupingSetting#fields}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#timeout AlertGroupingSetting#timeout}.
-        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#time_window AlertGroupingSetting#time_window}.
+        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#aggregate AlertGroupingSetting#aggregate}.
+        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#fields AlertGroupingSetting#fields}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#timeout AlertGroupingSetting#timeout}.
+        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#time_window AlertGroupingSetting#time_window}.
         '''
         value = AlertGroupingSettingConfigA(
             aggregate=aggregate,
@@ -300,11 +300,11 @@ class AlertGroupingSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#name AlertGroupingSetting#name}.
-        :param services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#services AlertGroupingSetting#services}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#type AlertGroupingSetting#type}.
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#config AlertGroupingSetting#config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#description AlertGroupingSetting#description}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#name AlertGroupingSetting#name}.
+        :param services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#services AlertGroupingSetting#services}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#type AlertGroupingSetting#type}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#config AlertGroupingSetting#config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#description AlertGroupingSetting#description}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -414,21 +414,21 @@ class AlertGroupingSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#name AlertGroupingSetting#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#name AlertGroupingSetting#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def services(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#services AlertGroupingSetting#services}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#services AlertGroupingSetting#services}.'''
         result = self._values.get("services")
         assert result is not None, "Required property 'services' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#type AlertGroupingSetting#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#type AlertGroupingSetting#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -437,14 +437,14 @@ class AlertGroupingSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config(self) -> typing.Optional["AlertGroupingSettingConfigA"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#config AlertGroupingSetting#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#config AlertGroupingSetting#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["AlertGroupingSettingConfigA"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#description AlertGroupingSetting#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#description AlertGroupingSetting#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -480,10 +480,10 @@ class AlertGroupingSettingConfigA:
         time_window: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#aggregate AlertGroupingSetting#aggregate}.
-        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#fields AlertGroupingSetting#fields}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#timeout AlertGroupingSetting#timeout}.
-        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#time_window AlertGroupingSetting#time_window}.
+        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#aggregate AlertGroupingSetting#aggregate}.
+        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#fields AlertGroupingSetting#fields}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#timeout AlertGroupingSetting#timeout}.
+        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#time_window AlertGroupingSetting#time_window}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41af9944a87f081541a070bfe605d486548a0d39caaab7e006e63ffaaabc148f)
@@ -503,25 +503,25 @@ class AlertGroupingSettingConfigA:
 
     @builtins.property
     def aggregate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#aggregate AlertGroupingSetting#aggregate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#aggregate AlertGroupingSetting#aggregate}.'''
         result = self._values.get("aggregate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def fields(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#fields AlertGroupingSetting#fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#fields AlertGroupingSetting#fields}.'''
         result = self._values.get("fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#timeout AlertGroupingSetting#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#timeout AlertGroupingSetting#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def time_window(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/alert_grouping_setting#time_window AlertGroupingSetting#time_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/alert_grouping_setting#time_window AlertGroupingSetting#time_window}.'''
         result = self._values.get("time_window")
         return typing.cast(typing.Optional[jsii.Number], result)
 

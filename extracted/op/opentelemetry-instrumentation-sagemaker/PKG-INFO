@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-sagemaker
-Version: 0.39.4
+Version: 0.40.2
 Summary: OpenTelemetry SageMaker instrumentation
 License: Apache-2.0
 Author: Bobby Lindsey
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: opentelemetry-api (>=1.26.0,<2.0.0)
 Requires-Dist: opentelemetry-instrumentation (>=0.50b0)
 Requires-Dist: opentelemetry-semantic-conventions (>=0.50b0)
-Requires-Dist: opentelemetry-semantic-conventions-ai (==0.4.3)
+Requires-Dist: opentelemetry-semantic-conventions-ai (==0.4.5)
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-sagemaker
 Description-Content-Type: text/markdown
 

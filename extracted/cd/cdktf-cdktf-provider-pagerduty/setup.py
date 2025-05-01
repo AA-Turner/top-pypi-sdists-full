@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-pagerduty",
-    "version": "13.20.2",
+    "version": "13.21.0",
     "description": "Prebuilt pagerduty Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-pagerduty.git",
@@ -54,6 +54,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_pagerduty.data_pagerduty_ruleset",
         "cdktf_cdktf_provider_pagerduty.data_pagerduty_schedule",
         "cdktf_cdktf_provider_pagerduty.data_pagerduty_service",
+        "cdktf_cdktf_provider_pagerduty.data_pagerduty_service_custom_field",
+        "cdktf_cdktf_provider_pagerduty.data_pagerduty_service_custom_field_value",
         "cdktf_cdktf_provider_pagerduty.data_pagerduty_service_integration",
         "cdktf_cdktf_provider_pagerduty.data_pagerduty_standards",
         "cdktf_cdktf_provider_pagerduty.data_pagerduty_standards_resource_scores",
@@ -92,6 +94,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_pagerduty.ruleset_rule",
         "cdktf_cdktf_provider_pagerduty.schedule",
         "cdktf_cdktf_provider_pagerduty.service",
+        "cdktf_cdktf_provider_pagerduty.service_custom_field",
+        "cdktf_cdktf_provider_pagerduty.service_custom_field_value",
         "cdktf_cdktf_provider_pagerduty.service_dependency",
         "cdktf_cdktf_provider_pagerduty.service_event_rule",
         "cdktf_cdktf_provider_pagerduty.service_integration",
@@ -108,7 +112,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_pagerduty._jsii": [
-            "provider-pagerduty@13.20.2.jsii.tgz"
+            "provider-pagerduty@13.21.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_pagerduty": [
             "py.typed"

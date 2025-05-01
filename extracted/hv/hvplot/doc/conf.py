@@ -1,5 +1,12 @@
 import os
+import sys
+
+# To include the local extension.
+sys.path.insert(0, os.path.abspath('_ext'))
+
+import os
 import param
+import pydata_sphinx_theme
 
 param.parameterized.docstring_signature = False
 param.parameterized.docstring_describe_params = False
@@ -20,6 +27,10 @@ exclude_patterns = ['governance']
 
 html_static_path += ['_static']  # noqa
 
+if pydata_sphinx_theme.__version__ == '0.16.1':
+    # See https://github.com/pydata/pydata-sphinx-theme/issues/2088
+    templates_path.append('_static/patch_templates')  # noqa
+
 html_css_files += ['custom.css']  # noqa
 
 html_js_files = [
@@ -28,6 +39,7 @@ html_js_files = [
 
 html_theme_options.update(  # noqa
     {
+        'use_edit_page_button': True,
         'github_url': 'https://github.com/holoviz/hvplot',
         'icon_links': [
             {
@@ -46,21 +58,30 @@ html_theme_options.update(  # noqa
                 'icon': 'fa-brands fa-discord',
             },
         ],
-        'pygment_dark_style': 'material',
+        'pygments_dark_style': 'material',
         # 'announcement': "hvPlot 0.11 has just been released! Checkout the <a href='https://blog.holoviz.org/posts/hvplot_release_0.11/'>blog post</a> and support hvPlot by giving it a 🌟 on <a href='https://github.com/holoviz/hvplot'>Github</a>.",
     }
 )
+
+# Without this .txt is appended to the files
+html_sourcelink_suffix = ''
 
 html_theme = 'pydata_sphinx_theme'
 html_logo = '_static/logo_horizontal.svg'
 html_favicon = '_static/favicon.ico'
 
 extensions += [  # noqa
+    'sphinx.ext.autosummary',
     'nbsite.gallery',
     'nbsite.analytics',
     'nbsite.nb_interactivity_warning',
     'sphinx_copybutton',
     'sphinxext.rediraffe',
+    'numpydoc',
+    'sphinxcontrib.mermaid',
+    # Custom extensions
+    'backend_styling_options',
+    'plotting_options_table',
 ]
 
 myst_enable_extensions = [
@@ -79,7 +100,7 @@ nbsite_gallery_conf = {
         'reference': {
             'title': 'Reference Gallery',
             'intro': (
-                'Find the list of supported libraries on the `Integrations <../user_guide/Integrations.html>`_ page.'
+                'Find the list of supported libraries on `this page <../ref/data_libraries.html>`_.'
             ),
             'sections': [
                 'tabular',
@@ -98,17 +119,39 @@ nbsite_analytics = {
 
 rediraffe_redirects = {
     # Removal of the developer testing page
-    'developer_guide/testing': 'developer_guide/index',
+    'developer_guide/testing': 'developer_guide',
+    # Removal of the developer_guide folder
+    'developer_guide/index': 'developer_guide',
+    # Redirecting removed "getting started" pages to the new location
+    'getting_started/index': 'tutorials/index',
+    'getting_started/explorer': 'tutorials/getting_started',
+    'getting_started/hvplot': 'tutorials/getting_started',
+    'getting_started/installation': 'tutorials/getting_started',
+    'getting_started/interactive': 'tutorials/getting_started',
+    # Integrations user guide moved to the reference
+    'user_guide/integrations': 'ref/data_libraries',
+    # Customizations user guide moved to the reference
+    'user_guide/Customization': 'ref/plotting_options/index',
+    # Pandas API viz user guide moved to the reference
+    'user_guide/pandas_api': 'ref/api_compatibility/pandas/Pandas_API',
 }
+
+html_extra_path = ['topics.html']
 
 html_context.update(  # noqa
     {
         'last_release': f'v{release}',
-        'github_user': 'holoviz',
-        'github_repo': 'panel',
         'default_mode': 'light',
+        # Useful for the edit button
+        'github_user': 'holoviz',
+        'github_repo': 'hvplot',
+        'github_version': 'main',
+        'doc_path': 'doc',
     }
 )
+
+# linkcheck
+linkcheck_ignore = [r'https://github.com/holoviz/hvplot/pull/\d+']
 
 # mystnb
 nb_execution_excludepatterns = [
@@ -147,5 +190,38 @@ if os.getenv('HVPLOT_REFERENCE_GALLERY') not in ('False', 'false', '0'):
 else:
     if 'nbsite.gallery' in extensions:
         extensions.remove('nbsite.gallery')
-    exclude_patterns.append('doc/reference')
-    nb_execution_excludepatterns.append('doc/reference/**/*.ipynb')
+    exclude_patterns.append('reference')
+    nb_execution_excludepatterns.append('reference/**/*.ipynb')
+
+if os.getenv('HVPLOT_EXECUTE_NBS_USER_GUIDE') in ('False', 'false', '0'):
+    nb_execution_excludepatterns.append('user_guide/**/*.ipynb')
+
+if os.getenv('HVPLOT_EXECUTE_NBS_TUTORIALS') in ('False', 'false', '0'):
+    nb_execution_excludepatterns.append('tutorials/**/*.ipynb')
+
+if os.getenv('HVPLOT_EXECUTE_NBS') in ('False', 'false', '0'):
+    nb_execution_mode = 'off'
+
+# We replace the automatically generated stub files by notebooks
+# that include the API ref and some examples.
+autosummary_generate = True
+# autosummary_generate_overwrite = False
+
+intersphinx_mapping = {
+    'holoviews': ('https://holoviews.org/', None),
+    'pandas': (
+        'https://pandas.pydata.org/pandas-docs/stable/',
+        'https://pandas.pydata.org/pandas-docs/stable/objects.inv',
+    ),
+    'panel': ('https://panel.holoviz.org/', None),
+}
+# See https://docs.readthedocs.com/platform/stable/guides/intersphinx.html
+intersphinx_disabled_reftypes = ['*']
+
+# To avoid this warning
+# hvplot/ui.py:docstring of hvplot.ui.hvPlotExplorer:43: WARNING: autosummary: stub file not found 'hvplot.ui.hvPlotExplorer.hvplot'. Check your autosummary_generate setting.
+# See https://stackoverflow.com/a/73294408
+numpydoc_class_members_toctree = False
+
+numpydoc_show_inherited_class_members = False
+numpydoc_class_members_toctree = False

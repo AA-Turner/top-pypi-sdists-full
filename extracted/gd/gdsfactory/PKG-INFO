@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gdsfactory
-Version: 9.5.4
+Version: 9.5.5
 Summary: python library to generate GDS layouts
 Keywords: eda,photonics,python
 Author-email: gdsfactory community <contact@gdsfactory.com>
@@ -29,7 +29,7 @@ Requires-Dist: shapely<3
 Requires-Dist: toolz<2
 Requires-Dist: types-PyYAML
 Requires-Dist: typer<1
-Requires-Dist: kfactory[ipy]>=1.5,<1.6
+Requires-Dist: kfactory[ipy]>=1.5.2,<1.6
 Requires-Dist: watchdog<7
 Requires-Dist: freetype-py
 Requires-Dist: mapbox_earcut
@@ -40,6 +40,7 @@ Requires-Dist: ipykernel
 Requires-Dist: attrs
 Requires-Dist: graphviz
 Requires-Dist: pyglet<3
+Requires-Dist: klayout==0.30.0
 Requires-Dist: typing-extensions
 Requires-Dist: kweb>=1.1.9,<2.1 ; extra == "cad"
 Requires-Dist: ipykernel ; extra == "dev"
@@ -78,7 +79,7 @@ Provides-Extra: docs
 Provides-Extra: full
 Provides-Extra: maintainer
 
-# GDSFactory 9.5.4
+# GDSFactory 9.5.5
 
 [![docs](https://github.com/gdsfactory/gdsfactory/actions/workflows/pages.yml/badge.svg)](https://gdsfactory.github.io/gdsfactory/)
 [![PyPI](https://img.shields.io/pypi/v/gdsfactory)](https://pypi.org/project/gdsfactory/)

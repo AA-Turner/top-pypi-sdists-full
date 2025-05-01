@@ -902,19 +902,18 @@ def prepare_interaction_props_for_cos(source_params: dict, file_name: str) -> di
             interaction_properties["sheet_name"] = str(source_params.get("excel_sheet"))
 
     elif ".csv" in file_name:
-        if source_params.get("quote_character"):
-            interaction_properties["quote_character"] = str(
-                source_params.get("quote_character")
-            )
         if encoding is not None:
             interaction_properties["encoding"] = encoding
 
         input_file_separator = source_params.get("input_file_separator", ",")
-        if input_file_separator != ",":
+        if input_file_separator == ",":
+            file_format = "csv"
+        else:
             file_format = "delimited"
             interaction_properties["field_delimiter"] = input_file_separator
-        else:
-            file_format = "csv"
+
+            if quote_character := source_params.get("quote_character"):
+                interaction_properties["quote_character"] = str(quote_character)
 
     elif ".parquet" in file_name or ".prq" in file_name:
         file_format = "parquet"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: girder-large-image
-Version: 1.32.1
+Version: 1.32.2
 Summary: A Girder plugin to work with large, multiresolution images.
 Home-page: https://github.com/girder/large_image
 Author: Kitware, Inc.
@@ -21,9 +21,9 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: girder>=3.1.18
 Requires-Dist: girder-jobs>=3.0.3
-Requires-Dist: large_image>=1.32.1
+Requires-Dist: large_image>=1.32.2
 Provides-Extra: tasks
-Requires-Dist: large-image-tasks[girder]>=1.32.1; extra == "tasks"
+Requires-Dist: large-image-tasks[girder]>=1.32.2; extra == "tasks"
 Requires-Dist: girder-worker[girder]>=0.6.0; extra == "tasks"
 Dynamic: author
 Dynamic: author-email

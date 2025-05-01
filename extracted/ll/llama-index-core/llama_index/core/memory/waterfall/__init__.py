@@ -1,17 +1,11 @@
 from llama_index.core.memory.waterfall.base import (
-    WaterfallMemory,
+    Memory,
     BaseMemoryBlock,
-    RetrievalMemoryBlock,
-    SummaryMemoryBlock,
-    StaticMemoryBlock,
     InsertMethod,
 )
 
 __all__ = [
-    "WaterfallMemory",
+    "Memory",
     "BaseMemoryBlock",
-    "RetrievalMemoryBlock",
-    "SummaryMemoryBlock",
-    "StaticMemoryBlock",
     "InsertMethod",
 ]

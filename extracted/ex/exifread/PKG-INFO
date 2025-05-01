@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ExifRead
-Version: 3.2.0
+Version: 3.3.0
 Summary: Library to extract Exif information from digital camera image files.
 Author: Ianaré Sévi
 License: 
@@ -220,7 +220,7 @@ Pass the ``-t TAG`` or ``--stop-tag TAG`` argument, or as:
 
     tags = exifread.process_file(file_handle, stop_tag='TAG')
 
-where ``TAG`` is a valid tag name, ex ``'DateTimeOriginal'``.
+where ``TAG`` is a valid tag name without the IFD, ex ``'DateTimeOriginal'``.
 
 *The two above options are useful to speed up processing of large numbers of files.*
 

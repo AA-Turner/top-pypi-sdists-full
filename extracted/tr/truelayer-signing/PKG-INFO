@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: truelayer-signing
-Version: 0.3.6
+Version: 0.3.7
 Summary: Produce & verify TrueLayer API requests signatures
-Home-page: https://github.com/TrueLayer/truelayer-signing/tree/main/python
 License: Apache-2.0 or MIT
 Keywords: truelayer
 Author: tl-flavio-barinas
@@ -16,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: cryptography (>=39,<44)
+Project-URL: Homepage, https://github.com/TrueLayer/truelayer-signing/tree/main/python
 Project-URL: Repository, https://github.com/TrueLayer/truelayer-signing
 Description-Content-Type: text/markdown
 

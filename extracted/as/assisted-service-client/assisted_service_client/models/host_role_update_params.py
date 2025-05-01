@@ -28,6 +28,7 @@ class HostRoleUpdateParams(object):
     """
     AUTO_ASSIGN = "auto-assign"
     MASTER = "master"
+    ARBITER = "arbiter"
     WORKER = "worker"
 
     """

@@ -290,7 +290,7 @@ _d4c_registration_endpoints = [
         "pattern": ".*",
         "type": "string",
         "description": "The custom IAM role to be used during registration",
-        "name": "custom_role_name",
+        "name": "iam_role_arn",
         "in": "query"
       },
       {
@@ -305,6 +305,13 @@ _d4c_registration_endpoints = [
         "type": "string",
         "description": "Set to true to enable Identity Protection feature",
         "name": "idp_enabled",
+        "in": "query"
+      },
+      {
+        "pattern": ".*",
+        "type": "string",
+        "description": "Base64 encoded JSON string to be used as AWS tags",
+        "name": "tags",
         "in": "query"
       }
     ]

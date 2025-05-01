@@ -1,7 +1,7 @@
 r'''
 # `datadog_restriction_policy`
 
-Refer to the Terraform Registry for docs: [`datadog_restriction_policy`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy).
+Refer to the Terraform Registry for docs: [`datadog_restriction_policy`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RestrictionPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.restrictionPolicy.RestrictionPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy datadog_restriction_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy datadog_restriction_policy}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class RestrictionPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy datadog_restriction_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy datadog_restriction_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param resource_id: Identifier for the resource, formatted as resource_type:resource_id. Resources to define ``resource_type`` : - `List of supported resources <https://docs.datadoghq.com/account_management/rbac/granular_access>`_ - `Resource type definition <https://docs.datadoghq.com/api/latest/restriction-policies/#supported-resources>`_ Restrictions : - Dashboards : support is in private beta. Reach out to your Datadog contact or support to enable this. - Monitors : Management of restriction policy through terraform is currently not available Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#resource_id RestrictionPolicy#resource_id}
-        :param bindings: bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#bindings RestrictionPolicy#bindings}
+        :param resource_id: Identifier for the resource, formatted as resource_type:resource_id. Resources to define ``resource_type`` : - `List of supported resources <https://docs.datadoghq.com/account_management/rbac/granular_access>`_ - `Resource type definition <https://docs.datadoghq.com/api/latest/restriction-policies/#supported-resources>`_ Restrictions : - Dashboards : support is in private beta. Reach out to your Datadog contact or support to enable this. - Monitors : Management of restriction policy through terraform is currently not available Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#resource_id RestrictionPolicy#resource_id}
+        :param bindings: bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#bindings RestrictionPolicy#bindings}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class RestrictionPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RestrictionPolicy to import.
-        :param import_from_id: The id of the existing RestrictionPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RestrictionPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RestrictionPolicy to import is found.
         '''
         if __debug__:
@@ -195,8 +195,8 @@ class RestrictionPolicyBindings:
         relation: builtins.str,
     ) -> None:
         '''
-        :param principals: An array of principals. A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role``, ``team``, ``user``, and ``org``. Org ID can be obtained using a ``GET /api/v2/current_user`` API request. Find it in the ``data.relationships.org.data.id`` field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#principals RestrictionPolicy#principals}
-        :param relation: The role/level of access. See this page for more details https://docs.datadoghq.com/api/latest/restriction-policies/#supported-relations-for-resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#relation RestrictionPolicy#relation}
+        :param principals: An array of principals. A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role``, ``team``, ``user``, and ``org``. Org ID can be obtained using a ``GET /api/v2/current_user`` API request. Find it in the ``data.relationships.org.data.id`` field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#principals RestrictionPolicy#principals}
+        :param relation: The role/level of access. See this page for more details https://docs.datadoghq.com/api/latest/restriction-policies/#supported-relations-for-resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#relation RestrictionPolicy#relation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7df27c451510890b7d78631884fe11051279153e1e14249d741f4d0b63b5c5b6)
@@ -213,7 +213,7 @@ class RestrictionPolicyBindings:
 
         A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role``, ``team``, ``user``, and ``org``. Org ID can be obtained using a ``GET /api/v2/current_user`` API request. Find it in the ``data.relationships.org.data.id`` field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#principals RestrictionPolicy#principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#principals RestrictionPolicy#principals}
         '''
         result = self._values.get("principals")
         assert result is not None, "Required property 'principals' is missing"
@@ -223,7 +223,7 @@ class RestrictionPolicyBindings:
     def relation(self) -> builtins.str:
         '''The role/level of access. See this page for more details https://docs.datadoghq.com/api/latest/restriction-policies/#supported-relations-for-resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#relation RestrictionPolicy#relation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#relation RestrictionPolicy#relation}
         '''
         result = self._values.get("relation")
         assert result is not None, "Required property 'relation' is missing"
@@ -446,8 +446,8 @@ class RestrictionPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param resource_id: Identifier for the resource, formatted as resource_type:resource_id. Resources to define ``resource_type`` : - `List of supported resources <https://docs.datadoghq.com/account_management/rbac/granular_access>`_ - `Resource type definition <https://docs.datadoghq.com/api/latest/restriction-policies/#supported-resources>`_ Restrictions : - Dashboards : support is in private beta. Reach out to your Datadog contact or support to enable this. - Monitors : Management of restriction policy through terraform is currently not available Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#resource_id RestrictionPolicy#resource_id}
-        :param bindings: bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#bindings RestrictionPolicy#bindings}
+        :param resource_id: Identifier for the resource, formatted as resource_type:resource_id. Resources to define ``resource_type`` : - `List of supported resources <https://docs.datadoghq.com/account_management/rbac/granular_access>`_ - `Resource type definition <https://docs.datadoghq.com/api/latest/restriction-policies/#supported-resources>`_ Restrictions : - Dashboards : support is in private beta. Reach out to your Datadog contact or support to enable this. - Monitors : Management of restriction policy through terraform is currently not available Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#resource_id RestrictionPolicy#resource_id}
+        :param bindings: bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#bindings RestrictionPolicy#bindings}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -560,7 +560,7 @@ class RestrictionPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - Dashboards : support is in private beta. Reach out to your Datadog contact or support to enable this.
         - Monitors : Management of restriction policy through terraform is currently not available
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#resource_id RestrictionPolicy#resource_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#resource_id RestrictionPolicy#resource_id}
         '''
         result = self._values.get("resource_id")
         assert result is not None, "Required property 'resource_id' is missing"
@@ -572,7 +572,7 @@ class RestrictionPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[RestrictionPolicyBindings]]]:
         '''bindings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/restriction_policy#bindings RestrictionPolicy#bindings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/restriction_policy#bindings RestrictionPolicy#bindings}
         '''
         result = self._values.get("bindings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[RestrictionPolicyBindings]]], result)

@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_addon`
 
-Refer to the Terraform Registry for docs: [`pagerduty_addon`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon).
+Refer to the Terraform Registry for docs: [`pagerduty_addon`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Addon(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.addon.Addon",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon pagerduty_addon}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon pagerduty_addon}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class Addon(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon pagerduty_addon} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon pagerduty_addon} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon#name Addon#name}.
-        :param src: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon#src Addon#src}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon#name Addon#name}.
+        :param src: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon#src Addon#src}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class Addon(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Addon to import.
-        :param import_from_id: The id of the existing Addon that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Addon that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Addon to import is found.
         '''
         if __debug__:
@@ -207,8 +207,8 @@ class AddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon#name Addon#name}.
-        :param src: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon#src Addon#src}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon#name Addon#name}.
+        :param src: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon#src Addon#src}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -308,14 +308,14 @@ class AddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon#name Addon#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon#name Addon#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def src(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/addon#src Addon#src}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/addon#src Addon#src}.'''
         result = self._values.get("src")
         assert result is not None, "Required property 'src' is missing"
         return typing.cast(builtins.str, result)

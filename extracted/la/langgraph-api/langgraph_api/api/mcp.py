@@ -91,6 +91,13 @@ ERROR_CODE_INVALID_PARAMS = -32602
 ERROR_CODE_METHOD_NOT_FOUND = -32601
 
 
+def _get_version() -> str:
+    """Get langgraph-api version."""
+    from langgraph_api import __version__
+
+    return __version__
+
+
 async def handle_mcp_endpoint(request: ApiRequest) -> Response:
     """MCP endpoint handler the implements the Streamable HTTP protocol.
 
@@ -183,10 +190,11 @@ async def handle_post_request(request: ApiRequest) -> Response:
             "Invalid JSON-RPC message. Missing or invalid jsonrpc version.", 400
         )
 
-    if id_ and method:
+    # Careful ID checks as the integer 0 is a valid ID
+    if id_ is not None and method:
         # JSON-RPC request
         return await handle_jsonrpc_request(request, cast(JsonRpcRequest, message))
-    elif id_:
+    elif id_ is not None:
         # JSON-RPC response
         return handle_jsonrpc_response(cast(JsonRpcResponse, message))
     elif method:
@@ -292,14 +300,18 @@ def handle_initialize_request(message: JsonRpcRequest) -> dict[str, Any]:
     """
     return {
         "result": {
-            # We do not return a session ID right now.
+            # Official type-script SDK client only works with
+            # protocol version 2024-11-05 currently.
+            # The protocol is versioning the messages schema and not the transport.
+            # https://modelcontextprotocol.io/specification/2025-03-26/basic/lifecycle#lifecycle-phases
+            "protocolVersion": "2024-11-05",
             "capabilities": {
                 "tools": {
-                    # We do not support subscriptions currently
                     "listChanged": False,
-                },
+                }
             },
-        },
+            "serverInfo": {"name": "LangGraph", "version": _get_version()},
+        }
     }
 
 
@@ -380,7 +392,15 @@ async def handle_tools_list(
                 "description": "",
             },
         )
-    return {"result": {"tools": tools, "nextCursor": next_cursor}}
+
+    result = {"tools": tools}
+
+    if next_cursor is not None:
+        result["nextCursor"] = next_cursor
+
+    return {
+        "result": result,
+    }
 
 
 async def handle_tools_call(
@@ -454,7 +474,7 @@ async def handle_tools_call(
             "result": {
                 "isError": True,
                 "content": [
-                    {"type": "text", "value": value["__error__"]["error"]},
+                    {"type": "text", "text": value["__error__"]["error"]},
                 ],
             }
         }
@@ -463,7 +483,7 @@ async def handle_tools_call(
     return {
         "result": {
             "content": [
-                {"type": "text", "value": repr(value)},
+                {"type": "text", "text": repr(value)},
             ]
         }
     }

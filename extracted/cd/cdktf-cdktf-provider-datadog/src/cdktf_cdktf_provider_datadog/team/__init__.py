@@ -1,7 +1,7 @@
 r'''
 # `datadog_team`
 
-Refer to the Terraform Registry for docs: [`datadog_team`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team).
+Refer to the Terraform Registry for docs: [`datadog_team`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Team(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.team.Team",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team datadog_team}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team datadog_team}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class Team(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team datadog_team} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team datadog_team} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: Free-form markdown description/content for the team's homepage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#description Team#description}
-        :param handle: The team's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#handle Team#handle}
-        :param name: The name of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#name Team#name}
+        :param description: Free-form markdown description/content for the team's homepage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#description Team#description}
+        :param handle: The team's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#handle Team#handle}
+        :param name: The name of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#name Team#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class Team(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Team to import.
-        :param import_from_id: The id of the existing Team that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Team that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Team to import is found.
         '''
         if __debug__:
@@ -244,9 +244,9 @@ class TeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: Free-form markdown description/content for the team's homepage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#description Team#description}
-        :param handle: The team's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#handle Team#handle}
-        :param name: The name of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#name Team#name}
+        :param description: Free-form markdown description/content for the team's homepage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#description Team#description}
+        :param handle: The team's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#handle Team#handle}
+        :param name: The name of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#name Team#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -350,7 +350,7 @@ class TeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''Free-form markdown description/content for the team's homepage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#description Team#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#description Team#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -360,7 +360,7 @@ class TeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def handle(self) -> builtins.str:
         '''The team's identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#handle Team#handle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#handle Team#handle}
         '''
         result = self._values.get("handle")
         assert result is not None, "Required property 'handle' is missing"
@@ -370,7 +370,7 @@ class TeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the team.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team#name Team#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team#name Team#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.112.8
+Version: 0.112.9
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
@@ -74,7 +74,7 @@ Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-hashlib'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-hashlib'
 Provides-Extra: zzz-test-http
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-http'
-Requires-Dist: orjson<3.11,>=3.10.16; extra == 'zzz-test-http'
+Requires-Dist: orjson<3.11,>=3.10.18; extra == 'zzz-test-http'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-http'
 Provides-Extra: zzz-test-hypothesis
 Requires-Dist: aiosqlite<0.22,>=0.21.0; extra == 'zzz-test-hypothesis'
@@ -144,7 +144,7 @@ Provides-Extra: zzz-test-pqdm
 Requires-Dist: pqdm<0.3,>=0.2.0; extra == 'zzz-test-pqdm'
 Provides-Extra: zzz-test-pydantic
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pydantic'
-Requires-Dist: pydantic<2.12,>=2.11.2; extra == 'zzz-test-pydantic'
+Requires-Dist: pydantic<2.12,>=2.11.4; extra == 'zzz-test-pydantic'
 Provides-Extra: zzz-test-pyinstrument
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pyinstrument'
 Requires-Dist: pyinstrument<5.1,>=5.0.0; extra == 'zzz-test-pyinstrument'
@@ -153,7 +153,7 @@ Provides-Extra: zzz-test-pyrsistent
 Requires-Dist: pyrsistent<0.21,>=0.20.0; extra == 'zzz-test-pyrsistent'
 Provides-Extra: zzz-test-pytest
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pytest'
-Requires-Dist: orjson<3.11,>=3.10.16; extra == 'zzz-test-pytest'
+Requires-Dist: orjson<3.11,>=3.10.18; extra == 'zzz-test-pytest'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-pytest'
 Provides-Extra: zzz-test-pytest-regressions
 Requires-Dist: pytest-regressions<2.8,>=2.7.0; extra == 'zzz-test-pytest-regressions'
@@ -197,7 +197,7 @@ Requires-Dist: sqlalchemy<2.1,>=2.0.40; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-sqlalchemy-polars'
 Provides-Extra: zzz-test-streamlit
-Requires-Dist: streamlit<1.45,>=1.44.1; extra == 'zzz-test-streamlit'
+Requires-Dist: streamlit<1.46,>=1.45.0; extra == 'zzz-test-streamlit'
 Provides-Extra: zzz-test-sys
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-sys'
 Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-sys'

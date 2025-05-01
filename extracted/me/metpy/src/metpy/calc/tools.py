@@ -5,7 +5,9 @@
 import contextlib
 import functools
 from inspect import Parameter, signature
+import itertools
 from operator import itemgetter
+import textwrap
 
 import numpy as np
 
@@ -17,7 +19,7 @@ except ImportError:
 
 import numpy.ma as ma
 from pyproj import CRS, Geod, Proj
-from scipy.spatial import cKDTree
+from scipy.spatial import KDTree
 import xarray as xr
 
 from .. import _warnings
@@ -300,7 +302,7 @@ def reduce_point_density(points, radius, priority=None):
     points = np.where(good_vals, points, 0)
 
     # Make a kd-tree to speed searching of data.
-    tree = cKDTree(points)
+    tree = KDTree(points)
 
     # Need to use sorted indices rather than sorting the position
     # so that the keep mask matches *original* order.
@@ -982,32 +984,35 @@ def xarray_derivative_wrap(func):
 
 def _add_grid_params_to_docstring(docstring: str, orig_includes: dict) -> str:
     """Add documentation for some dynamically added grid parameters to the docstring."""
-    other_params = docstring.find('Other Parameters')
-    blank = docstring.find('\n\n', other_params)
+    other_params = 'Other Parameters'
+    other_ind = docstring.find(other_params)
+    indent = docstring.find('-', other_ind) - other_ind - len(other_params) - 1  # -1 for \n
+    blank = docstring.find('\n\n', other_ind)
 
     entries = {
         'longitude': """
-    longitude : `pint.Quantity`, optional
-        Longitude of data. Optional if `xarray.DataArray` with latitude/longitude coordinates
-        used as input. Also optional if parallel_scale and meridional_scale are given. If
-        otherwise omitted, calculation will be carried out on a Cartesian, rather than
-        geospatial, grid. Keyword-only argument.""",
+longitude : `pint.Quantity`, optional
+    Longitude of data. Optional if `xarray.DataArray` with latitude/longitude coordinates
+    used as input. Also optional if parallel_scale and meridional_scale are given. If
+    otherwise omitted, calculation will be carried out on a Cartesian, rather than
+    geospatial, grid. Keyword-only argument.""",
         'latitude': """
-    latitude : `pint.Quantity`, optional
-        Latitude of data. Optional if `xarray.DataArray` with latitude/longitude coordinates
-        used as input. Also optional if parallel_scale and meridional_scale are given. If
-        otherwise omitted, calculation will be carried out on a Cartesian, rather than
-        geospatial, grid. Keyword-only argument.""",
+latitude : `pint.Quantity`, optional
+    Latitude of data. Optional if `xarray.DataArray` with latitude/longitude coordinates
+    used as input. Also optional if parallel_scale and meridional_scale are given. If
+    otherwise omitted, calculation will be carried out on a Cartesian, rather than
+    geospatial, grid. Keyword-only argument.""",
         'crs': """
-    crs : `pyproj.crs.CRS`, optional
-        Coordinate Reference System of data. Optional if `xarray.DataArray` with MetPy CRS
-        used as input. Also optional if parallel_scale and meridional_scale are given. If
-        otherwise omitted, calculation will be carried out on a Cartesian, rather than
-        geospatial, grid. Keyword-only argument."""
+crs : `pyproj.crs.CRS`, optional
+    Coordinate Reference System of data. Optional if `xarray.DataArray` with MetPy CRS
+    used as input. Also optional if parallel_scale and meridional_scale are given. If
+    otherwise omitted, calculation will be carried out on a Cartesian, rather than
+    geospatial, grid. Keyword-only argument."""
     }
 
     return ''.join([docstring[:blank],
-                    *(entries[p] for p, included in orig_includes.items() if not included),
+                    *(textwrap.indent(entries[p], ' ' * indent)
+                      for p, included in orig_includes.items() if not included),
                     docstring[blank:]])
 
 
@@ -1437,6 +1442,10 @@ def laplacian(f, axes=None, coordinates=None, deltas=None):
     """Calculate the laplacian of a grid of values.
 
     Works for both regularly-spaced data, and grids with varying spacing.
+
+    Calculation is done using finite difference technique (centered finite difference in the
+    middle and forward/backward at the boundaries, see metpy.calc.second_derivative for more
+    information).
 
     Either `coordinates` or `deltas` must be specified, or `f` must be given as an
     `xarray.DataArray` with  attached coordinate and projection information. If `f` is an
@@ -1942,3 +1951,114 @@ def _remove_nans(*variables):
     for v in variables:
         ret.append(v[~mask])
     return ret
+
+
+def _neighbor_inds(y, x):
+    """Generate index (row, col) pairs for each neighbor of (x, y)."""
+    incs = (-1, 0, 1)
+    for dx, dy in itertools.product(incs, incs):
+        yield y + dy, x + dx
+
+
+def _find_uf(uf, item):
+    """Find the root item for ``item`` in the union find structure ``uf``."""
+    # uf is a dictionary mapping item->parent. Loop until we find parent=parent.
+    while (next_item := uf[item]) != item:
+        uf[item] = uf[next_item]
+        item = next_item
+    return item
+
+
+@exporter.export
+def peak_persistence(arr, *, maxima=True):
+    """Return all local extrema points ordered by their persistence.
+
+    This uses the concept of persistent homology to find peaks ordered by their persistence.
+    [Huber2021]_ This essentially works akin to a falling water level and seeing how long a
+    peak persists until the falling level allows connection to a larger, neighboring peak.
+    NaN points are ignored.
+
+    Parameters
+    ----------
+    arr : array-like
+        2-dimensional array of numeric values to search
+    maxima : bool, optional
+        Whether to find local maxima, defaults to True. If False, local minima will be found
+        instead.
+
+    Returns
+    -------
+    list[((int, int), float)]
+        Point indices and persistence values in descending order of persistence
+
+    See Also
+    --------
+    find_peaks
+
+    """
+    # Get the collection of points and values in descending strength of peak.
+    points = sorted((item for item in np.ndenumerate(arr) if not np.isnan(item[1])),
+                    key=lambda i: i[1], reverse=maxima)
+
+    # The global max will never be merged and thus should be added to the final list
+    # of persisted points
+    per = {points[0][0]: np.inf}
+
+    # Loop over all points and add them to the set (a dict storing as a union-find data
+    # structure) one-by-one
+    peaks = {}
+    for pt, val in points:
+        # Look to see if any neighbors of this point are attached to any existing peaks
+        if already_done := {_find_uf(peaks, n) for n in _neighbor_inds(*pt) if n in peaks}:
+
+            # Get these peaks in order of value
+            biggest, *others = sorted(already_done, key=lambda i: arr[i], reverse=maxima)
+
+            # Connect our point to the biggest peak
+            peaks[pt] = biggest
+
+            # Any other existing peaks will join to this biggest and will end their
+            # persistence, denoted as the difference between their original level and the
+            # current level
+            for neighbor in others:
+                peaks[neighbor] = biggest
+                if arr[neighbor] != val:
+                    per[neighbor] = abs(arr[neighbor] - val)
+        else:
+            peaks[pt] = pt
+
+    # Return the points in descending order of persistence
+    return sorted(per.items(), key=lambda i: i[1], reverse=True)
+
+
+@exporter.export
+def find_peaks(arr, *, maxima=True, iqr_ratio=2):
+    """Search array for significant peaks (or valleys).
+
+    Parameters
+    ----------
+    arr: array-like
+        2-dimensional array of numeric values to search
+    maxima: bool, optional
+        Whether to find local maxima, defaults to True. If False, local minima will be found
+        instead.
+    iqr_ratio: float, optional
+        Ratio of interquantile range (Q1 - Q3) of peak persistence values to use as a
+        threshold (when added to Q3) for significance of peaks. Defaults to 2.
+
+    Returns
+    -------
+    row indices, column indices
+        Locations of significant peaks
+
+    See Also
+    --------
+    peak_persistence
+
+    """
+    peaks = peak_persistence(arr, maxima=maxima)
+    q1, q3 = np.percentile([p[-1] for p in peaks], (25, 75))
+    thresh = q3 + iqr_ratio * (q3 - q1)
+    return map(list,
+               zip(*(it[0] for it in itertools.takewhile(lambda i: i[1] > thresh, peaks)),
+                   strict=True))

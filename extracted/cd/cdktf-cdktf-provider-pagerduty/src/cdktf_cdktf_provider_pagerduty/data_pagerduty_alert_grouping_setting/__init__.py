@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_alert_grouping_setting`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_alert_grouping_setting`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting).
+Refer to the Terraform Registry for docs: [`data_pagerduty_alert_grouping_setting`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyAlertGroupingSetting(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyAlertGroupingSetting.DataPagerdutyAlertGroupingSetting",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting pagerduty_alert_grouping_setting}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting pagerduty_alert_grouping_setting}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataPagerdutyAlertGroupingSetting(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting pagerduty_alert_grouping_setting} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting pagerduty_alert_grouping_setting} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#name DataPagerdutyAlertGroupingSetting#name}.
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#config DataPagerdutyAlertGroupingSetting#config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#name DataPagerdutyAlertGroupingSetting#name}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#config DataPagerdutyAlertGroupingSetting#config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataPagerdutyAlertGroupingSetting(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyAlertGroupingSetting to import.
-        :param import_from_id: The id of the existing DataPagerdutyAlertGroupingSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyAlertGroupingSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyAlertGroupingSetting to import is found.
         '''
         if __debug__:
@@ -125,8 +125,8 @@ class DataPagerdutyAlertGroupingSetting(
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#aggregate DataPagerdutyAlertGroupingSetting#aggregate}.
-        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#fields DataPagerdutyAlertGroupingSetting#fields}.
+        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#aggregate DataPagerdutyAlertGroupingSetting#aggregate}.
+        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#fields DataPagerdutyAlertGroupingSetting#fields}.
         '''
         value = DataPagerdutyAlertGroupingSettingConfigA(
             aggregate=aggregate, fields=fields
@@ -238,8 +238,8 @@ class DataPagerdutyAlertGroupingSettingConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#name DataPagerdutyAlertGroupingSetting#name}.
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#config DataPagerdutyAlertGroupingSetting#config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#name DataPagerdutyAlertGroupingSetting#name}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#config DataPagerdutyAlertGroupingSetting#config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -342,7 +342,7 @@ class DataPagerdutyAlertGroupingSettingConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#name DataPagerdutyAlertGroupingSetting#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#name DataPagerdutyAlertGroupingSetting#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -351,7 +351,7 @@ class DataPagerdutyAlertGroupingSettingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def config(self) -> typing.Optional["DataPagerdutyAlertGroupingSettingConfigA"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#config DataPagerdutyAlertGroupingSetting#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#config DataPagerdutyAlertGroupingSetting#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["DataPagerdutyAlertGroupingSettingConfigA"], result)
@@ -381,8 +381,8 @@ class DataPagerdutyAlertGroupingSettingConfigA:
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#aggregate DataPagerdutyAlertGroupingSetting#aggregate}.
-        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#fields DataPagerdutyAlertGroupingSetting#fields}.
+        :param aggregate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#aggregate DataPagerdutyAlertGroupingSetting#aggregate}.
+        :param fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#fields DataPagerdutyAlertGroupingSetting#fields}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13f0ff2d7a36a42246d03099fe93b1d7aa7903a4439a51f4da09a69e5f50143d)
@@ -396,13 +396,13 @@ class DataPagerdutyAlertGroupingSettingConfigA:
 
     @builtins.property
     def aggregate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#aggregate DataPagerdutyAlertGroupingSetting#aggregate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#aggregate DataPagerdutyAlertGroupingSetting#aggregate}.'''
         result = self._values.get("aggregate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def fields(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/alert_grouping_setting#fields DataPagerdutyAlertGroupingSetting#fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/alert_grouping_setting#fields DataPagerdutyAlertGroupingSetting#fields}.'''
         result = self._values.get("fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

@@ -622,7 +622,7 @@ class MetPyDataArrayAccessor:
             """Parse key using xarray utils to ensure we have dimension names."""
             if not is_dict_like(key):
                 labels = expanded_indexer(key, self.data_array.ndim)
-                key = dict(zip(self.data_array.dims, labels))
+                key = dict(zip(self.data_array.dims, labels, strict=False))
             return key
 
         def __getitem__(self, key):
@@ -835,9 +835,10 @@ class MetPyDatasetAccessor:
 
         # Attempt to build the crs coordinate
         crs = None
-        if 'grid_mapping' in var.attrs:
-            # Use given CF grid_mapping
-            proj_name = var.attrs['grid_mapping']
+
+        # Check both raw attribute and xarray-handled and moved to encoding
+        proj_name = var.encoding.get('grid_mapping', var.attrs.get('grid_mapping'))
+        if proj_name is not None:
             try:
                 proj_var = self._dataset.variables[proj_name]
             except KeyError:
@@ -1288,10 +1289,7 @@ def preprocess_and_wrap(broadcast=None, wrap_like=None, match_unit=False, to_mag
                 arg_names_to_broadcast = tuple(
                     arg_name for arg_name in broadcast
                     if arg_name in bound_args.arguments
-                    and isinstance(
-                        bound_args.arguments[arg_name],
-                        (xr.DataArray, xr.Variable)
-                    )
+                    and isinstance(bound_args.arguments[arg_name], xr.DataArray | xr.Variable)
                 )
                 broadcasted_args = xr.broadcast(
                     *(bound_args.arguments[arg_name] for arg_name in arg_names_to_broadcast)
@@ -1339,7 +1337,7 @@ def preprocess_and_wrap(broadcast=None, wrap_like=None, match_unit=False, to_mag
                     wrapping = _wrap_output_like_not_matching_units
 
                 if isinstance(match, tuple):
-                    return tuple(wrapping(*args) for args in zip(result, match))
+                    return tuple(wrapping(*args) for args in zip(result, match, strict=False))
                 else:
                     return wrapping(result, match)
         return wrapper

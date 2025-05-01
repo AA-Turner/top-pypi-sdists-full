@@ -1670,11 +1670,35 @@ class Deployments(WMLResource):
         if job_id is not None and not is_id(job_id):
             raise WMLClientError("'job_id' is not an id: '{}'".format(job_id))
 
+        params = self._client._params()
+
+        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version <= 5.1:
+            # for CPD 5.1 and lower there is need to use the jobs api directly.
+            # From CPD 5.2.x + and Cloud deployment service will cover the call in DELETE /ml/v4/deployment_jobs
+            # issue: #48242
+            try:
+                job_details = self.get_job_details(job_id=job_id)
+                run_id = job_details["entity"]["platform_job"]["run_id"]
+
+                jobs_runs_url = (
+                    self._client.service_instance._href_definitions.get_jobs_runs_href(
+                        job_id=job_id, run_id=run_id
+                    )
+                )
+
+                response_delete = self._client.httpx_client.delete(
+                    jobs_runs_url, headers=self._client._get_headers(), params=params
+                )
+
+                return self._handle_response(
+                    204, "deployment async job deletion", response_delete, False
+                )
+            except:
+                pass
+
         url = self._client.service_instance._href_definitions.get_async_deployment_jobs_href(
             job_id
         )
-
-        params = self._client._params()
 
         if hard_delete is True:
             params.update({"hard_delete": "true"})

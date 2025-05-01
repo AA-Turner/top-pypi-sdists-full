@@ -3,12 +3,13 @@ mod error;
 mod types;
 mod utils;
 
-use error::{py_errors, ErrorContext};
+use error::{ErrorContext, py_errors};
 use pyo3::prelude::*;
 use types::python::{
-    excelsheet::column_info::{ColumnInfo, ColumnInfoNoDtype},
-    table::ExcelTable,
     ExcelReader, ExcelSheet,
+    excelsheet::column_info::{ColumnInfo, ColumnInfoNoDtype},
+    excelsheet::{CellError, CellErrors},
+    table::ExcelTable,
 };
 
 /// Reads an excel file and returns an object allowing to access its sheets and a bit of metadata
@@ -51,6 +52,8 @@ fn _fastexcel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_excel, m)?)?;
     m.add_class::<ColumnInfo>()?;
     m.add_class::<ColumnInfoNoDtype>()?;
+    m.add_class::<CellError>()?;
+    m.add_class::<CellErrors>()?;
     m.add_class::<ExcelSheet>()?;
     m.add_class::<ExcelReader>()?;
     m.add_class::<ExcelTable>()?;

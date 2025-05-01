@@ -1,7 +1,7 @@
 r'''
 # `datadog_dashboard_json`
 
-Refer to the Terraform Registry for docs: [`datadog_dashboard_json`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json).
+Refer to the Terraform Registry for docs: [`datadog_dashboard_json`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DashboardJson(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dashboardJson.DashboardJson",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json datadog_dashboard_json}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json datadog_dashboard_json}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DashboardJson(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json datadog_dashboard_json} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json datadog_dashboard_json} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dashboard: The JSON formatted definition of the Dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#dashboard DashboardJson#dashboard}
-        :param dashboard_lists: A list of dashboard lists this dashboard belongs to. This attribute should not be set if managing the corresponding dashboard lists using Terraform as it causes inconsistent behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#dashboard_lists DashboardJson#dashboard_lists}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#id DashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param url: The URL of the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#url DashboardJson#url}
+        :param dashboard: The JSON formatted definition of the Dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#dashboard DashboardJson#dashboard}
+        :param dashboard_lists: A list of dashboard lists this dashboard belongs to. This attribute should not be set if managing the corresponding dashboard lists using Terraform as it causes inconsistent behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#dashboard_lists DashboardJson#dashboard_lists}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#id DashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param url: The URL of the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#url DashboardJson#url}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DashboardJson(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DashboardJson to import.
-        :param import_from_id: The id of the existing DashboardJson that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DashboardJson that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DashboardJson to import is found.
         '''
         if __debug__:
@@ -263,10 +263,10 @@ class DashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dashboard: The JSON formatted definition of the Dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#dashboard DashboardJson#dashboard}
-        :param dashboard_lists: A list of dashboard lists this dashboard belongs to. This attribute should not be set if managing the corresponding dashboard lists using Terraform as it causes inconsistent behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#dashboard_lists DashboardJson#dashboard_lists}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#id DashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param url: The URL of the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#url DashboardJson#url}
+        :param dashboard: The JSON formatted definition of the Dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#dashboard DashboardJson#dashboard}
+        :param dashboard_lists: A list of dashboard lists this dashboard belongs to. This attribute should not be set if managing the corresponding dashboard lists using Terraform as it causes inconsistent behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#dashboard_lists DashboardJson#dashboard_lists}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#id DashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param url: The URL of the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#url DashboardJson#url}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -375,7 +375,7 @@ class DashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dashboard(self) -> builtins.str:
         '''The JSON formatted definition of the Dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#dashboard DashboardJson#dashboard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#dashboard DashboardJson#dashboard}
         '''
         result = self._values.get("dashboard")
         assert result is not None, "Required property 'dashboard' is missing"
@@ -387,14 +387,14 @@ class DashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This attribute should not be set if managing the corresponding dashboard lists using Terraform as it causes inconsistent behavior.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#dashboard_lists DashboardJson#dashboard_lists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#dashboard_lists DashboardJson#dashboard_lists}
         '''
         result = self._values.get("dashboard_lists")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#id DashboardJson#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#id DashboardJson#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -406,7 +406,7 @@ class DashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def url(self) -> typing.Optional[builtins.str]:
         '''The URL of the dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_json#url DashboardJson#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_json#url DashboardJson#url}
         '''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)

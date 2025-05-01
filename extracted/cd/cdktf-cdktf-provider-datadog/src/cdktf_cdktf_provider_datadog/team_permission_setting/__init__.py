@@ -1,7 +1,7 @@
 r'''
 # `datadog_team_permission_setting`
 
-Refer to the Terraform Registry for docs: [`datadog_team_permission_setting`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting).
+Refer to the Terraform Registry for docs: [`datadog_team_permission_setting`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TeamPermissionSetting(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.teamPermissionSetting.TeamPermissionSetting",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting datadog_team_permission_setting}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting datadog_team_permission_setting}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class TeamPermissionSetting(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting datadog_team_permission_setting} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting datadog_team_permission_setting} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: The identifier for the action. Valid values are ``manage_membership``, ``edit``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#action TeamPermissionSetting#action}
-        :param team_id: ID of the team the team permission setting is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#team_id TeamPermissionSetting#team_id}
-        :param value: The action value. Valid values are dependent on the action. ``manage_membership`` action allows ``admins``, ``members``, ``organization``, ``user_access_manage`` values. ``edit`` action allows ``admins``, ``members``, ``teams_manage`` values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#value TeamPermissionSetting#value}
+        :param action: The identifier for the action. Valid values are ``manage_membership``, ``edit``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#action TeamPermissionSetting#action}
+        :param team_id: ID of the team the team permission setting is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#team_id TeamPermissionSetting#team_id}
+        :param value: The action value. Valid values are dependent on the action. ``manage_membership`` action allows ``admins``, ``members``, ``organization``, ``user_access_manage`` values. ``edit`` action allows ``admins``, ``members``, ``teams_manage`` values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#value TeamPermissionSetting#value}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class TeamPermissionSetting(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TeamPermissionSetting to import.
-        :param import_from_id: The id of the existing TeamPermissionSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TeamPermissionSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TeamPermissionSetting to import is found.
         '''
         if __debug__:
@@ -229,9 +229,9 @@ class TeamPermissionSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: The identifier for the action. Valid values are ``manage_membership``, ``edit``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#action TeamPermissionSetting#action}
-        :param team_id: ID of the team the team permission setting is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#team_id TeamPermissionSetting#team_id}
-        :param value: The action value. Valid values are dependent on the action. ``manage_membership`` action allows ``admins``, ``members``, ``organization``, ``user_access_manage`` values. ``edit`` action allows ``admins``, ``members``, ``teams_manage`` values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#value TeamPermissionSetting#value}
+        :param action: The identifier for the action. Valid values are ``manage_membership``, ``edit``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#action TeamPermissionSetting#action}
+        :param team_id: ID of the team the team permission setting is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#team_id TeamPermissionSetting#team_id}
+        :param value: The action value. Valid values are dependent on the action. ``manage_membership`` action allows ``admins``, ``members``, ``organization``, ``user_access_manage`` values. ``edit`` action allows ``admins``, ``members``, ``teams_manage`` values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#value TeamPermissionSetting#value}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -335,7 +335,7 @@ class TeamPermissionSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def action(self) -> builtins.str:
         '''The identifier for the action. Valid values are ``manage_membership``, ``edit``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#action TeamPermissionSetting#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#action TeamPermissionSetting#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -345,7 +345,7 @@ class TeamPermissionSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_id(self) -> builtins.str:
         '''ID of the team the team permission setting is associated with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#team_id TeamPermissionSetting#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#team_id TeamPermissionSetting#team_id}
         '''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
@@ -357,7 +357,7 @@ class TeamPermissionSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are dependent on the action. ``manage_membership`` action allows ``admins``, ``members``, ``organization``, ``user_access_manage`` values. ``edit`` action allows ``admins``, ``members``, ``teams_manage`` values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_permission_setting#value TeamPermissionSetting#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_permission_setting#value TeamPermissionSetting#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"

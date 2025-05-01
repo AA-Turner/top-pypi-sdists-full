@@ -1,7 +1,7 @@
 r'''
 # `datadog_rum_retention_filter`
 
-Refer to the Terraform Registry for docs: [`datadog_rum_retention_filter`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter).
+Refer to the Terraform Registry for docs: [`datadog_rum_retention_filter`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RumRetentionFilter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.rumRetentionFilter.RumRetentionFilter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter datadog_rum_retention_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter datadog_rum_retention_filter}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class RumRetentionFilter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter datadog_rum_retention_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter datadog_rum_retention_filter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#application_id RumRetentionFilter#application_id}
-        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#event_type RumRetentionFilter#event_type}
-        :param name: The name of a RUM retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#name RumRetentionFilter#name}
-        :param sample_rate: The sample rate for a RUM retention filter, between 0 and 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#sample_rate RumRetentionFilter#sample_rate}
-        :param enabled: Whether the retention filter is to be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#enabled RumRetentionFilter#enabled}
-        :param query: The Query string for a RUM retention filter. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#query RumRetentionFilter#query}
+        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#application_id RumRetentionFilter#application_id}
+        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#event_type RumRetentionFilter#event_type}
+        :param name: The name of a RUM retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#name RumRetentionFilter#name}
+        :param sample_rate: The sample rate for a RUM retention filter, between 0 and 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#sample_rate RumRetentionFilter#sample_rate}
+        :param enabled: Whether the retention filter is to be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#enabled RumRetentionFilter#enabled}
+        :param query: The Query string for a RUM retention filter. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#query RumRetentionFilter#query}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class RumRetentionFilter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RumRetentionFilter to import.
-        :param import_from_id: The id of the existing RumRetentionFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RumRetentionFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RumRetentionFilter to import is found.
         '''
         if __debug__:
@@ -308,12 +308,12 @@ class RumRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#application_id RumRetentionFilter#application_id}
-        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#event_type RumRetentionFilter#event_type}
-        :param name: The name of a RUM retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#name RumRetentionFilter#name}
-        :param sample_rate: The sample rate for a RUM retention filter, between 0 and 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#sample_rate RumRetentionFilter#sample_rate}
-        :param enabled: Whether the retention filter is to be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#enabled RumRetentionFilter#enabled}
-        :param query: The Query string for a RUM retention filter. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#query RumRetentionFilter#query}
+        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#application_id RumRetentionFilter#application_id}
+        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#event_type RumRetentionFilter#event_type}
+        :param name: The name of a RUM retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#name RumRetentionFilter#name}
+        :param sample_rate: The sample rate for a RUM retention filter, between 0 and 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#sample_rate RumRetentionFilter#sample_rate}
+        :param enabled: Whether the retention filter is to be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#enabled RumRetentionFilter#enabled}
+        :param query: The Query string for a RUM retention filter. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#query RumRetentionFilter#query}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -425,7 +425,7 @@ class RumRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''RUM application ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#application_id RumRetentionFilter#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#application_id RumRetentionFilter#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -435,7 +435,7 @@ class RumRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def event_type(self) -> builtins.str:
         '''The type of RUM events to filter on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#event_type RumRetentionFilter#event_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#event_type RumRetentionFilter#event_type}
         '''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
@@ -445,7 +445,7 @@ class RumRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of a RUM retention filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#name RumRetentionFilter#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#name RumRetentionFilter#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -455,7 +455,7 @@ class RumRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sample_rate(self) -> jsii.Number:
         '''The sample rate for a RUM retention filter, between 0 and 100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#sample_rate RumRetentionFilter#sample_rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#sample_rate RumRetentionFilter#sample_rate}
         '''
         result = self._values.get("sample_rate")
         assert result is not None, "Required property 'sample_rate' is missing"
@@ -467,7 +467,7 @@ class RumRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the retention filter is to be enabled. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#enabled RumRetentionFilter#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#enabled RumRetentionFilter#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -476,7 +476,7 @@ class RumRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> typing.Optional[builtins.str]:
         '''The Query string for a RUM retention filter. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filter#query RumRetentionFilter#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filter#query RumRetentionFilter#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)

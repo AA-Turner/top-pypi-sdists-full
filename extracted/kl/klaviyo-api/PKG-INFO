@@ -1,23 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: klaviyo-api
-Version: 19.0.0
+Version: 19.0.1
 Summary: Klaviyo Python SDK
 Home-page: https://github.com/klaviyo/klaviyo-api-python
 Author: Klaviyo Developers
 Author-email: developers@klaviyo.com
-License: UNKNOWN
 Project-URL: API Docs, https://developers.klaviyo.com/en/reference/api_overview
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: python_dateutil>=2.5.3
+Requires-Dist: setuptools>=21.0.0
+Requires-Dist: urllib3>=1.25.3
+Requires-Dist: pydantic>=2
+Requires-Dist: aenum>=3.1.11
+Dynamic: license-file
 
 # Klaviyo Python SDK
 
-- SDK version: 19.0.0
+- SDK version: 19.0.1
 - API revision: 2025-04-15
 
 ## Table of Contents
@@ -5985,4 +5989,3 @@ Select APIs do not yet have fully typed responses. Please use our API docs to in
     - [Get Messages for Flow Action](https://developers.klaviyo.com/en/reference/get_messages_for_flow_action)
     - [Get Campaign for Campaign Message](https://developers.klaviyo.com/en/reference/get_campaign_for_campaign_message)
     - [Get Messages for Campaign](https://developers.klaviyo.com/en/reference/get_messages_for_campaign)
-

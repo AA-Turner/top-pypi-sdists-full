@@ -1,7 +1,7 @@
 r'''
 # `datadog_security_monitoring_default_rule`
 
-Refer to the Terraform Registry for docs: [`datadog_security_monitoring_default_rule`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule).
+Refer to the Terraform Registry for docs: [`datadog_security_monitoring_default_rule`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityMonitoringDefaultRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.securityMonitoringDefaultRule.SecurityMonitoringDefaultRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule datadog_security_monitoring_default_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule datadog_security_monitoring_default_rule}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SecurityMonitoringDefaultRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule datadog_security_monitoring_default_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule datadog_security_monitoring_default_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#case SecurityMonitoringDefaultRule#case}
-        :param custom_tags: Custom tags for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#custom_tags SecurityMonitoringDefaultRule#custom_tags}
-        :param enabled: Enable the rule. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#enabled SecurityMonitoringDefaultRule#enabled}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#filter SecurityMonitoringDefaultRule#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#id SecurityMonitoringDefaultRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#options SecurityMonitoringDefaultRule#options}
+        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#case SecurityMonitoringDefaultRule#case}
+        :param custom_tags: Custom tags for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#custom_tags SecurityMonitoringDefaultRule#custom_tags}
+        :param enabled: Enable the rule. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#enabled SecurityMonitoringDefaultRule#enabled}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#filter SecurityMonitoringDefaultRule#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#id SecurityMonitoringDefaultRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#options SecurityMonitoringDefaultRule#options}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SecurityMonitoringDefaultRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityMonitoringDefaultRule to import.
-        :param import_from_id: The id of the existing SecurityMonitoringDefaultRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityMonitoringDefaultRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityMonitoringDefaultRule to import is found.
         '''
         if __debug__:
@@ -162,7 +162,7 @@ class SecurityMonitoringDefaultRule(
         decrease_criticality_based_on_env: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#decrease_criticality_based_on_env SecurityMonitoringDefaultRule#decrease_criticality_based_on_env}
+        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#decrease_criticality_based_on_env SecurityMonitoringDefaultRule#decrease_criticality_based_on_env}
         '''
         value = SecurityMonitoringDefaultRuleOptions(
             decrease_criticality_based_on_env=decrease_criticality_based_on_env
@@ -316,8 +316,8 @@ class SecurityMonitoringDefaultRuleCase:
         status: builtins.str,
     ) -> None:
         '''
-        :param notifications: Notification targets for each rule case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#notifications SecurityMonitoringDefaultRule#notifications}
-        :param status: Status of the rule case to match. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#status SecurityMonitoringDefaultRule#status}
+        :param notifications: Notification targets for each rule case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#notifications SecurityMonitoringDefaultRule#notifications}
+        :param status: Status of the rule case to match. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#status SecurityMonitoringDefaultRule#status}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__649e373ff202679bad41f1b45fa3fa0cd791bd251374897673fb9c3aa9d72ded)
@@ -332,7 +332,7 @@ class SecurityMonitoringDefaultRuleCase:
     def notifications(self) -> typing.List[builtins.str]:
         '''Notification targets for each rule case.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#notifications SecurityMonitoringDefaultRule#notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#notifications SecurityMonitoringDefaultRule#notifications}
         '''
         result = self._values.get("notifications")
         assert result is not None, "Required property 'notifications' is missing"
@@ -342,7 +342,7 @@ class SecurityMonitoringDefaultRuleCase:
     def status(self) -> builtins.str:
         '''Status of the rule case to match. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#status SecurityMonitoringDefaultRule#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#status SecurityMonitoringDefaultRule#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -576,12 +576,12 @@ class SecurityMonitoringDefaultRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#case SecurityMonitoringDefaultRule#case}
-        :param custom_tags: Custom tags for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#custom_tags SecurityMonitoringDefaultRule#custom_tags}
-        :param enabled: Enable the rule. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#enabled SecurityMonitoringDefaultRule#enabled}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#filter SecurityMonitoringDefaultRule#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#id SecurityMonitoringDefaultRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#options SecurityMonitoringDefaultRule#options}
+        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#case SecurityMonitoringDefaultRule#case}
+        :param custom_tags: Custom tags for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#custom_tags SecurityMonitoringDefaultRule#custom_tags}
+        :param enabled: Enable the rule. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#enabled SecurityMonitoringDefaultRule#enabled}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#filter SecurityMonitoringDefaultRule#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#id SecurityMonitoringDefaultRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#options SecurityMonitoringDefaultRule#options}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -700,7 +700,7 @@ class SecurityMonitoringDefaultRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringDefaultRuleCase]]]:
         '''case block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#case SecurityMonitoringDefaultRule#case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#case SecurityMonitoringDefaultRule#case}
         '''
         result = self._values.get("case")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringDefaultRuleCase]]], result)
@@ -709,7 +709,7 @@ class SecurityMonitoringDefaultRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def custom_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Custom tags for generated signals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#custom_tags SecurityMonitoringDefaultRule#custom_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#custom_tags SecurityMonitoringDefaultRule#custom_tags}
         '''
         result = self._values.get("custom_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -720,7 +720,7 @@ class SecurityMonitoringDefaultRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable the rule. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#enabled SecurityMonitoringDefaultRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#enabled SecurityMonitoringDefaultRule#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -731,14 +731,14 @@ class SecurityMonitoringDefaultRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringDefaultRuleFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#filter SecurityMonitoringDefaultRule#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#filter SecurityMonitoringDefaultRule#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringDefaultRuleFilter"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#id SecurityMonitoringDefaultRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#id SecurityMonitoringDefaultRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -750,7 +750,7 @@ class SecurityMonitoringDefaultRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def options(self) -> typing.Optional["SecurityMonitoringDefaultRuleOptions"]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#options SecurityMonitoringDefaultRule#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#options SecurityMonitoringDefaultRule#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional["SecurityMonitoringDefaultRuleOptions"], result)
@@ -775,8 +775,8 @@ class SecurityMonitoringDefaultRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments
 class SecurityMonitoringDefaultRuleFilter:
     def __init__(self, *, action: builtins.str, query: builtins.str) -> None:
         '''
-        :param action: The type of filtering action. Allowed enum values: require, suppress Valid values are ``require``, ``suppress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#action SecurityMonitoringDefaultRule#action}
-        :param query: Query for selecting logs to apply the filtering action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#query SecurityMonitoringDefaultRule#query}
+        :param action: The type of filtering action. Allowed enum values: require, suppress Valid values are ``require``, ``suppress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#action SecurityMonitoringDefaultRule#action}
+        :param query: Query for selecting logs to apply the filtering action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#query SecurityMonitoringDefaultRule#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0dee57bce57cfd555fbae9889844b7f33166c07a5005cac112072d7b741ef202)
@@ -791,7 +791,7 @@ class SecurityMonitoringDefaultRuleFilter:
     def action(self) -> builtins.str:
         '''The type of filtering action. Allowed enum values: require, suppress Valid values are ``require``, ``suppress``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#action SecurityMonitoringDefaultRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#action SecurityMonitoringDefaultRule#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -801,7 +801,7 @@ class SecurityMonitoringDefaultRuleFilter:
     def query(self) -> builtins.str:
         '''Query for selecting logs to apply the filtering action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#query SecurityMonitoringDefaultRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#query SecurityMonitoringDefaultRule#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -1004,7 +1004,7 @@ class SecurityMonitoringDefaultRuleOptions:
         decrease_criticality_based_on_env: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#decrease_criticality_based_on_env SecurityMonitoringDefaultRule#decrease_criticality_based_on_env}
+        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#decrease_criticality_based_on_env SecurityMonitoringDefaultRule#decrease_criticality_based_on_env}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d635947e1969c24b76a4fe8ae0aa775d34315f9299106af2e56cbaa65416551)
@@ -1021,7 +1021,7 @@ class SecurityMonitoringDefaultRuleOptions:
 
         The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_default_rule#decrease_criticality_based_on_env SecurityMonitoringDefaultRule#decrease_criticality_based_on_env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_default_rule#decrease_criticality_based_on_env SecurityMonitoringDefaultRule#decrease_criticality_based_on_env}
         '''
         result = self._values.get("decrease_criticality_based_on_env")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

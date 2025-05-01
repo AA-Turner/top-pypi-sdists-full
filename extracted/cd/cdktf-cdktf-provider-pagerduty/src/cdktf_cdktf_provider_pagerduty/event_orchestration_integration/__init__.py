@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_event_orchestration_integration`
 
-Refer to the Terraform Registry for docs: [`pagerduty_event_orchestration_integration`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration).
+Refer to the Terraform Registry for docs: [`pagerduty_event_orchestration_integration`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EventOrchestrationIntegrationA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.eventOrchestrationIntegration.EventOrchestrationIntegrationA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration pagerduty_event_orchestration_integration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration pagerduty_event_orchestration_integration}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class EventOrchestrationIntegrationA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration pagerduty_event_orchestration_integration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration pagerduty_event_orchestration_integration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration#event_orchestration EventOrchestrationIntegrationA#event_orchestration}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration#label EventOrchestrationIntegrationA#label}.
+        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration#event_orchestration EventOrchestrationIntegrationA#event_orchestration}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration#label EventOrchestrationIntegrationA#label}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class EventOrchestrationIntegrationA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EventOrchestrationIntegrationA to import.
-        :param import_from_id: The id of the existing EventOrchestrationIntegrationA that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EventOrchestrationIntegrationA that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EventOrchestrationIntegrationA to import is found.
         '''
         if __debug__:
@@ -212,8 +212,8 @@ class EventOrchestrationIntegrationAConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration#event_orchestration EventOrchestrationIntegrationA#event_orchestration}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration#label EventOrchestrationIntegrationA#label}.
+        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration#event_orchestration EventOrchestrationIntegrationA#event_orchestration}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration#label EventOrchestrationIntegrationA#label}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -313,14 +313,14 @@ class EventOrchestrationIntegrationAConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def event_orchestration(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration#event_orchestration EventOrchestrationIntegrationA#event_orchestration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration#event_orchestration EventOrchestrationIntegrationA#event_orchestration}.'''
         result = self._values.get("event_orchestration")
         assert result is not None, "Required property 'event_orchestration' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_integration#label EventOrchestrationIntegrationA#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_integration#label EventOrchestrationIntegrationA#label}.'''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
         return typing.cast(builtins.str, result)

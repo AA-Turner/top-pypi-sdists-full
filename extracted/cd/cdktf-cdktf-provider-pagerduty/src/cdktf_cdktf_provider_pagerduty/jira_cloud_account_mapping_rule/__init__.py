@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_jira_cloud_account_mapping_rule`
 
-Refer to the Terraform Registry for docs: [`pagerduty_jira_cloud_account_mapping_rule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule).
+Refer to the Terraform Registry for docs: [`pagerduty_jira_cloud_account_mapping_rule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class JiraCloudAccountMappingRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.jiraCloudAccountMappingRule.JiraCloudAccountMappingRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule pagerduty_jira_cloud_account_mapping_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule pagerduty_jira_cloud_account_mapping_rule}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class JiraCloudAccountMappingRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule pagerduty_jira_cloud_account_mapping_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule pagerduty_jira_cloud_account_mapping_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#account_mapping JiraCloudAccountMappingRule#account_mapping}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#config JiraCloudAccountMappingRule#config}
+        :param account_mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#account_mapping JiraCloudAccountMappingRule#account_mapping}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#config JiraCloudAccountMappingRule#config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class JiraCloudAccountMappingRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the JiraCloudAccountMappingRule to import.
-        :param import_from_id: The id of the existing JiraCloudAccountMappingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing JiraCloudAccountMappingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the JiraCloudAccountMappingRule to import is found.
         '''
         if __debug__:
@@ -128,8 +128,8 @@ class JiraCloudAccountMappingRule(
         jira: typing.Optional[typing.Union["JiraCloudAccountMappingRuleConfigJira", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#service JiraCloudAccountMappingRule#service}.
-        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#jira JiraCloudAccountMappingRule#jira}
+        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#service JiraCloudAccountMappingRule#service}.
+        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#jira JiraCloudAccountMappingRule#jira}
         '''
         value = JiraCloudAccountMappingRuleConfigA(service=service, jira=jira)
 
@@ -253,9 +253,9 @@ class JiraCloudAccountMappingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#account_mapping JiraCloudAccountMappingRule#account_mapping}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#config JiraCloudAccountMappingRule#config}
+        :param account_mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#account_mapping JiraCloudAccountMappingRule#account_mapping}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#config JiraCloudAccountMappingRule#config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -360,14 +360,14 @@ class JiraCloudAccountMappingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_mapping(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#account_mapping JiraCloudAccountMappingRule#account_mapping}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#account_mapping JiraCloudAccountMappingRule#account_mapping}.'''
         result = self._values.get("account_mapping")
         assert result is not None, "Required property 'account_mapping' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -376,7 +376,7 @@ class JiraCloudAccountMappingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config(self) -> typing.Optional["JiraCloudAccountMappingRuleConfigA"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#config JiraCloudAccountMappingRule#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#config JiraCloudAccountMappingRule#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["JiraCloudAccountMappingRuleConfigA"], result)
@@ -406,8 +406,8 @@ class JiraCloudAccountMappingRuleConfigA:
         jira: typing.Optional[typing.Union["JiraCloudAccountMappingRuleConfigJira", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#service JiraCloudAccountMappingRule#service}.
-        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#jira JiraCloudAccountMappingRule#jira}
+        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#service JiraCloudAccountMappingRule#service}.
+        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#jira JiraCloudAccountMappingRule#jira}
         '''
         if isinstance(jira, dict):
             jira = JiraCloudAccountMappingRuleConfigJira(**jira)
@@ -423,7 +423,7 @@ class JiraCloudAccountMappingRuleConfigA:
 
     @builtins.property
     def service(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#service JiraCloudAccountMappingRule#service}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#service JiraCloudAccountMappingRule#service}.'''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
         return typing.cast(builtins.str, result)
@@ -432,7 +432,7 @@ class JiraCloudAccountMappingRuleConfigA:
     def jira(self) -> typing.Optional["JiraCloudAccountMappingRuleConfigJira"]:
         '''jira block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#jira JiraCloudAccountMappingRule#jira}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#jira JiraCloudAccountMappingRule#jira}
         '''
         result = self._values.get("jira")
         return typing.cast(typing.Optional["JiraCloudAccountMappingRuleConfigJira"], result)
@@ -483,14 +483,14 @@ class JiraCloudAccountMappingRuleConfigAOutputReference(
         sync_notes_user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param issue_type: issue_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#issue_type JiraCloudAccountMappingRule#issue_type}
-        :param project: project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#project JiraCloudAccountMappingRule#project}
-        :param autocreate_jql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#autocreate_jql JiraCloudAccountMappingRule#autocreate_jql}.
-        :param create_issue_on_incident_trigger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#create_issue_on_incident_trigger JiraCloudAccountMappingRule#create_issue_on_incident_trigger}.
-        :param custom_fields: custom_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#custom_fields JiraCloudAccountMappingRule#custom_fields}
-        :param priorities: priorities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#priorities JiraCloudAccountMappingRule#priorities}
-        :param status_mapping: status_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#status_mapping JiraCloudAccountMappingRule#status_mapping}
-        :param sync_notes_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#sync_notes_user JiraCloudAccountMappingRule#sync_notes_user}.
+        :param issue_type: issue_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#issue_type JiraCloudAccountMappingRule#issue_type}
+        :param project: project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#project JiraCloudAccountMappingRule#project}
+        :param autocreate_jql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#autocreate_jql JiraCloudAccountMappingRule#autocreate_jql}.
+        :param create_issue_on_incident_trigger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#create_issue_on_incident_trigger JiraCloudAccountMappingRule#create_issue_on_incident_trigger}.
+        :param custom_fields: custom_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#custom_fields JiraCloudAccountMappingRule#custom_fields}
+        :param priorities: priorities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#priorities JiraCloudAccountMappingRule#priorities}
+        :param status_mapping: status_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#status_mapping JiraCloudAccountMappingRule#status_mapping}
+        :param sync_notes_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#sync_notes_user JiraCloudAccountMappingRule#sync_notes_user}.
         '''
         value = JiraCloudAccountMappingRuleConfigJira(
             issue_type=issue_type,
@@ -584,14 +584,14 @@ class JiraCloudAccountMappingRuleConfigJira:
         sync_notes_user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param issue_type: issue_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#issue_type JiraCloudAccountMappingRule#issue_type}
-        :param project: project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#project JiraCloudAccountMappingRule#project}
-        :param autocreate_jql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#autocreate_jql JiraCloudAccountMappingRule#autocreate_jql}.
-        :param create_issue_on_incident_trigger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#create_issue_on_incident_trigger JiraCloudAccountMappingRule#create_issue_on_incident_trigger}.
-        :param custom_fields: custom_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#custom_fields JiraCloudAccountMappingRule#custom_fields}
-        :param priorities: priorities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#priorities JiraCloudAccountMappingRule#priorities}
-        :param status_mapping: status_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#status_mapping JiraCloudAccountMappingRule#status_mapping}
-        :param sync_notes_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#sync_notes_user JiraCloudAccountMappingRule#sync_notes_user}.
+        :param issue_type: issue_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#issue_type JiraCloudAccountMappingRule#issue_type}
+        :param project: project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#project JiraCloudAccountMappingRule#project}
+        :param autocreate_jql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#autocreate_jql JiraCloudAccountMappingRule#autocreate_jql}.
+        :param create_issue_on_incident_trigger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#create_issue_on_incident_trigger JiraCloudAccountMappingRule#create_issue_on_incident_trigger}.
+        :param custom_fields: custom_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#custom_fields JiraCloudAccountMappingRule#custom_fields}
+        :param priorities: priorities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#priorities JiraCloudAccountMappingRule#priorities}
+        :param status_mapping: status_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#status_mapping JiraCloudAccountMappingRule#status_mapping}
+        :param sync_notes_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#sync_notes_user JiraCloudAccountMappingRule#sync_notes_user}.
         '''
         if isinstance(issue_type, dict):
             issue_type = JiraCloudAccountMappingRuleConfigJiraIssueType(**issue_type)
@@ -630,7 +630,7 @@ class JiraCloudAccountMappingRuleConfigJira:
     def issue_type(self) -> "JiraCloudAccountMappingRuleConfigJiraIssueType":
         '''issue_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#issue_type JiraCloudAccountMappingRule#issue_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#issue_type JiraCloudAccountMappingRule#issue_type}
         '''
         result = self._values.get("issue_type")
         assert result is not None, "Required property 'issue_type' is missing"
@@ -640,7 +640,7 @@ class JiraCloudAccountMappingRuleConfigJira:
     def project(self) -> "JiraCloudAccountMappingRuleConfigJiraProject":
         '''project block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#project JiraCloudAccountMappingRule#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#project JiraCloudAccountMappingRule#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -648,7 +648,7 @@ class JiraCloudAccountMappingRuleConfigJira:
 
     @builtins.property
     def autocreate_jql(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#autocreate_jql JiraCloudAccountMappingRule#autocreate_jql}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#autocreate_jql JiraCloudAccountMappingRule#autocreate_jql}.'''
         result = self._values.get("autocreate_jql")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -656,7 +656,7 @@ class JiraCloudAccountMappingRuleConfigJira:
     def create_issue_on_incident_trigger(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#create_issue_on_incident_trigger JiraCloudAccountMappingRule#create_issue_on_incident_trigger}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#create_issue_on_incident_trigger JiraCloudAccountMappingRule#create_issue_on_incident_trigger}.'''
         result = self._values.get("create_issue_on_incident_trigger")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -666,7 +666,7 @@ class JiraCloudAccountMappingRuleConfigJira:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["JiraCloudAccountMappingRuleConfigJiraCustomFields"]]]:
         '''custom_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#custom_fields JiraCloudAccountMappingRule#custom_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#custom_fields JiraCloudAccountMappingRule#custom_fields}
         '''
         result = self._values.get("custom_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["JiraCloudAccountMappingRuleConfigJiraCustomFields"]]], result)
@@ -677,7 +677,7 @@ class JiraCloudAccountMappingRuleConfigJira:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["JiraCloudAccountMappingRuleConfigJiraPriorities"]]]:
         '''priorities block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#priorities JiraCloudAccountMappingRule#priorities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#priorities JiraCloudAccountMappingRule#priorities}
         '''
         result = self._values.get("priorities")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["JiraCloudAccountMappingRuleConfigJiraPriorities"]]], result)
@@ -688,14 +688,14 @@ class JiraCloudAccountMappingRuleConfigJira:
     ) -> typing.Optional["JiraCloudAccountMappingRuleConfigJiraStatusMapping"]:
         '''status_mapping block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#status_mapping JiraCloudAccountMappingRule#status_mapping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#status_mapping JiraCloudAccountMappingRule#status_mapping}
         '''
         result = self._values.get("status_mapping")
         return typing.cast(typing.Optional["JiraCloudAccountMappingRuleConfigJiraStatusMapping"], result)
 
     @builtins.property
     def sync_notes_user(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#sync_notes_user JiraCloudAccountMappingRule#sync_notes_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#sync_notes_user JiraCloudAccountMappingRule#sync_notes_user}.'''
         result = self._values.get("sync_notes_user")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -733,11 +733,11 @@ class JiraCloudAccountMappingRuleConfigJiraCustomFields:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_issue_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#target_issue_field JiraCloudAccountMappingRule#target_issue_field}.
-        :param target_issue_field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#target_issue_field_name JiraCloudAccountMappingRule#target_issue_field_name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#type JiraCloudAccountMappingRule#type}.
-        :param source_incident_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#source_incident_field JiraCloudAccountMappingRule#source_incident_field}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#value JiraCloudAccountMappingRule#value}.
+        :param target_issue_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#target_issue_field JiraCloudAccountMappingRule#target_issue_field}.
+        :param target_issue_field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#target_issue_field_name JiraCloudAccountMappingRule#target_issue_field_name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#type JiraCloudAccountMappingRule#type}.
+        :param source_incident_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#source_incident_field JiraCloudAccountMappingRule#source_incident_field}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#value JiraCloudAccountMappingRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84c9a93370e770133f7f52bab7e5fa55ab5fe386edc4ac4314f4cd918cdd99ac)
@@ -758,34 +758,34 @@ class JiraCloudAccountMappingRuleConfigJiraCustomFields:
 
     @builtins.property
     def target_issue_field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#target_issue_field JiraCloudAccountMappingRule#target_issue_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#target_issue_field JiraCloudAccountMappingRule#target_issue_field}.'''
         result = self._values.get("target_issue_field")
         assert result is not None, "Required property 'target_issue_field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_issue_field_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#target_issue_field_name JiraCloudAccountMappingRule#target_issue_field_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#target_issue_field_name JiraCloudAccountMappingRule#target_issue_field_name}.'''
         result = self._values.get("target_issue_field_name")
         assert result is not None, "Required property 'target_issue_field_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#type JiraCloudAccountMappingRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#type JiraCloudAccountMappingRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_incident_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#source_incident_field JiraCloudAccountMappingRule#source_incident_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#source_incident_field JiraCloudAccountMappingRule#source_incident_field}.'''
         result = self._values.get("source_incident_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#value JiraCloudAccountMappingRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#value JiraCloudAccountMappingRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1039,8 +1039,8 @@ class JiraCloudAccountMappingRuleConfigJiraCustomFieldsOutputReference(
 class JiraCloudAccountMappingRuleConfigJiraIssueType:
     def __init__(self, *, id: builtins.str, name: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f5c45e0473724f72edbe36061578d7a309b64651bf7f4494653966ec7b80e91)
@@ -1053,7 +1053,7 @@ class JiraCloudAccountMappingRuleConfigJiraIssueType:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1064,7 +1064,7 @@ class JiraCloudAccountMappingRuleConfigJiraIssueType:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1189,8 +1189,8 @@ class JiraCloudAccountMappingRuleConfigJiraOutputReference(
     @jsii.member(jsii_name="putIssueType")
     def put_issue_type(self, *, id: builtins.str, name: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         value = JiraCloudAccountMappingRuleConfigJiraIssueType(id=id, name=name)
 
@@ -1218,9 +1218,9 @@ class JiraCloudAccountMappingRuleConfigJiraOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#key JiraCloudAccountMappingRule#key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#key JiraCloudAccountMappingRule#key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         value = JiraCloudAccountMappingRuleConfigJiraProject(id=id, key=key, name=name)
 
@@ -1235,9 +1235,9 @@ class JiraCloudAccountMappingRuleConfigJiraOutputReference(
         resolved: typing.Optional[typing.Union["JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param triggered: triggered block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#triggered JiraCloudAccountMappingRule#triggered}
-        :param acknowledged: acknowledged block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#acknowledged JiraCloudAccountMappingRule#acknowledged}
-        :param resolved: resolved block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#resolved JiraCloudAccountMappingRule#resolved}
+        :param triggered: triggered block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#triggered JiraCloudAccountMappingRule#triggered}
+        :param acknowledged: acknowledged block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#acknowledged JiraCloudAccountMappingRule#acknowledged}
+        :param resolved: resolved block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#resolved JiraCloudAccountMappingRule#resolved}
         '''
         value = JiraCloudAccountMappingRuleConfigJiraStatusMapping(
             triggered=triggered, acknowledged=acknowledged, resolved=resolved
@@ -1417,8 +1417,8 @@ class JiraCloudAccountMappingRuleConfigJiraOutputReference(
 class JiraCloudAccountMappingRuleConfigJiraPriorities:
     def __init__(self, *, jira_id: builtins.str, pagerduty_id: builtins.str) -> None:
         '''
-        :param jira_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#jira_id JiraCloudAccountMappingRule#jira_id}.
-        :param pagerduty_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#pagerduty_id JiraCloudAccountMappingRule#pagerduty_id}.
+        :param jira_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#jira_id JiraCloudAccountMappingRule#jira_id}.
+        :param pagerduty_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#pagerduty_id JiraCloudAccountMappingRule#pagerduty_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0733d63cf21e384e198f10eaf1b97c133ae536e0f541a777055ef3a5b66fcdbf)
@@ -1431,14 +1431,14 @@ class JiraCloudAccountMappingRuleConfigJiraPriorities:
 
     @builtins.property
     def jira_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#jira_id JiraCloudAccountMappingRule#jira_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#jira_id JiraCloudAccountMappingRule#jira_id}.'''
         result = self._values.get("jira_id")
         assert result is not None, "Required property 'jira_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def pagerduty_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#pagerduty_id JiraCloudAccountMappingRule#pagerduty_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#pagerduty_id JiraCloudAccountMappingRule#pagerduty_id}.'''
         result = self._values.get("pagerduty_id")
         assert result is not None, "Required property 'pagerduty_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1640,9 +1640,9 @@ class JiraCloudAccountMappingRuleConfigJiraProject:
         name: builtins.str,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#key JiraCloudAccountMappingRule#key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#key JiraCloudAccountMappingRule#key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__684f7553a6e9ccb2001a581719388b0fc067b2835b3b5595f075ff6438a61467)
@@ -1657,7 +1657,7 @@ class JiraCloudAccountMappingRuleConfigJiraProject:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1668,14 +1668,14 @@ class JiraCloudAccountMappingRuleConfigJiraProject:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#key JiraCloudAccountMappingRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#key JiraCloudAccountMappingRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1799,9 +1799,9 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMapping:
         resolved: typing.Optional[typing.Union["JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param triggered: triggered block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#triggered JiraCloudAccountMappingRule#triggered}
-        :param acknowledged: acknowledged block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#acknowledged JiraCloudAccountMappingRule#acknowledged}
-        :param resolved: resolved block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#resolved JiraCloudAccountMappingRule#resolved}
+        :param triggered: triggered block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#triggered JiraCloudAccountMappingRule#triggered}
+        :param acknowledged: acknowledged block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#acknowledged JiraCloudAccountMappingRule#acknowledged}
+        :param resolved: resolved block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#resolved JiraCloudAccountMappingRule#resolved}
         '''
         if isinstance(triggered, dict):
             triggered = JiraCloudAccountMappingRuleConfigJiraStatusMappingTriggered(**triggered)
@@ -1828,7 +1828,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMapping:
     ) -> "JiraCloudAccountMappingRuleConfigJiraStatusMappingTriggered":
         '''triggered block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#triggered JiraCloudAccountMappingRule#triggered}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#triggered JiraCloudAccountMappingRule#triggered}
         '''
         result = self._values.get("triggered")
         assert result is not None, "Required property 'triggered' is missing"
@@ -1840,7 +1840,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMapping:
     ) -> typing.Optional["JiraCloudAccountMappingRuleConfigJiraStatusMappingAcknowledged"]:
         '''acknowledged block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#acknowledged JiraCloudAccountMappingRule#acknowledged}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#acknowledged JiraCloudAccountMappingRule#acknowledged}
         '''
         result = self._values.get("acknowledged")
         return typing.cast(typing.Optional["JiraCloudAccountMappingRuleConfigJiraStatusMappingAcknowledged"], result)
@@ -1851,7 +1851,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMapping:
     ) -> typing.Optional["JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved"]:
         '''resolved block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#resolved JiraCloudAccountMappingRule#resolved}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#resolved JiraCloudAccountMappingRule#resolved}
         '''
         result = self._values.get("resolved")
         return typing.cast(typing.Optional["JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved"], result)
@@ -1881,8 +1881,8 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingAcknowledged:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d4ec115cb589218441cd42ead87581fc1af479242d96b9ada3d00db4080fb4b)
@@ -1896,7 +1896,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingAcknowledged:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1906,7 +1906,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingAcknowledged:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2030,8 +2030,8 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         value = JiraCloudAccountMappingRuleConfigJiraStatusMappingAcknowledged(
             id=id, name=name
@@ -2047,8 +2047,8 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         value = JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved(
             id=id, name=name
@@ -2059,8 +2059,8 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingOutputReference(
     @jsii.member(jsii_name="putTriggered")
     def put_triggered(self, *, id: builtins.str, name: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         value = JiraCloudAccountMappingRuleConfigJiraStatusMappingTriggered(
             id=id, name=name
@@ -2149,8 +2149,8 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be3d2bf640a9f3c4a707b6c1ea364219099db8cf5935c2756173792b555c9b58)
@@ -2164,7 +2164,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2174,7 +2174,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingResolved:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2278,8 +2278,8 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingResolvedOutputReference(
 class JiraCloudAccountMappingRuleConfigJiraStatusMappingTriggered:
     def __init__(self, *, id: builtins.str, name: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f564d993273e63cd13be12b4a58d0f211cb15be1fa20f1bfc1026fc964f3116)
@@ -2292,7 +2292,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingTriggered:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#id JiraCloudAccountMappingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2303,7 +2303,7 @@ class JiraCloudAccountMappingRuleConfigJiraStatusMappingTriggered:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/jira_cloud_account_mapping_rule#name JiraCloudAccountMappingRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)

@@ -1,7 +1,7 @@
 r'''
 # `datadog_sensitive_data_scanner_group`
 
-Refer to the Terraform Registry for docs: [`datadog_sensitive_data_scanner_group`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group).
+Refer to the Terraform Registry for docs: [`datadog_sensitive_data_scanner_group`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SensitiveDataScannerGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.sensitiveDataScannerGroup.SensitiveDataScannerGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group datadog_sensitive_data_scanner_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group datadog_sensitive_data_scanner_group}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SensitiveDataScannerGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group datadog_sensitive_data_scanner_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group datadog_sensitive_data_scanner_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#filter SensitiveDataScannerGroup#filter}
-        :param is_enabled: Whether or not the scanning group is enabled. If the group doesn't contain any rule or if all the rules in it are disabled, the group is force-disabled by our backend Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#is_enabled SensitiveDataScannerGroup#is_enabled}
-        :param name: Name of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#name SensitiveDataScannerGroup#name}
-        :param product_list: List of products the scanning group applies. Valid values are ``logs``, ``rum``, ``events``, ``apm``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#product_list SensitiveDataScannerGroup#product_list}
-        :param description: Description of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#description SensitiveDataScannerGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#id SensitiveDataScannerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#filter SensitiveDataScannerGroup#filter}
+        :param is_enabled: Whether or not the scanning group is enabled. If the group doesn't contain any rule or if all the rules in it are disabled, the group is force-disabled by our backend Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#is_enabled SensitiveDataScannerGroup#is_enabled}
+        :param name: Name of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#name SensitiveDataScannerGroup#name}
+        :param product_list: List of products the scanning group applies. Valid values are ``logs``, ``rum``, ``events``, ``apm``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#product_list SensitiveDataScannerGroup#product_list}
+        :param description: Description of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#description SensitiveDataScannerGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#id SensitiveDataScannerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SensitiveDataScannerGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SensitiveDataScannerGroup to import.
-        :param import_from_id: The id of the existing SensitiveDataScannerGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SensitiveDataScannerGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SensitiveDataScannerGroup to import is found.
         '''
         if __debug__:
@@ -132,7 +132,7 @@ class SensitiveDataScannerGroup(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, query: builtins.str) -> None:
         '''
-        :param query: Query to filter the events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#query SensitiveDataScannerGroup#query}
+        :param query: Query to filter the events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#query SensitiveDataScannerGroup#query}
         '''
         value = SensitiveDataScannerGroupFilter(query=query)
 
@@ -305,12 +305,12 @@ class SensitiveDataScannerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#filter SensitiveDataScannerGroup#filter}
-        :param is_enabled: Whether or not the scanning group is enabled. If the group doesn't contain any rule or if all the rules in it are disabled, the group is force-disabled by our backend Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#is_enabled SensitiveDataScannerGroup#is_enabled}
-        :param name: Name of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#name SensitiveDataScannerGroup#name}
-        :param product_list: List of products the scanning group applies. Valid values are ``logs``, ``rum``, ``events``, ``apm``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#product_list SensitiveDataScannerGroup#product_list}
-        :param description: Description of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#description SensitiveDataScannerGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#id SensitiveDataScannerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#filter SensitiveDataScannerGroup#filter}
+        :param is_enabled: Whether or not the scanning group is enabled. If the group doesn't contain any rule or if all the rules in it are disabled, the group is force-disabled by our backend Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#is_enabled SensitiveDataScannerGroup#is_enabled}
+        :param name: Name of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#name SensitiveDataScannerGroup#name}
+        :param product_list: List of products the scanning group applies. Valid values are ``logs``, ``rum``, ``events``, ``apm``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#product_list SensitiveDataScannerGroup#product_list}
+        :param description: Description of the Datadog scanning group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#description SensitiveDataScannerGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#id SensitiveDataScannerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -424,7 +424,7 @@ class SensitiveDataScannerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> "SensitiveDataScannerGroupFilter":
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#filter SensitiveDataScannerGroup#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#filter SensitiveDataScannerGroup#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -436,7 +436,7 @@ class SensitiveDataScannerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If the group doesn't contain any rule or if all the rules in it are disabled, the group is force-disabled by our backend
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#is_enabled SensitiveDataScannerGroup#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#is_enabled SensitiveDataScannerGroup#is_enabled}
         '''
         result = self._values.get("is_enabled")
         assert result is not None, "Required property 'is_enabled' is missing"
@@ -446,7 +446,7 @@ class SensitiveDataScannerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the Datadog scanning group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#name SensitiveDataScannerGroup#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#name SensitiveDataScannerGroup#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -456,7 +456,7 @@ class SensitiveDataScannerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def product_list(self) -> typing.List[builtins.str]:
         '''List of products the scanning group applies. Valid values are ``logs``, ``rum``, ``events``, ``apm``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#product_list SensitiveDataScannerGroup#product_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#product_list SensitiveDataScannerGroup#product_list}
         '''
         result = self._values.get("product_list")
         assert result is not None, "Required property 'product_list' is missing"
@@ -466,14 +466,14 @@ class SensitiveDataScannerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the Datadog scanning group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#description SensitiveDataScannerGroup#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#description SensitiveDataScannerGroup#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#id SensitiveDataScannerGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#id SensitiveDataScannerGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -501,7 +501,7 @@ class SensitiveDataScannerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SensitiveDataScannerGroupFilter:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: Query to filter the events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#query SensitiveDataScannerGroup#query}
+        :param query: Query to filter the events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#query SensitiveDataScannerGroup#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68fcf0da0b0f392c18ddfd3a81a85c71a12432aa2c3ce7fb79a734bba0273d8a)
@@ -514,7 +514,7 @@ class SensitiveDataScannerGroupFilter:
     def query(self) -> builtins.str:
         '''Query to filter the events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group#query SensitiveDataScannerGroup#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group#query SensitiveDataScannerGroup#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"

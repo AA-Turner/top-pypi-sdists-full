@@ -12,6 +12,7 @@ class RegionsApiMock:
         self.mock_get_cluster = MagicMock()
         self.mock_get_point_of_presence = MagicMock()
         self.mock_get_region = MagicMock()
+        self.mock_get_regional_locations = MagicMock()
         self.mock_list_clusters = MagicMock()
         self.mock_list_point_of_presences = MagicMock()
         self.mock_list_regions = MagicMock()
@@ -73,6 +74,12 @@ class RegionsApiMock:
         This method mocks the original api RegionsApi.get_region with MagicMock.
         """
         return self.mock_get_region(self, *args, **kwargs)
+
+    def get_regional_locations(self, *args, **kwargs):
+        """
+        This method mocks the original api RegionsApi.get_regional_locations with MagicMock.
+        """
+        return self.mock_get_regional_locations(self, *args, **kwargs)
 
     def list_clusters(self, *args, **kwargs):
         """

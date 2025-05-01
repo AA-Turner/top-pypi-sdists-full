@@ -1,7 +1,7 @@
 r'''
 # `datadog_dashboard_list`
 
-Refer to the Terraform Registry for docs: [`datadog_dashboard_list`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list).
+Refer to the Terraform Registry for docs: [`datadog_dashboard_list`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DashboardList(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dashboardList.DashboardList",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list datadog_dashboard_list}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list datadog_dashboard_list}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DashboardList(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list datadog_dashboard_list} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list datadog_dashboard_list} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the Dashboard List. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#name DashboardList#name}
-        :param dash_item: dash_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#dash_item DashboardList#dash_item}
+        :param name: The name of the Dashboard List. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#name DashboardList#name}
+        :param dash_item: dash_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#dash_item DashboardList#dash_item}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DashboardList(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DashboardList to import.
-        :param import_from_id: The id of the existing DashboardList that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DashboardList that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DashboardList to import is found.
         '''
         if __debug__:
@@ -219,8 +219,8 @@ class DashboardListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the Dashboard List. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#name DashboardList#name}
-        :param dash_item: dash_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#dash_item DashboardList#dash_item}
+        :param name: The name of the Dashboard List. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#name DashboardList#name}
+        :param dash_item: dash_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#dash_item DashboardList#dash_item}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -323,7 +323,7 @@ class DashboardListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Dashboard List.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#name DashboardList#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#name DashboardList#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -335,7 +335,7 @@ class DashboardListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DashboardListDashItem"]]]:
         '''dash_item block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#dash_item DashboardList#dash_item}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#dash_item DashboardList#dash_item}
         '''
         result = self._values.get("dash_item")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DashboardListDashItem"]]], result)
@@ -360,8 +360,8 @@ class DashboardListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DashboardListDashItem:
     def __init__(self, *, dash_id: builtins.str, type: builtins.str) -> None:
         '''
-        :param dash_id: The ID of the dashboard to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#dash_id DashboardList#dash_id}
-        :param type: The type of this dashboard. Valid values are ``custom_timeboard``, ``custom_screenboard``, ``integration_screenboard``, ``integration_timeboard``, ``host_timeboard``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#type DashboardList#type}
+        :param dash_id: The ID of the dashboard to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#dash_id DashboardList#dash_id}
+        :param type: The type of this dashboard. Valid values are ``custom_timeboard``, ``custom_screenboard``, ``integration_screenboard``, ``integration_timeboard``, ``host_timeboard``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#type DashboardList#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31e077535f9e90af75c8e6153e028d347bad154ce903888aa79a18b49825ab64)
@@ -376,7 +376,7 @@ class DashboardListDashItem:
     def dash_id(self) -> builtins.str:
         '''The ID of the dashboard to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#dash_id DashboardList#dash_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#dash_id DashboardList#dash_id}
         '''
         result = self._values.get("dash_id")
         assert result is not None, "Required property 'dash_id' is missing"
@@ -386,7 +386,7 @@ class DashboardListDashItem:
     def type(self) -> builtins.str:
         '''The type of this dashboard. Valid values are ``custom_timeboard``, ``custom_screenboard``, ``integration_screenboard``, ``integration_timeboard``, ``host_timeboard``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/dashboard_list#type DashboardList#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/dashboard_list#type DashboardList#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"

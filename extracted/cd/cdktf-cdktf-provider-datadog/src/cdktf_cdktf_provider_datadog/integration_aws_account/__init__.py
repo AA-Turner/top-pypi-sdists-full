@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_aws_account`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_aws_account`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account).
+Refer to the Terraform Registry for docs: [`datadog_integration_aws_account`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationAwsAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationAwsAccount.IntegrationAwsAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account datadog_integration_aws_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account datadog_integration_aws_account}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class IntegrationAwsAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account datadog_integration_aws_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account datadog_integration_aws_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param aws_account_id: Your AWS Account ID without dashes. Invalid aws_account_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_account_id IntegrationAwsAccount#aws_account_id}
-        :param aws_partition: AWS Account partition. Valid values are ``aws``, ``aws-cn``, ``aws-us-gov``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_partition IntegrationAwsAccount#aws_partition}
-        :param account_tags: Tags to apply to all metrics in the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#account_tags IntegrationAwsAccount#account_tags}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#auth_config IntegrationAwsAccount#auth_config}
-        :param aws_regions: aws_regions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_regions IntegrationAwsAccount#aws_regions}
-        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#logs_config IntegrationAwsAccount#logs_config}
-        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#metrics_config IntegrationAwsAccount#metrics_config}
-        :param resources_config: resources_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#resources_config IntegrationAwsAccount#resources_config}
-        :param traces_config: traces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#traces_config IntegrationAwsAccount#traces_config}
+        :param aws_account_id: Your AWS Account ID without dashes. Invalid aws_account_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_account_id IntegrationAwsAccount#aws_account_id}
+        :param aws_partition: AWS Account partition. Valid values are ``aws``, ``aws-cn``, ``aws-us-gov``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_partition IntegrationAwsAccount#aws_partition}
+        :param account_tags: Tags to apply to all metrics in the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#account_tags IntegrationAwsAccount#account_tags}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#auth_config IntegrationAwsAccount#auth_config}
+        :param aws_regions: aws_regions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_regions IntegrationAwsAccount#aws_regions}
+        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#logs_config IntegrationAwsAccount#logs_config}
+        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#metrics_config IntegrationAwsAccount#metrics_config}
+        :param resources_config: resources_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#resources_config IntegrationAwsAccount#resources_config}
+        :param traces_config: traces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#traces_config IntegrationAwsAccount#traces_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class IntegrationAwsAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationAwsAccount to import.
-        :param import_from_id: The id of the existing IntegrationAwsAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationAwsAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationAwsAccount to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class IntegrationAwsAccount(
         aws_auth_config_role: typing.Optional[typing.Union["IntegrationAwsAccountAuthConfigAwsAuthConfigRole", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aws_auth_config_keys: aws_auth_config_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_auth_config_keys IntegrationAwsAccount#aws_auth_config_keys}
-        :param aws_auth_config_role: aws_auth_config_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_auth_config_role IntegrationAwsAccount#aws_auth_config_role}
+        :param aws_auth_config_keys: aws_auth_config_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_auth_config_keys IntegrationAwsAccount#aws_auth_config_keys}
+        :param aws_auth_config_role: aws_auth_config_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_auth_config_role IntegrationAwsAccount#aws_auth_config_role}
         '''
         value = IntegrationAwsAccountAuthConfig(
             aws_auth_config_keys=aws_auth_config_keys,
@@ -164,8 +164,8 @@ class IntegrationAwsAccount(
         include_only: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param include_all: Include all regions. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
-        :param include_only: Include only these regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        :param include_all: Include all regions. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
+        :param include_only: Include only these regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         value = IntegrationAwsAccountAwsRegions(
             include_all=include_all, include_only=include_only
@@ -180,7 +180,7 @@ class IntegrationAwsAccount(
         lambda_forwarder: typing.Optional[typing.Union["IntegrationAwsAccountLogsConfigLambdaForwarder", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param lambda_forwarder: lambda_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#lambda_forwarder IntegrationAwsAccount#lambda_forwarder}
+        :param lambda_forwarder: lambda_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#lambda_forwarder IntegrationAwsAccount#lambda_forwarder}
         '''
         value = IntegrationAwsAccountLogsConfig(lambda_forwarder=lambda_forwarder)
 
@@ -198,12 +198,12 @@ class IntegrationAwsAccount(
         tag_filters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationAwsAccountMetricsConfigTagFilters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param automute_enabled: Enable EC2 automute for AWS metrics Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#automute_enabled IntegrationAwsAccount#automute_enabled}
-        :param collect_cloudwatch_alarms: Enable CloudWatch alarms collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#collect_cloudwatch_alarms IntegrationAwsAccount#collect_cloudwatch_alarms}
-        :param collect_custom_metrics: Enable custom metrics collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#collect_custom_metrics IntegrationAwsAccount#collect_custom_metrics}
-        :param enabled: Enable AWS metrics collection Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#enabled IntegrationAwsAccount#enabled}
-        :param namespace_filters: namespace_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#namespace_filters IntegrationAwsAccount#namespace_filters}
-        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#tag_filters IntegrationAwsAccount#tag_filters}
+        :param automute_enabled: Enable EC2 automute for AWS metrics Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#automute_enabled IntegrationAwsAccount#automute_enabled}
+        :param collect_cloudwatch_alarms: Enable CloudWatch alarms collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#collect_cloudwatch_alarms IntegrationAwsAccount#collect_cloudwatch_alarms}
+        :param collect_custom_metrics: Enable custom metrics collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#collect_custom_metrics IntegrationAwsAccount#collect_custom_metrics}
+        :param enabled: Enable AWS metrics collection Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#enabled IntegrationAwsAccount#enabled}
+        :param namespace_filters: namespace_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#namespace_filters IntegrationAwsAccount#namespace_filters}
+        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#tag_filters IntegrationAwsAccount#tag_filters}
         '''
         value = IntegrationAwsAccountMetricsConfig(
             automute_enabled=automute_enabled,
@@ -224,8 +224,8 @@ class IntegrationAwsAccount(
         extended_collection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cloud_security_posture_management_collection: Enable Cloud Security Management to scan AWS resources for vulnerabilities, misconfigurations, identity risks, and compliance violations. Requires ``extended_collection`` to be set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#cloud_security_posture_management_collection IntegrationAwsAccount#cloud_security_posture_management_collection}
-        :param extended_collection: Whether Datadog collects additional attributes and configuration information about the resources in your AWS account. Required for ``cloud_security_posture_management_collection``. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#extended_collection IntegrationAwsAccount#extended_collection}
+        :param cloud_security_posture_management_collection: Enable Cloud Security Management to scan AWS resources for vulnerabilities, misconfigurations, identity risks, and compliance violations. Requires ``extended_collection`` to be set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#cloud_security_posture_management_collection IntegrationAwsAccount#cloud_security_posture_management_collection}
+        :param extended_collection: Whether Datadog collects additional attributes and configuration information about the resources in your AWS account. Required for ``cloud_security_posture_management_collection``. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#extended_collection IntegrationAwsAccount#extended_collection}
         '''
         value = IntegrationAwsAccountResourcesConfig(
             cloud_security_posture_management_collection=cloud_security_posture_management_collection,
@@ -241,7 +241,7 @@ class IntegrationAwsAccount(
         xray_services: typing.Optional[typing.Union["IntegrationAwsAccountTracesConfigXrayServices", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param xray_services: xray_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#xray_services IntegrationAwsAccount#xray_services}
+        :param xray_services: xray_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#xray_services IntegrationAwsAccount#xray_services}
         '''
         value = IntegrationAwsAccountTracesConfig(xray_services=xray_services)
 
@@ -433,8 +433,8 @@ class IntegrationAwsAccountAuthConfig:
         aws_auth_config_role: typing.Optional[typing.Union["IntegrationAwsAccountAuthConfigAwsAuthConfigRole", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aws_auth_config_keys: aws_auth_config_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_auth_config_keys IntegrationAwsAccount#aws_auth_config_keys}
-        :param aws_auth_config_role: aws_auth_config_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_auth_config_role IntegrationAwsAccount#aws_auth_config_role}
+        :param aws_auth_config_keys: aws_auth_config_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_auth_config_keys IntegrationAwsAccount#aws_auth_config_keys}
+        :param aws_auth_config_role: aws_auth_config_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_auth_config_role IntegrationAwsAccount#aws_auth_config_role}
         '''
         if isinstance(aws_auth_config_keys, dict):
             aws_auth_config_keys = IntegrationAwsAccountAuthConfigAwsAuthConfigKeys(**aws_auth_config_keys)
@@ -456,7 +456,7 @@ class IntegrationAwsAccountAuthConfig:
     ) -> typing.Optional["IntegrationAwsAccountAuthConfigAwsAuthConfigKeys"]:
         '''aws_auth_config_keys block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_auth_config_keys IntegrationAwsAccount#aws_auth_config_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_auth_config_keys IntegrationAwsAccount#aws_auth_config_keys}
         '''
         result = self._values.get("aws_auth_config_keys")
         return typing.cast(typing.Optional["IntegrationAwsAccountAuthConfigAwsAuthConfigKeys"], result)
@@ -467,7 +467,7 @@ class IntegrationAwsAccountAuthConfig:
     ) -> typing.Optional["IntegrationAwsAccountAuthConfigAwsAuthConfigRole"]:
         '''aws_auth_config_role block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_auth_config_role IntegrationAwsAccount#aws_auth_config_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_auth_config_role IntegrationAwsAccount#aws_auth_config_role}
         '''
         result = self._values.get("aws_auth_config_role")
         return typing.cast(typing.Optional["IntegrationAwsAccountAuthConfigAwsAuthConfigRole"], result)
@@ -500,8 +500,8 @@ class IntegrationAwsAccountAuthConfigAwsAuthConfigKeys:
         secret_access_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_key_id: AWS Access Key ID. Invalid access_key_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#access_key_id IntegrationAwsAccount#access_key_id}
-        :param secret_access_key: AWS Secret Access Key. This value is write-only; changes made outside of Terraform will not be drift-detected. Secret_access_key must be non-empty and not contain whitespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#secret_access_key IntegrationAwsAccount#secret_access_key}
+        :param access_key_id: AWS Access Key ID. Invalid access_key_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#access_key_id IntegrationAwsAccount#access_key_id}
+        :param secret_access_key: AWS Secret Access Key. This value is write-only; changes made outside of Terraform will not be drift-detected. Secret_access_key must be non-empty and not contain whitespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#secret_access_key IntegrationAwsAccount#secret_access_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc06718dc917d2bf3477581cfc9c69a929e4df5b4a9cfcd4435a87f45269d801)
@@ -517,7 +517,7 @@ class IntegrationAwsAccountAuthConfigAwsAuthConfigKeys:
     def access_key_id(self) -> typing.Optional[builtins.str]:
         '''AWS Access Key ID. Invalid access_key_id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#access_key_id IntegrationAwsAccount#access_key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#access_key_id IntegrationAwsAccount#access_key_id}
         '''
         result = self._values.get("access_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -528,7 +528,7 @@ class IntegrationAwsAccountAuthConfigAwsAuthConfigKeys:
 
         This value is write-only; changes made outside of Terraform will not be drift-detected. Secret_access_key must be non-empty and not contain whitespace.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#secret_access_key IntegrationAwsAccount#secret_access_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#secret_access_key IntegrationAwsAccount#secret_access_key}
         '''
         result = self._values.get("secret_access_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -638,8 +638,8 @@ class IntegrationAwsAccountAuthConfigAwsAuthConfigRole:
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param external_id: AWS IAM External ID for associated role. If omitted, one will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#external_id IntegrationAwsAccount#external_id}
-        :param role_name: AWS IAM Role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#role_name IntegrationAwsAccount#role_name}
+        :param external_id: AWS IAM External ID for associated role. If omitted, one will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#external_id IntegrationAwsAccount#external_id}
+        :param role_name: AWS IAM Role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#role_name IntegrationAwsAccount#role_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d626e454dadf9277683f1383d7e5edef28b638bc3dd2ba210237ddf54165a731)
@@ -655,7 +655,7 @@ class IntegrationAwsAccountAuthConfigAwsAuthConfigRole:
     def external_id(self) -> typing.Optional[builtins.str]:
         '''AWS IAM External ID for associated role. If omitted, one will be generated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#external_id IntegrationAwsAccount#external_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#external_id IntegrationAwsAccount#external_id}
         '''
         result = self._values.get("external_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -664,7 +664,7 @@ class IntegrationAwsAccountAuthConfigAwsAuthConfigRole:
     def role_name(self) -> typing.Optional[builtins.str]:
         '''AWS IAM Role name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#role_name IntegrationAwsAccount#role_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#role_name IntegrationAwsAccount#role_name}
         '''
         result = self._values.get("role_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -789,8 +789,8 @@ class IntegrationAwsAccountAuthConfigOutputReference(
         secret_access_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_key_id: AWS Access Key ID. Invalid access_key_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#access_key_id IntegrationAwsAccount#access_key_id}
-        :param secret_access_key: AWS Secret Access Key. This value is write-only; changes made outside of Terraform will not be drift-detected. Secret_access_key must be non-empty and not contain whitespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#secret_access_key IntegrationAwsAccount#secret_access_key}
+        :param access_key_id: AWS Access Key ID. Invalid access_key_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#access_key_id IntegrationAwsAccount#access_key_id}
+        :param secret_access_key: AWS Secret Access Key. This value is write-only; changes made outside of Terraform will not be drift-detected. Secret_access_key must be non-empty and not contain whitespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#secret_access_key IntegrationAwsAccount#secret_access_key}
         '''
         value = IntegrationAwsAccountAuthConfigAwsAuthConfigKeys(
             access_key_id=access_key_id, secret_access_key=secret_access_key
@@ -806,8 +806,8 @@ class IntegrationAwsAccountAuthConfigOutputReference(
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param external_id: AWS IAM External ID for associated role. If omitted, one will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#external_id IntegrationAwsAccount#external_id}
-        :param role_name: AWS IAM Role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#role_name IntegrationAwsAccount#role_name}
+        :param external_id: AWS IAM External ID for associated role. If omitted, one will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#external_id IntegrationAwsAccount#external_id}
+        :param role_name: AWS IAM Role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#role_name IntegrationAwsAccount#role_name}
         '''
         value = IntegrationAwsAccountAuthConfigAwsAuthConfigRole(
             external_id=external_id, role_name=role_name
@@ -882,8 +882,8 @@ class IntegrationAwsAccountAwsRegions:
         include_only: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param include_all: Include all regions. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
-        :param include_only: Include only these regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        :param include_all: Include all regions. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
+        :param include_only: Include only these regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1ee3328c9dac34e5af1ed5b7fa9f87820001fc86dc410de363a41c6be3f02d3)
@@ -901,7 +901,7 @@ class IntegrationAwsAccountAwsRegions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Include all regions. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
         '''
         result = self._values.get("include_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -910,7 +910,7 @@ class IntegrationAwsAccountAwsRegions:
     def include_only(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Include only these regions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         result = self._values.get("include_only")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1063,15 +1063,15 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param aws_account_id: Your AWS Account ID without dashes. Invalid aws_account_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_account_id IntegrationAwsAccount#aws_account_id}
-        :param aws_partition: AWS Account partition. Valid values are ``aws``, ``aws-cn``, ``aws-us-gov``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_partition IntegrationAwsAccount#aws_partition}
-        :param account_tags: Tags to apply to all metrics in the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#account_tags IntegrationAwsAccount#account_tags}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#auth_config IntegrationAwsAccount#auth_config}
-        :param aws_regions: aws_regions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_regions IntegrationAwsAccount#aws_regions}
-        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#logs_config IntegrationAwsAccount#logs_config}
-        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#metrics_config IntegrationAwsAccount#metrics_config}
-        :param resources_config: resources_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#resources_config IntegrationAwsAccount#resources_config}
-        :param traces_config: traces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#traces_config IntegrationAwsAccount#traces_config}
+        :param aws_account_id: Your AWS Account ID without dashes. Invalid aws_account_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_account_id IntegrationAwsAccount#aws_account_id}
+        :param aws_partition: AWS Account partition. Valid values are ``aws``, ``aws-cn``, ``aws-us-gov``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_partition IntegrationAwsAccount#aws_partition}
+        :param account_tags: Tags to apply to all metrics in the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#account_tags IntegrationAwsAccount#account_tags}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#auth_config IntegrationAwsAccount#auth_config}
+        :param aws_regions: aws_regions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_regions IntegrationAwsAccount#aws_regions}
+        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#logs_config IntegrationAwsAccount#logs_config}
+        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#metrics_config IntegrationAwsAccount#metrics_config}
+        :param resources_config: resources_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#resources_config IntegrationAwsAccount#resources_config}
+        :param traces_config: traces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#traces_config IntegrationAwsAccount#traces_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1206,7 +1206,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws_account_id(self) -> builtins.str:
         '''Your AWS Account ID without dashes. Invalid aws_account_id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_account_id IntegrationAwsAccount#aws_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_account_id IntegrationAwsAccount#aws_account_id}
         '''
         result = self._values.get("aws_account_id")
         assert result is not None, "Required property 'aws_account_id' is missing"
@@ -1216,7 +1216,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws_partition(self) -> builtins.str:
         '''AWS Account partition. Valid values are ``aws``, ``aws-cn``, ``aws-us-gov``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_partition IntegrationAwsAccount#aws_partition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_partition IntegrationAwsAccount#aws_partition}
         '''
         result = self._values.get("aws_partition")
         assert result is not None, "Required property 'aws_partition' is missing"
@@ -1226,7 +1226,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags to apply to all metrics in the account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#account_tags IntegrationAwsAccount#account_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#account_tags IntegrationAwsAccount#account_tags}
         '''
         result = self._values.get("account_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1235,7 +1235,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_config(self) -> typing.Optional[IntegrationAwsAccountAuthConfig]:
         '''auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#auth_config IntegrationAwsAccount#auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#auth_config IntegrationAwsAccount#auth_config}
         '''
         result = self._values.get("auth_config")
         return typing.cast(typing.Optional[IntegrationAwsAccountAuthConfig], result)
@@ -1244,7 +1244,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws_regions(self) -> typing.Optional[IntegrationAwsAccountAwsRegions]:
         '''aws_regions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#aws_regions IntegrationAwsAccount#aws_regions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#aws_regions IntegrationAwsAccount#aws_regions}
         '''
         result = self._values.get("aws_regions")
         return typing.cast(typing.Optional[IntegrationAwsAccountAwsRegions], result)
@@ -1253,7 +1253,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logs_config(self) -> typing.Optional["IntegrationAwsAccountLogsConfig"]:
         '''logs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#logs_config IntegrationAwsAccount#logs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#logs_config IntegrationAwsAccount#logs_config}
         '''
         result = self._values.get("logs_config")
         return typing.cast(typing.Optional["IntegrationAwsAccountLogsConfig"], result)
@@ -1262,7 +1262,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metrics_config(self) -> typing.Optional["IntegrationAwsAccountMetricsConfig"]:
         '''metrics_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#metrics_config IntegrationAwsAccount#metrics_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#metrics_config IntegrationAwsAccount#metrics_config}
         '''
         result = self._values.get("metrics_config")
         return typing.cast(typing.Optional["IntegrationAwsAccountMetricsConfig"], result)
@@ -1273,7 +1273,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["IntegrationAwsAccountResourcesConfig"]:
         '''resources_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#resources_config IntegrationAwsAccount#resources_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#resources_config IntegrationAwsAccount#resources_config}
         '''
         result = self._values.get("resources_config")
         return typing.cast(typing.Optional["IntegrationAwsAccountResourcesConfig"], result)
@@ -1282,7 +1282,7 @@ class IntegrationAwsAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def traces_config(self) -> typing.Optional["IntegrationAwsAccountTracesConfig"]:
         '''traces_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#traces_config IntegrationAwsAccount#traces_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#traces_config IntegrationAwsAccount#traces_config}
         '''
         result = self._values.get("traces_config")
         return typing.cast(typing.Optional["IntegrationAwsAccountTracesConfig"], result)
@@ -1311,7 +1311,7 @@ class IntegrationAwsAccountLogsConfig:
         lambda_forwarder: typing.Optional[typing.Union["IntegrationAwsAccountLogsConfigLambdaForwarder", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param lambda_forwarder: lambda_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#lambda_forwarder IntegrationAwsAccount#lambda_forwarder}
+        :param lambda_forwarder: lambda_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#lambda_forwarder IntegrationAwsAccount#lambda_forwarder}
         '''
         if isinstance(lambda_forwarder, dict):
             lambda_forwarder = IntegrationAwsAccountLogsConfigLambdaForwarder(**lambda_forwarder)
@@ -1328,7 +1328,7 @@ class IntegrationAwsAccountLogsConfig:
     ) -> typing.Optional["IntegrationAwsAccountLogsConfigLambdaForwarder"]:
         '''lambda_forwarder block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#lambda_forwarder IntegrationAwsAccount#lambda_forwarder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#lambda_forwarder IntegrationAwsAccount#lambda_forwarder}
         '''
         result = self._values.get("lambda_forwarder")
         return typing.cast(typing.Optional["IntegrationAwsAccountLogsConfigLambdaForwarder"], result)
@@ -1358,8 +1358,8 @@ class IntegrationAwsAccountLogsConfigLambdaForwarder:
         sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param lambdas: List of Datadog Lambda Log Forwarder ARNs in your AWS account. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#lambdas IntegrationAwsAccount#lambdas}
-        :param sources: List of service IDs set to enable automatic log collection. Use ```datadog_integration_aws_available_logs_services`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_logs_services>`_ to get allowed values. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#sources IntegrationAwsAccount#sources}
+        :param lambdas: List of Datadog Lambda Log Forwarder ARNs in your AWS account. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#lambdas IntegrationAwsAccount#lambdas}
+        :param sources: List of service IDs set to enable automatic log collection. Use ```datadog_integration_aws_available_logs_services`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_logs_services>`_ to get allowed values. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#sources IntegrationAwsAccount#sources}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14500237736f303d5eb0ac8b04eae7f87cdc87620e16c35ab01ea1c32c6e21d6)
@@ -1375,7 +1375,7 @@ class IntegrationAwsAccountLogsConfigLambdaForwarder:
     def lambdas(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of Datadog Lambda Log Forwarder ARNs in your AWS account. Defaults to ``[]``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#lambdas IntegrationAwsAccount#lambdas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#lambdas IntegrationAwsAccount#lambdas}
         '''
         result = self._values.get("lambdas")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1386,7 +1386,7 @@ class IntegrationAwsAccountLogsConfigLambdaForwarder:
 
         Use ```datadog_integration_aws_available_logs_services`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_logs_services>`_ to get allowed values. Defaults to ``[]``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#sources IntegrationAwsAccount#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#sources IntegrationAwsAccount#sources}
         '''
         result = self._values.get("sources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1511,8 +1511,8 @@ class IntegrationAwsAccountLogsConfigOutputReference(
         sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param lambdas: List of Datadog Lambda Log Forwarder ARNs in your AWS account. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#lambdas IntegrationAwsAccount#lambdas}
-        :param sources: List of service IDs set to enable automatic log collection. Use ```datadog_integration_aws_available_logs_services`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_logs_services>`_ to get allowed values. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#sources IntegrationAwsAccount#sources}
+        :param lambdas: List of Datadog Lambda Log Forwarder ARNs in your AWS account. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#lambdas IntegrationAwsAccount#lambdas}
+        :param sources: List of service IDs set to enable automatic log collection. Use ```datadog_integration_aws_available_logs_services`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_logs_services>`_ to get allowed values. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#sources IntegrationAwsAccount#sources}
         '''
         value = IntegrationAwsAccountLogsConfigLambdaForwarder(
             lambdas=lambdas, sources=sources
@@ -1580,12 +1580,12 @@ class IntegrationAwsAccountMetricsConfig:
         tag_filters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationAwsAccountMetricsConfigTagFilters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param automute_enabled: Enable EC2 automute for AWS metrics Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#automute_enabled IntegrationAwsAccount#automute_enabled}
-        :param collect_cloudwatch_alarms: Enable CloudWatch alarms collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#collect_cloudwatch_alarms IntegrationAwsAccount#collect_cloudwatch_alarms}
-        :param collect_custom_metrics: Enable custom metrics collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#collect_custom_metrics IntegrationAwsAccount#collect_custom_metrics}
-        :param enabled: Enable AWS metrics collection Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#enabled IntegrationAwsAccount#enabled}
-        :param namespace_filters: namespace_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#namespace_filters IntegrationAwsAccount#namespace_filters}
-        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#tag_filters IntegrationAwsAccount#tag_filters}
+        :param automute_enabled: Enable EC2 automute for AWS metrics Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#automute_enabled IntegrationAwsAccount#automute_enabled}
+        :param collect_cloudwatch_alarms: Enable CloudWatch alarms collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#collect_cloudwatch_alarms IntegrationAwsAccount#collect_cloudwatch_alarms}
+        :param collect_custom_metrics: Enable custom metrics collection Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#collect_custom_metrics IntegrationAwsAccount#collect_custom_metrics}
+        :param enabled: Enable AWS metrics collection Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#enabled IntegrationAwsAccount#enabled}
+        :param namespace_filters: namespace_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#namespace_filters IntegrationAwsAccount#namespace_filters}
+        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#tag_filters IntegrationAwsAccount#tag_filters}
         '''
         if isinstance(namespace_filters, dict):
             namespace_filters = IntegrationAwsAccountMetricsConfigNamespaceFilters(**namespace_filters)
@@ -1617,7 +1617,7 @@ class IntegrationAwsAccountMetricsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable EC2 automute for AWS metrics Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#automute_enabled IntegrationAwsAccount#automute_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#automute_enabled IntegrationAwsAccount#automute_enabled}
         '''
         result = self._values.get("automute_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1628,7 +1628,7 @@ class IntegrationAwsAccountMetricsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable CloudWatch alarms collection Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#collect_cloudwatch_alarms IntegrationAwsAccount#collect_cloudwatch_alarms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#collect_cloudwatch_alarms IntegrationAwsAccount#collect_cloudwatch_alarms}
         '''
         result = self._values.get("collect_cloudwatch_alarms")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1639,7 +1639,7 @@ class IntegrationAwsAccountMetricsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable custom metrics collection Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#collect_custom_metrics IntegrationAwsAccount#collect_custom_metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#collect_custom_metrics IntegrationAwsAccount#collect_custom_metrics}
         '''
         result = self._values.get("collect_custom_metrics")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1650,7 +1650,7 @@ class IntegrationAwsAccountMetricsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable AWS metrics collection Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#enabled IntegrationAwsAccount#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#enabled IntegrationAwsAccount#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1661,7 +1661,7 @@ class IntegrationAwsAccountMetricsConfig:
     ) -> typing.Optional["IntegrationAwsAccountMetricsConfigNamespaceFilters"]:
         '''namespace_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#namespace_filters IntegrationAwsAccount#namespace_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#namespace_filters IntegrationAwsAccount#namespace_filters}
         '''
         result = self._values.get("namespace_filters")
         return typing.cast(typing.Optional["IntegrationAwsAccountMetricsConfigNamespaceFilters"], result)
@@ -1672,7 +1672,7 @@ class IntegrationAwsAccountMetricsConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationAwsAccountMetricsConfigTagFilters"]]]:
         '''tag_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#tag_filters IntegrationAwsAccount#tag_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#tag_filters IntegrationAwsAccount#tag_filters}
         '''
         result = self._values.get("tag_filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationAwsAccountMetricsConfigTagFilters"]]], result)
@@ -1702,8 +1702,8 @@ class IntegrationAwsAccountMetricsConfigNamespaceFilters:
         include_only: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param exclude_only: Exclude only these namespaces from metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Defaults to ``["AWS/SQS", "AWS/ElasticMapReduce"]``. ``AWS/SQS`` and ``AWS/ElasticMapReduce`` are excluded by default to reduce your AWS CloudWatch costs from ``GetMetricData`` API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#exclude_only IntegrationAwsAccount#exclude_only}
-        :param include_only: Include only these namespaces for metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        :param exclude_only: Exclude only these namespaces from metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Defaults to ``["AWS/SQS", "AWS/ElasticMapReduce"]``. ``AWS/SQS`` and ``AWS/ElasticMapReduce`` are excluded by default to reduce your AWS CloudWatch costs from ``GetMetricData`` API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#exclude_only IntegrationAwsAccount#exclude_only}
+        :param include_only: Include only these namespaces for metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e284be53f1b4a8befee78c5a290174aa133053282a58c837dadbc2403938cf63)
@@ -1721,7 +1721,7 @@ class IntegrationAwsAccountMetricsConfigNamespaceFilters:
 
         Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Defaults to ``["AWS/SQS", "AWS/ElasticMapReduce"]``. ``AWS/SQS`` and ``AWS/ElasticMapReduce`` are excluded by default to reduce your AWS CloudWatch costs from ``GetMetricData`` API calls.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#exclude_only IntegrationAwsAccount#exclude_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#exclude_only IntegrationAwsAccount#exclude_only}
         '''
         result = self._values.get("exclude_only")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1730,7 +1730,7 @@ class IntegrationAwsAccountMetricsConfigNamespaceFilters:
     def include_only(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Include only these namespaces for metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         result = self._values.get("include_only")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1855,8 +1855,8 @@ class IntegrationAwsAccountMetricsConfigOutputReference(
         include_only: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param exclude_only: Exclude only these namespaces from metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Defaults to ``["AWS/SQS", "AWS/ElasticMapReduce"]``. ``AWS/SQS`` and ``AWS/ElasticMapReduce`` are excluded by default to reduce your AWS CloudWatch costs from ``GetMetricData`` API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#exclude_only IntegrationAwsAccount#exclude_only}
-        :param include_only: Include only these namespaces for metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        :param exclude_only: Exclude only these namespaces from metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Defaults to ``["AWS/SQS", "AWS/ElasticMapReduce"]``. ``AWS/SQS`` and ``AWS/ElasticMapReduce`` are excluded by default to reduce your AWS CloudWatch costs from ``GetMetricData`` API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#exclude_only IntegrationAwsAccount#exclude_only}
+        :param include_only: Include only these namespaces for metrics collection. Use ```datadog_integration_aws_available_namespaces`` data source <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/data-sources/integration_aws_available_namespaces>`_ to get allowed values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         value = IntegrationAwsAccountMetricsConfigNamespaceFilters(
             exclude_only=exclude_only, include_only=include_only
@@ -2052,8 +2052,8 @@ class IntegrationAwsAccountMetricsConfigTagFilters:
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param namespace: The AWS service for which the tag filters defined in ``tags`` will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#namespace IntegrationAwsAccount#namespace}
-        :param tags: The AWS resource tags to filter on for the service specified by ``namespace``. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#tags IntegrationAwsAccount#tags}
+        :param namespace: The AWS service for which the tag filters defined in ``tags`` will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#namespace IntegrationAwsAccount#namespace}
+        :param tags: The AWS resource tags to filter on for the service specified by ``namespace``. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#tags IntegrationAwsAccount#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__026a54da580ae94914a09169cc207d9f136925663dc3fa2e9c98ce86557a7182)
@@ -2069,7 +2069,7 @@ class IntegrationAwsAccountMetricsConfigTagFilters:
     def namespace(self) -> builtins.str:
         '''The AWS service for which the tag filters defined in ``tags`` will be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#namespace IntegrationAwsAccount#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#namespace IntegrationAwsAccount#namespace}
         '''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
@@ -2079,7 +2079,7 @@ class IntegrationAwsAccountMetricsConfigTagFilters:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The AWS resource tags to filter on for the service specified by ``namespace``. Defaults to ``[]``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#tags IntegrationAwsAccount#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#tags IntegrationAwsAccount#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2287,8 +2287,8 @@ class IntegrationAwsAccountResourcesConfig:
         extended_collection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cloud_security_posture_management_collection: Enable Cloud Security Management to scan AWS resources for vulnerabilities, misconfigurations, identity risks, and compliance violations. Requires ``extended_collection`` to be set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#cloud_security_posture_management_collection IntegrationAwsAccount#cloud_security_posture_management_collection}
-        :param extended_collection: Whether Datadog collects additional attributes and configuration information about the resources in your AWS account. Required for ``cloud_security_posture_management_collection``. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#extended_collection IntegrationAwsAccount#extended_collection}
+        :param cloud_security_posture_management_collection: Enable Cloud Security Management to scan AWS resources for vulnerabilities, misconfigurations, identity risks, and compliance violations. Requires ``extended_collection`` to be set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#cloud_security_posture_management_collection IntegrationAwsAccount#cloud_security_posture_management_collection}
+        :param extended_collection: Whether Datadog collects additional attributes and configuration information about the resources in your AWS account. Required for ``cloud_security_posture_management_collection``. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#extended_collection IntegrationAwsAccount#extended_collection}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b856d8bb78fb3ef8469b2b5aa1aadd0e08321fc05a3afd35e6c7e85d1497f7d)
@@ -2308,7 +2308,7 @@ class IntegrationAwsAccountResourcesConfig:
 
         Requires ``extended_collection`` to be set to ``true``. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#cloud_security_posture_management_collection IntegrationAwsAccount#cloud_security_posture_management_collection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#cloud_security_posture_management_collection IntegrationAwsAccount#cloud_security_posture_management_collection}
         '''
         result = self._values.get("cloud_security_posture_management_collection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2321,7 +2321,7 @@ class IntegrationAwsAccountResourcesConfig:
 
         Required for ``cloud_security_posture_management_collection``. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#extended_collection IntegrationAwsAccount#extended_collection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#extended_collection IntegrationAwsAccount#extended_collection}
         '''
         result = self._values.get("extended_collection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2444,7 +2444,7 @@ class IntegrationAwsAccountTracesConfig:
         xray_services: typing.Optional[typing.Union["IntegrationAwsAccountTracesConfigXrayServices", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param xray_services: xray_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#xray_services IntegrationAwsAccount#xray_services}
+        :param xray_services: xray_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#xray_services IntegrationAwsAccount#xray_services}
         '''
         if isinstance(xray_services, dict):
             xray_services = IntegrationAwsAccountTracesConfigXrayServices(**xray_services)
@@ -2461,7 +2461,7 @@ class IntegrationAwsAccountTracesConfig:
     ) -> typing.Optional["IntegrationAwsAccountTracesConfigXrayServices"]:
         '''xray_services block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#xray_services IntegrationAwsAccount#xray_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#xray_services IntegrationAwsAccount#xray_services}
         '''
         result = self._values.get("xray_services")
         return typing.cast(typing.Optional["IntegrationAwsAccountTracesConfigXrayServices"], result)
@@ -2506,8 +2506,8 @@ class IntegrationAwsAccountTracesConfigOutputReference(
         include_only: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param include_all: Include all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
-        :param include_only: Include only these services. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        :param include_all: Include all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
+        :param include_only: Include only these services. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         value = IntegrationAwsAccountTracesConfigXrayServices(
             include_all=include_all, include_only=include_only
@@ -2564,8 +2564,8 @@ class IntegrationAwsAccountTracesConfigXrayServices:
         include_only: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param include_all: Include all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
-        :param include_only: Include only these services. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        :param include_all: Include all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
+        :param include_only: Include only these services. Defaults to ``[]``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0694af8f33001e26147e2dcc1438d2ce9960a015c3e8cd6dc49879b8cfff194)
@@ -2583,7 +2583,7 @@ class IntegrationAwsAccountTracesConfigXrayServices:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Include all services.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_all IntegrationAwsAccount#include_all}
         '''
         result = self._values.get("include_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2592,7 +2592,7 @@ class IntegrationAwsAccountTracesConfigXrayServices:
     def include_only(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Include only these services. Defaults to ``[]``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_aws_account#include_only IntegrationAwsAccount#include_only}
         '''
         result = self._values.get("include_only")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

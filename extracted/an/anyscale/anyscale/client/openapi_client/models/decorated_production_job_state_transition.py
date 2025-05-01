@@ -113,7 +113,7 @@ class DecoratedProductionJobStateTransition(object):
     def state_transitioned_at(self):
         """Gets the state_transitioned_at of this DecoratedProductionJobStateTransition.  # noqa: E501
 
-        The last time the state of this job was updated. This includes updates to the state and to the goal state  # noqa: E501
+        The last time the state of this job was updated  # noqa: E501
 
         :return: The state_transitioned_at of this DecoratedProductionJobStateTransition.  # noqa: E501
         :rtype: datetime
@@ -124,7 +124,7 @@ class DecoratedProductionJobStateTransition(object):
     def state_transitioned_at(self, state_transitioned_at):
         """Sets the state_transitioned_at of this DecoratedProductionJobStateTransition.
 
-        The last time the state of this job was updated. This includes updates to the state and to the goal state  # noqa: E501
+        The last time the state of this job was updated  # noqa: E501
 
         :param state_transitioned_at: The state_transitioned_at of this DecoratedProductionJobStateTransition.  # noqa: E501
         :type: datetime

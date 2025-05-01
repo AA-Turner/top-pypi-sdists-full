@@ -10,12 +10,12 @@ from re import Pattern
 from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
-from mcp.types import TextContent
+from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic.networks import AnyUrl
 
 from fastmcp.resources import Resource, ResourceTemplate
 from fastmcp.server.server import FastMCP
-from fastmcp.tools.tool import Tool
+from fastmcp.tools.tool import Tool, _convert_to_content
 from fastmcp.utilities import openapi
 from fastmcp.utilities.func_metadata import func_metadata
 from fastmcp.utilities.logging import get_logger
@@ -125,6 +125,7 @@ class OpenAPITool(Tool):
         fn_metadata: Any,
         is_async: bool = True,
         tags: set[str] = set(),
+        timeout: float | None = None,
     ):
         super().__init__(
             name=name,
@@ -138,6 +139,7 @@ class OpenAPITool(Tool):
         )
         self._client = client
         self._route = route
+        self._timeout = timeout
 
     async def _execute_request(self, *args, **kwargs):
         """Execute the HTTP request based on the route configuration."""
@@ -147,19 +149,37 @@ class OpenAPITool(Tool):
         path = self._route.path
 
         # Replace path parameters with values from kwargs
+        # Path parameters should never be None as they're typically required
+        # but we'll handle that case anyway
         path_params = {
             p.name: kwargs.get(p.name)
             for p in self._route.parameters
             if p.location == "path"
+            and p.name in kwargs
+            and kwargs.get(p.name) is not None
         }
+
+        # Ensure all path parameters are provided
+        required_path_params = {
+            p.name
+            for p in self._route.parameters
+            if p.location == "path" and p.required
+        }
+        missing_params = required_path_params - path_params.keys()
+        if missing_params:
+            raise ValueError(f"Missing required path parameters: {missing_params}")
+
         for param_name, param_value in path_params.items():
             path = path.replace(f"{{{param_name}}}", str(param_value))
 
-        # Prepare query parameters
+        # Prepare query parameters - filter out None and empty strings
         query_params = {
             p.name: kwargs.get(p.name)
             for p in self._route.parameters
-            if p.location == "query" and p.name in kwargs
+            if p.location == "query"
+            and p.name in kwargs
+            and kwargs.get(p.name) is not None
+            and kwargs.get(p.name) != ""
         }
 
         # Prepare headers - fix typing by ensuring all values are strings
@@ -206,7 +226,7 @@ class OpenAPITool(Tool):
                 params=query_params,
                 headers=headers,
                 json=json_data,
-                timeout=30.0,  # Default timeout
+                timeout=self._timeout,
             )
 
             # Raise for 4xx/5xx responses
@@ -237,9 +257,14 @@ class OpenAPITool(Tool):
             # Handle request errors (connection, timeout, etc.)
             raise ValueError(f"Request error: {str(e)}")
 
-    async def run(self, arguments: dict[str, Any], context: Any = None) -> Any:
+    async def run(
+        self,
+        arguments: dict[str, Any],
+        context: Context[ServerSessionT, LifespanContextT] | None = None,
+    ) -> list[TextContent | ImageContent | EmbeddedResource]:
         """Run the tool with arguments and optional context."""
-        return await self._execute_request(**arguments, context=context)
+        response = await self._execute_request(**arguments, context=context)
+        return _convert_to_content(response)
 
 
 class OpenAPIResource(Resource):
@@ -254,6 +279,7 @@ class OpenAPIResource(Resource):
         description: str,
         mime_type: str = "application/json",
         tags: set[str] = set(),
+        timeout: float | None = None,
     ):
         super().__init__(
             uri=AnyUrl(uri),  # Convert string to AnyUrl
@@ -264,6 +290,7 @@ class OpenAPIResource(Resource):
         )
         self._client = client
         self._route = route
+        self._timeout = timeout
 
     async def read(
         self, context: Context[ServerSessionT, LifespanContextT] | None = None
@@ -278,30 +305,44 @@ class OpenAPIResource(Resource):
             if "{" in path and "}" in path:
                 # Extract the resource ID from the URI (the last part after the last slash)
                 parts = resource_uri.split("/")
+
                 if len(parts) > 1:
                     # Find all path parameters in the route path
                     path_params = {}
 
-                    # Extract parameters from the URI
-                    param_value = parts[
-                        -1
-                    ]  # The last part contains the parameter value
-
-                    # Find the path parameter name from the route path
+                    # Find the path parameter names from the route path
                     param_matches = re.findall(r"\{([^}]+)\}", path)
                     if param_matches:
-                        # Assume the last parameter in the URI is for the first path parameter in the route
-                        path_param_name = param_matches[0]
-                        path_params[path_param_name] = param_value
+                        # Reverse sorting from creation order (traversal is backwards)
+                        param_matches.sort(reverse=True)
+                        # Number of sent parameters is number of parts -1 (assuming first part is resource identifier)
+                        expected_param_count = len(parts) - 1
+                        # Map parameters from the end of the URI to the parameters in the path
+                        # Last parameter in URI (parts[-1]) maps to last parameter in path, and so on
+                        for i, param_name in enumerate(param_matches):
+                            # Ensure we don't use resource identifier as parameter
+                            if i < expected_param_count:
+                                # Get values from the end of parts
+                                param_value = parts[-1 - i]
+                                path_params[param_name] = param_value
 
                     # Replace path parameters with their values
                     for param_name, param_value in path_params.items():
                         path = path.replace(f"{{{param_name}}}", str(param_value))
 
+            # Filter any query parameters - get query parameters and filter out None/empty values
+            query_params = {}
+            for param in self._route.parameters:
+                if param.location == "query" and hasattr(self, f"_{param.name}"):
+                    value = getattr(self, f"_{param.name}")
+                    if value is not None and value != "":
+                        query_params[param.name] = value
+
             response = await self._client.request(
                 method=self._route.method,
                 url=path,
-                timeout=30.0,  # Default timeout
+                params=query_params,
+                timeout=self._timeout,
             )
 
             # Raise for 4xx/5xx responses
@@ -349,6 +390,7 @@ class OpenAPIResourceTemplate(ResourceTemplate):
         description: str,
         parameters: dict[str, Any],
         tags: set[str] = set(),
+        timeout: float | None = None,
     ):
         super().__init__(
             uri_template=uri_template,
@@ -361,6 +403,7 @@ class OpenAPIResourceTemplate(ResourceTemplate):
         )
         self._client = client
         self._route = route
+        self._timeout = timeout
 
     async def create_resource(
         self,
@@ -383,6 +426,7 @@ class OpenAPIResourceTemplate(ResourceTemplate):
             description=self.description or f"Resource for {self._route.path}",
             mime_type="application/json",
             tags=set(self._route.tags or []),
+            timeout=self._timeout,
         )
 
 
@@ -430,6 +474,7 @@ class FastMCPOpenAPI(FastMCP):
         client: httpx.AsyncClient,
         name: str | None = None,
         route_maps: list[RouteMap] | None = None,
+        timeout: float | None = None,
         **settings: Any,
     ):
         """
@@ -440,13 +485,13 @@ class FastMCPOpenAPI(FastMCP):
             client: httpx AsyncClient for making HTTP requests
             name: Optional name for the server
             route_maps: Optional list of RouteMap objects defining route mappings
-            default_mime_type: Default MIME type for resources
+            timeout: Optional timeout (in seconds) for all requests
             **settings: Additional settings for FastMCP
         """
         super().__init__(name=name or "OpenAPI FastMCP", **settings)
 
         self._client = client
-
+        self._timeout = timeout
         http_routes = openapi.parse_openapi_to_http_routes(openapi_spec)
 
         # Process routes
@@ -504,6 +549,7 @@ class FastMCPOpenAPI(FastMCP):
             fn_metadata=func_metadata(_openapi_passthrough),
             is_async=True,
             tags=set(route.tags or []),
+            timeout=self._timeout,
         )
         # Register the tool by directly assigning to the tools dictionary
         self._tool_manager._tools[tool_name] = tool
@@ -532,6 +578,7 @@ class FastMCPOpenAPI(FastMCP):
             name=resource_name,
             description=enhanced_description,
             tags=set(route.tags or []),
+            timeout=self._timeout,
         )
         # Register the resource by directly assigning to the resources dictionary
         self._resource_manager._resources[str(resource.uri)] = resource
@@ -577,6 +624,7 @@ class FastMCPOpenAPI(FastMCP):
             description=enhanced_description,
             parameters=template_params_schema,
             tags=set(route.tags or []),
+            timeout=self._timeout,
         )
         # Register the template by directly assigning to the templates dictionary
         self._resource_manager._templates[uri_template_str] = template
@@ -589,13 +637,4 @@ class FastMCPOpenAPI(FastMCP):
 
         context = self.get_context()
         result = await self._tool_manager.call_tool(name, arguments, context=context)
-
-        # For other tools, ensure the response is wrapped in TextContent
-        if isinstance(result, dict | str):
-            if isinstance(result, dict):
-                result_text = json.dumps(result)
-            else:
-                result_text = result
-            return [TextContent(text=result_text, type="text")]
-
         return result

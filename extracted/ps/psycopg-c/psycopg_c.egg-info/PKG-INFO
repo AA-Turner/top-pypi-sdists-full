@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: psycopg-c
-Version: 3.2.6
+Version: 3.2.7
 Summary: PostgreSQL database adapter for Python -- C optimisation distribution
 Home-page: https://psycopg.org/psycopg3/
 Author: Daniele Varrazzo
@@ -34,6 +34,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: license-file
 
 Psycopg 3: PostgreSQL database adapter for Python - optimisation package
 ========================================================================

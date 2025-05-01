@@ -8703,6 +8703,33 @@ def show_certificate_tracker(ctx, **kwargs):
     output_entry(ctx, result.to_dict())
 
 
+@cli.command(name="list-regional-locations")
+@click.option("--location-name-list", multiple=True, default=None)
+@click.option("--subdomain", default=None)
+@click.option("--org-id", default=None)
+@click.option("--limit", default=500)
+@click.pass_context
+def list_regional_locations(ctx, **kwargs):
+    locations = regions.list_regional_locations(ctx, **kwargs).regional_locations
+    columns = make_columns(
+        ctx,
+        locations,
+        """
+          - name
+          - location_type
+          - org_domains
+          - cname_domain_forwards
+          - firewall_rules:
+            - name
+            - action
+            - domains
+            - subnets
+            - ports
+        """,
+    )
+    print(format_table(ctx, locations, columns))
+
+
 def main():
     trusted_certs_main.add_commands(cli)
     hosts_main.add_commands(cli)

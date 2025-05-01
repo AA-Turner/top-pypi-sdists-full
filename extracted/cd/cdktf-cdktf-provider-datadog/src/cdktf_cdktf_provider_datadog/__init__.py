@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.60.1
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.61.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.60.1/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.61.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform datadog provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.60.1)
+* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.61.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -162,6 +162,7 @@ __all__ = [
     "data_datadog_logs_indexes_order",
     "data_datadog_logs_pipelines",
     "data_datadog_logs_pipelines_order",
+    "data_datadog_metric_tags",
     "data_datadog_monitor",
     "data_datadog_monitor_config_policies",
     "data_datadog_monitors",
@@ -229,6 +230,7 @@ __all__ = [
     "monitor",
     "monitor_config_policy",
     "monitor_json",
+    "monitor_notification_rule",
     "observability_pipeline",
     "openapi_api",
     "organization_settings",
@@ -309,6 +311,7 @@ from . import data_datadog_logs_indexes
 from . import data_datadog_logs_indexes_order
 from . import data_datadog_logs_pipelines
 from . import data_datadog_logs_pipelines_order
+from . import data_datadog_metric_tags
 from . import data_datadog_monitor
 from . import data_datadog_monitor_config_policies
 from . import data_datadog_monitors
@@ -376,6 +379,7 @@ from . import metric_tag_configuration
 from . import monitor
 from . import monitor_config_policy
 from . import monitor_json
+from . import monitor_notification_rule
 from . import observability_pipeline
 from . import openapi_api
 from . import organization_settings

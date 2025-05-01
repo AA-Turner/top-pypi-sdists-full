@@ -1629,6 +1629,37 @@ pipeline.add_stage(
 See [the AWS documentation](https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-StepFunctions.html)
 for information on Action structure reference.
 
+### Pipeline
+
+This module contains an Action that allows you to invoke another pipeline execution in a pipeline:
+
+```python
+import aws_cdk.aws_codepipeline_actions as cpactions
+
+
+pipeline = codepipeline.Pipeline(self, "MyPipeline")
+target_pipeline = codepipeline.Pipeline.from_pipeline_arn(self, "Pipeline", "arn:aws:codepipeline:us-east-1:123456789012:InvokePipelineAction") # If targetPipeline is not created by cdk, import from arn.
+pipeline.add_stage(
+    stage_name="stageName",
+    actions=[cpactions.PipelineInvokeAction(
+        action_name="Invoke",
+        target_pipeline=target_pipeline,
+        variables=[cpactions.Variable(
+            name="name1",
+            value="value1"
+        )],
+        source_revisions=[cpactions.SourceRevision(
+            action_name="Source",
+            revision_type=cpactions.RevisionType.S3_OBJECT_VERSION_ID,
+            revision_value="testRevisionValue"
+        )]
+    )]
+)
+```
+
+See [the AWS documentation](https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-PipelineInvoke.html)
+for information on Action structure reference.
+
 ## Invoke
 
 ### Inspector
@@ -1857,6 +1888,7 @@ from ..aws_codepipeline import (
     ArtifactPath as _ArtifactPath_bf444090,
     CommonActionProps as _CommonActionProps_e3aaeecb,
     CommonAwsActionProps as _CommonAwsActionProps_8b809bb6,
+    IPipeline as _IPipeline_0931f838,
     IStage as _IStage_415fc571,
 )
 from ..aws_ecr import IRepository as _IRepository_e6004aa6
@@ -11154,6 +11186,273 @@ class OrganizationsDeploymentProps:
         )
 
 
+class PipelineInvokeAction(
+    Action,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.PipelineInvokeAction",
+):
+    '''CodePipeline action to invoke a pipeline.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_codepipeline_actions as cpactions
+        
+        
+        pipeline = codepipeline.Pipeline(self, "MyPipeline")
+        target_pipeline = codepipeline.Pipeline.from_pipeline_arn(self, "Pipeline", "arn:aws:codepipeline:us-east-1:123456789012:InvokePipelineAction") # If targetPipeline is not created by cdk, import from arn.
+        pipeline.add_stage(
+            stage_name="stageName",
+            actions=[cpactions.PipelineInvokeAction(
+                action_name="Invoke",
+                target_pipeline=target_pipeline,
+                variables=[cpactions.Variable(
+                    name="name1",
+                    value="value1"
+                )],
+                source_revisions=[cpactions.SourceRevision(
+                    action_name="Source",
+                    revision_type=cpactions.RevisionType.S3_OBJECT_VERSION_ID,
+                    revision_value="testRevisionValue"
+                )]
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        target_pipeline: _IPipeline_0931f838,
+        source_revisions: typing.Optional[typing.Sequence[typing.Union["SourceRevision", typing.Dict[builtins.str, typing.Any]]]] = None,
+        variables: typing.Optional[typing.Sequence[typing.Union["Variable", typing.Dict[builtins.str, typing.Any]]]] = None,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        action_name: builtins.str,
+        run_order: typing.Optional[jsii.Number] = None,
+        variables_namespace: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param target_pipeline: The pipeline that will, upon running, start the current target pipeline. You must have already created the invoking pipeline.
+        :param source_revisions: The source revisions that you want the target pipeline to use when it is started by the invoking pipeline. Default: - no specific revisions
+        :param variables: The names and values of variables that you want the action to support. Default: - no specific variable
+        :param role: The Role in which context's this Action will be executing in. The Pipeline's Role will assume this Role (the required permissions for that will be granted automatically) right before executing this Action. This Action will be passed into your ``IAction.bind`` method in the ``ActionBindOptions.role`` property. Default: a new Role will be generated
+        :param action_name: The physical, human-readable name of the Action. Note that Action names must be unique within a single Stage.
+        :param run_order: The runOrder property for this Action. RunOrder determines the relative order in which multiple Actions in the same Stage execute. Default: 1
+        :param variables_namespace: The name of the namespace to use for variables emitted by this action. Default: - a name will be generated, based on the stage and action names, if any of the action's variables were referenced - otherwise, no namespace will be set
+        '''
+        props = PipelineInvokeActionProps(
+            target_pipeline=target_pipeline,
+            source_revisions=source_revisions,
+            variables=variables,
+            role=role,
+            action_name=action_name,
+            run_order=run_order,
+            variables_namespace=variables_namespace,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="bound")
+    def _bound(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        _stage: _IStage_415fc571,
+        *,
+        bucket: _IBucket_42e086fd,
+        role: _IRole_235f5d8e,
+    ) -> _ActionConfig_846fc217:
+        '''This is a renamed version of the ``IAction.bind`` method.
+
+        :param scope: -
+        :param _stage: -
+        :param bucket: 
+        :param role: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ed87a7fa19e6ece9b82b1b37ae387b26ec595dfeea75a3ebc8658a86778c40c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument _stage", value=_stage, expected_type=type_hints["_stage"])
+        options = _ActionBindOptions_3a612254(bucket=bucket, role=role)
+
+        return typing.cast(_ActionConfig_846fc217, jsii.invoke(self, "bound", [scope, _stage, options]))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.PipelineInvokeActionProps",
+    jsii_struct_bases=[_CommonAwsActionProps_8b809bb6],
+    name_mapping={
+        "action_name": "actionName",
+        "run_order": "runOrder",
+        "variables_namespace": "variablesNamespace",
+        "role": "role",
+        "target_pipeline": "targetPipeline",
+        "source_revisions": "sourceRevisions",
+        "variables": "variables",
+    },
+)
+class PipelineInvokeActionProps(_CommonAwsActionProps_8b809bb6):
+    def __init__(
+        self,
+        *,
+        action_name: builtins.str,
+        run_order: typing.Optional[jsii.Number] = None,
+        variables_namespace: typing.Optional[builtins.str] = None,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        target_pipeline: _IPipeline_0931f838,
+        source_revisions: typing.Optional[typing.Sequence[typing.Union["SourceRevision", typing.Dict[builtins.str, typing.Any]]]] = None,
+        variables: typing.Optional[typing.Sequence[typing.Union["Variable", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Construction properties of the ``PipelineInvokeAction``.
+
+        :param action_name: The physical, human-readable name of the Action. Note that Action names must be unique within a single Stage.
+        :param run_order: The runOrder property for this Action. RunOrder determines the relative order in which multiple Actions in the same Stage execute. Default: 1
+        :param variables_namespace: The name of the namespace to use for variables emitted by this action. Default: - a name will be generated, based on the stage and action names, if any of the action's variables were referenced - otherwise, no namespace will be set
+        :param role: The Role in which context's this Action will be executing in. The Pipeline's Role will assume this Role (the required permissions for that will be granted automatically) right before executing this Action. This Action will be passed into your ``IAction.bind`` method in the ``ActionBindOptions.role`` property. Default: a new Role will be generated
+        :param target_pipeline: The pipeline that will, upon running, start the current target pipeline. You must have already created the invoking pipeline.
+        :param source_revisions: The source revisions that you want the target pipeline to use when it is started by the invoking pipeline. Default: - no specific revisions
+        :param variables: The names and values of variables that you want the action to support. Default: - no specific variable
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_codepipeline_actions as cpactions
+            
+            
+            pipeline = codepipeline.Pipeline(self, "MyPipeline")
+            target_pipeline = codepipeline.Pipeline.from_pipeline_arn(self, "Pipeline", "arn:aws:codepipeline:us-east-1:123456789012:InvokePipelineAction") # If targetPipeline is not created by cdk, import from arn.
+            pipeline.add_stage(
+                stage_name="stageName",
+                actions=[cpactions.PipelineInvokeAction(
+                    action_name="Invoke",
+                    target_pipeline=target_pipeline,
+                    variables=[cpactions.Variable(
+                        name="name1",
+                        value="value1"
+                    )],
+                    source_revisions=[cpactions.SourceRevision(
+                        action_name="Source",
+                        revision_type=cpactions.RevisionType.S3_OBJECT_VERSION_ID,
+                        revision_value="testRevisionValue"
+                    )]
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e6b4bcc5a2d9a18c86282291d297ea7e0240c2783c54be4c653d47eacbadd7c)
+            check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
+            check_type(argname="argument run_order", value=run_order, expected_type=type_hints["run_order"])
+            check_type(argname="argument variables_namespace", value=variables_namespace, expected_type=type_hints["variables_namespace"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument target_pipeline", value=target_pipeline, expected_type=type_hints["target_pipeline"])
+            check_type(argname="argument source_revisions", value=source_revisions, expected_type=type_hints["source_revisions"])
+            check_type(argname="argument variables", value=variables, expected_type=type_hints["variables"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_name": action_name,
+            "target_pipeline": target_pipeline,
+        }
+        if run_order is not None:
+            self._values["run_order"] = run_order
+        if variables_namespace is not None:
+            self._values["variables_namespace"] = variables_namespace
+        if role is not None:
+            self._values["role"] = role
+        if source_revisions is not None:
+            self._values["source_revisions"] = source_revisions
+        if variables is not None:
+            self._values["variables"] = variables
+
+    @builtins.property
+    def action_name(self) -> builtins.str:
+        '''The physical, human-readable name of the Action.
+
+        Note that Action names must be unique within a single Stage.
+        '''
+        result = self._values.get("action_name")
+        assert result is not None, "Required property 'action_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def run_order(self) -> typing.Optional[jsii.Number]:
+        '''The runOrder property for this Action.
+
+        RunOrder determines the relative order in which multiple Actions in the same Stage execute.
+
+        :default: 1
+
+        :see: https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html
+        '''
+        result = self._values.get("run_order")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def variables_namespace(self) -> typing.Optional[builtins.str]:
+        '''The name of the namespace to use for variables emitted by this action.
+
+        :default:
+
+        - a name will be generated, based on the stage and action names,
+        if any of the action's variables were referenced - otherwise,
+        no namespace will be set
+        '''
+        result = self._values.get("variables_namespace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The Role in which context's this Action will be executing in.
+
+        The Pipeline's Role will assume this Role
+        (the required permissions for that will be granted automatically)
+        right before executing this Action.
+        This Action will be passed into your ``IAction.bind``
+        method in the ``ActionBindOptions.role`` property.
+
+        :default: a new Role will be generated
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def target_pipeline(self) -> _IPipeline_0931f838:
+        '''The pipeline that will, upon running, start the current target pipeline.
+
+        You must have already created the invoking pipeline.
+        '''
+        result = self._values.get("target_pipeline")
+        assert result is not None, "Required property 'target_pipeline' is missing"
+        return typing.cast(_IPipeline_0931f838, result)
+
+    @builtins.property
+    def source_revisions(self) -> typing.Optional[typing.List["SourceRevision"]]:
+        '''The source revisions that you want the target pipeline to use when it is started by the invoking pipeline.
+
+        :default: - no specific revisions
+        '''
+        result = self._values.get("source_revisions")
+        return typing.cast(typing.Optional[typing.List["SourceRevision"]], result)
+
+    @builtins.property
+    def variables(self) -> typing.Optional[typing.List["Variable"]]:
+        '''The names and values of variables that you want the action to support.
+
+        :default: - no specific variable
+        '''
+        result = self._values.get("variables")
+        return typing.cast(typing.Optional[typing.List["Variable"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PipelineInvokeActionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_codepipeline_actions.RegistryType")
 class RegistryType(enum.Enum):
     '''The type of registry to use for the EcrBuildAndPublish action.
@@ -11201,6 +11500,47 @@ class RegistryType(enum.Enum):
     '''Private registry.'''
     PUBLIC = "PUBLIC"
     '''Public registry.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_codepipeline_actions.RevisionType")
+class RevisionType(enum.Enum):
+    '''The types of revision for a pipeline execution.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_codepipeline_actions as cpactions
+        
+        
+        pipeline = codepipeline.Pipeline(self, "MyPipeline")
+        target_pipeline = codepipeline.Pipeline.from_pipeline_arn(self, "Pipeline", "arn:aws:codepipeline:us-east-1:123456789012:InvokePipelineAction") # If targetPipeline is not created by cdk, import from arn.
+        pipeline.add_stage(
+            stage_name="stageName",
+            actions=[cpactions.PipelineInvokeAction(
+                action_name="Invoke",
+                target_pipeline=target_pipeline,
+                variables=[cpactions.Variable(
+                    name="name1",
+                    value="value1"
+                )],
+                source_revisions=[cpactions.SourceRevision(
+                    action_name="Source",
+                    revision_type=cpactions.RevisionType.S3_OBJECT_VERSION_ID,
+                    revision_value="testRevisionValue"
+                )]
+            )]
+        )
+    '''
+
+    COMMIT_ID = "COMMIT_ID"
+    '''The revision type is a commit id.'''
+    IMAGE_DIGEST = "IMAGE_DIGEST"
+    '''The revision type is an image digest.'''
+    S3_OBJECT_VERSION_ID = "S3_OBJECT_VERSION_ID"
+    '''The revision type is an s3 object version id.'''
+    S3_OBJECT_KEY = "S3_OBJECT_KEY"
+    '''The revision type is an s3 object version key.'''
 
 
 class S3DeployAction(
@@ -12300,6 +12640,87 @@ class ServiceCatalogDeployActionBeta1Props(_CommonAwsActionProps_8b809bb6):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.SourceRevision",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action_name": "actionName",
+        "revision_type": "revisionType",
+        "revision_value": "revisionValue",
+    },
+)
+class SourceRevision:
+    def __init__(
+        self,
+        *,
+        action_name: builtins.str,
+        revision_type: RevisionType,
+        revision_value: builtins.str,
+    ) -> None:
+        '''A list that allows you to specify, or override, the source revision for a pipeline execution that's being started.
+
+        :param action_name: The name of the action where the override will be applied.
+        :param revision_type: The type of source revision, based on the source provider.
+        :param revision_value: The source revision, or version of your source artifact, with the changes that you want to run in the pipeline execution.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codepipeline_actions as codepipeline_actions
+            
+            source_revision = codepipeline_actions.SourceRevision(
+                action_name="actionName",
+                revision_type=codepipeline_actions.RevisionType.COMMIT_ID,
+                revision_value="revisionValue"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6340ae26c25f358935f8374f2fd03813edfede1d33e06124e7c084bd404be8d)
+            check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
+            check_type(argname="argument revision_type", value=revision_type, expected_type=type_hints["revision_type"])
+            check_type(argname="argument revision_value", value=revision_value, expected_type=type_hints["revision_value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_name": action_name,
+            "revision_type": revision_type,
+            "revision_value": revision_value,
+        }
+
+    @builtins.property
+    def action_name(self) -> builtins.str:
+        '''The name of the action where the override will be applied.'''
+        result = self._values.get("action_name")
+        assert result is not None, "Required property 'action_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def revision_type(self) -> RevisionType:
+        '''The type of source revision, based on the source provider.'''
+        result = self._values.get("revision_type")
+        assert result is not None, "Required property 'revision_type' is missing"
+        return typing.cast(RevisionType, result)
+
+    @builtins.property
+    def revision_value(self) -> builtins.str:
+        '''The source revision, or version of your source artifact, with the changes that you want to run in the pipeline execution.'''
+        result = self._values.get("revision_value")
+        assert result is not None, "Required property 'revision_value' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SourceRevision(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class StackInstances(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_codepipeline_actions.StackInstances",
@@ -13115,6 +13536,66 @@ class StepFunctionsInvokeActionProps(_CommonAwsActionProps_8b809bb6):
 
     def __repr__(self) -> str:
         return "StepFunctionsInvokeActionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.Variable",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "value": "value"},
+)
+class Variable:
+    def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
+        '''A pipeline-level variable used for a pipeline execution.
+
+        :param name: The name of a pipeline-level variable.
+        :param value: The value of a pipeline-level variable.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codepipeline_actions as codepipeline_actions
+            
+            variable = codepipeline_actions.Variable(
+                name="name",
+                value="value"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8a68dede489d12391ec667e8aa5807439ea94f1c04be5d03a7e3c6d8dc56a12)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "value": value,
+        }
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of a pipeline-level variable.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        '''The value of a pipeline-level variable.'''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Variable(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -14254,7 +14735,10 @@ __all__ = [
     "ManualApprovalAction",
     "ManualApprovalActionProps",
     "OrganizationsDeploymentProps",
+    "PipelineInvokeAction",
+    "PipelineInvokeActionProps",
     "RegistryType",
+    "RevisionType",
     "S3DeployAction",
     "S3DeployActionProps",
     "S3SourceAction",
@@ -14264,6 +14748,7 @@ __all__ = [
     "SelfManagedDeploymentProps",
     "ServiceCatalogDeployActionBeta1",
     "ServiceCatalogDeployActionBeta1Props",
+    "SourceRevision",
     "StackInstances",
     "StackSetDeploymentModel",
     "StackSetOrganizationsAutoDeployment",
@@ -14272,6 +14757,7 @@ __all__ = [
     "StateMachineInput",
     "StepFunctionInvokeAction",
     "StepFunctionsInvokeActionProps",
+    "Variable",
 ]
 
 publication.publish()
@@ -15030,6 +15516,29 @@ def _typecheckingstub__d66fc0e700f87761939e3003c9e3c3e4c2180d4fbcf47f177722767a1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6ed87a7fa19e6ece9b82b1b37ae387b26ec595dfeea75a3ebc8658a86778c40c(
+    scope: _constructs_77d1e7e8.Construct,
+    _stage: _IStage_415fc571,
+    *,
+    bucket: _IBucket_42e086fd,
+    role: _IRole_235f5d8e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e6b4bcc5a2d9a18c86282291d297ea7e0240c2783c54be4c653d47eacbadd7c(
+    *,
+    action_name: builtins.str,
+    run_order: typing.Optional[jsii.Number] = None,
+    variables_namespace: typing.Optional[builtins.str] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    target_pipeline: _IPipeline_0931f838,
+    source_revisions: typing.Optional[typing.Sequence[typing.Union[SourceRevision, typing.Dict[builtins.str, typing.Any]]]] = None,
+    variables: typing.Optional[typing.Sequence[typing.Union[Variable, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__008d01d41b4e94d14ea5b08b27875929ad6e0df8af43fbdcafd84cbd5e0c0d34(
     _scope: _constructs_77d1e7e8.Construct,
     _stage: _IStage_415fc571,
@@ -15121,6 +15630,15 @@ def _typecheckingstub__635c5e141213d9eb83c0cf108258fe0bca5f5aaea1d9e71c6d7562baa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e6340ae26c25f358935f8374f2fd03813edfede1d33e06124e7c084bd404be8d(
+    *,
+    action_name: builtins.str,
+    revision_type: RevisionType,
+    revision_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__141e5dc2d58924fb831d931847f37935e361c2a153f9e8c11234fcdf48d5cacd(
     artifact_path: _ArtifactPath_bf444090,
     regions: typing.Sequence[builtins.str],
@@ -15193,6 +15711,14 @@ def _typecheckingstub__64ac90d220b5e655386915e2881b269f896519c023a90afd1756161c9
     execution_name_prefix: typing.Optional[builtins.str] = None,
     output: typing.Optional[_Artifact_0cb05964] = None,
     state_machine_input: typing.Optional[StateMachineInput] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8a68dede489d12391ec667e8aa5807439ea94f1c04be5d03a7e3c6d8dc56a12(
+    *,
+    name: builtins.str,
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

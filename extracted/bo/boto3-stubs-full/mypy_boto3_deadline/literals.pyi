@@ -108,6 +108,7 @@ __all__ = (
     "StepParameterTypeType",
     "StepTargetTaskRunStatusType",
     "StorageProfileOperatingSystemFamilyType",
+    "TagPropagationModeType",
     "TaskRunStatusType",
     "TaskTargetRunStatusType",
     "UpdateJobLifecycleStatusType",
@@ -254,6 +255,7 @@ StepTargetTaskRunStatusType = Literal[
     "CANCELED", "FAILED", "PENDING", "READY", "SUCCEEDED", "SUSPENDED"
 ]
 StorageProfileOperatingSystemFamilyType = Literal["LINUX", "MACOS", "WINDOWS"]
+TagPropagationModeType = Literal["NO_PROPAGATION", "PROPAGATE_TAGS_TO_WORKERS_AT_LAUNCH"]
 TaskRunStatusType = Literal[
     "ASSIGNED",
     "CANCELED",

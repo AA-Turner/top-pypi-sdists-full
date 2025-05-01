@@ -1,7 +1,7 @@
 r'''
 # `datadog_domain_allowlist`
 
-Refer to the Terraform Registry for docs: [`datadog_domain_allowlist`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist).
+Refer to the Terraform Registry for docs: [`datadog_domain_allowlist`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DomainAllowlist(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.domainAllowlist.DomainAllowlist",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist datadog_domain_allowlist}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist datadog_domain_allowlist}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DomainAllowlist(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist datadog_domain_allowlist} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist datadog_domain_allowlist} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domains: The domains within the domain allowlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist#domains DomainAllowlist#domains}
-        :param enabled: Whether the Email Domain Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist#enabled DomainAllowlist#enabled}
+        :param domains: The domains within the domain allowlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist#domains DomainAllowlist#domains}
+        :param enabled: Whether the Email Domain Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist#enabled DomainAllowlist#enabled}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DomainAllowlist(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DomainAllowlist to import.
-        :param import_from_id: The id of the existing DomainAllowlist that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DomainAllowlist that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DomainAllowlist to import is found.
         '''
         if __debug__:
@@ -212,8 +212,8 @@ class DomainAllowlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domains: The domains within the domain allowlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist#domains DomainAllowlist#domains}
-        :param enabled: Whether the Email Domain Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist#enabled DomainAllowlist#enabled}
+        :param domains: The domains within the domain allowlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist#domains DomainAllowlist#domains}
+        :param enabled: Whether the Email Domain Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist#enabled DomainAllowlist#enabled}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -315,7 +315,7 @@ class DomainAllowlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def domains(self) -> typing.List[builtins.str]:
         '''The domains within the domain allowlist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist#domains DomainAllowlist#domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist#domains DomainAllowlist#domains}
         '''
         result = self._values.get("domains")
         assert result is not None, "Required property 'domains' is missing"
@@ -325,7 +325,7 @@ class DomainAllowlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the Email Domain Allowlist is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/domain_allowlist#enabled DomainAllowlist#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/domain_allowlist#enabled DomainAllowlist#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"

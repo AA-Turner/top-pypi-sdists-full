@@ -368,11 +368,18 @@ __all__ = (
     "ProtectedJobStatisticsTypeDef",
     "ProtectedJobSummaryTypeDef",
     "ProtectedJobTypeDef",
+    "ProtectedQueryDistributeOutputConfigurationLocationTypeDef",
+    "ProtectedQueryDistributeOutputConfigurationOutputTypeDef",
+    "ProtectedQueryDistributeOutputConfigurationTypeDef",
+    "ProtectedQueryDistributeOutputTypeDef",
     "ProtectedQueryErrorTypeDef",
     "ProtectedQueryMemberOutputConfigurationTypeDef",
+    "ProtectedQueryOutputConfigurationOutputTypeDef",
     "ProtectedQueryOutputConfigurationTypeDef",
     "ProtectedQueryOutputTypeDef",
+    "ProtectedQueryResultConfigurationOutputTypeDef",
     "ProtectedQueryResultConfigurationTypeDef",
+    "ProtectedQueryResultConfigurationUnionTypeDef",
     "ProtectedQueryResultTypeDef",
     "ProtectedQueryS3OutputConfigurationTypeDef",
     "ProtectedQueryS3OutputTypeDef",
@@ -1192,10 +1199,6 @@ class ProtectedJobSingleMemberOutputTypeDef(TypedDict):
 class ProtectedJobParametersTypeDef(TypedDict):
     analysisTemplateArn: NotRequired[str]
 
-class ProtectedQueryErrorTypeDef(TypedDict):
-    message: str
-    code: str
-
 class ProtectedQueryMemberOutputConfigurationTypeDef(TypedDict):
     accountId: str
 
@@ -1204,6 +1207,10 @@ class ProtectedQueryS3OutputTypeDef(TypedDict):
 
 class ProtectedQuerySingleMemberOutputTypeDef(TypedDict):
     accountId: str
+
+class ProtectedQueryErrorTypeDef(TypedDict):
+    message: str
+    code: str
 
 class ProtectedQuerySQLParametersOutputTypeDef(TypedDict):
     queryString: NotRequired[str]
@@ -1736,11 +1743,11 @@ class ProtectedJobOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedJobS3OutputTypeDef]
     memberList: NotRequired[List[ProtectedJobSingleMemberOutputTypeDef]]
 
-class ProtectedQueryOutputConfigurationTypeDef(TypedDict):
+class ProtectedQueryDistributeOutputConfigurationLocationTypeDef(TypedDict):
     s3: NotRequired[ProtectedQueryS3OutputConfigurationTypeDef]
     member: NotRequired[ProtectedQueryMemberOutputConfigurationTypeDef]
 
-class ProtectedQueryOutputTypeDef(TypedDict):
+class ProtectedQueryDistributeOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedQueryS3OutputTypeDef]
     memberList: NotRequired[List[ProtectedQuerySingleMemberOutputTypeDef]]
 
@@ -1963,11 +1970,16 @@ class ProtectedJobResultConfigurationOutputTypeDef(TypedDict):
 class ProtectedJobResultTypeDef(TypedDict):
     output: ProtectedJobOutputTypeDef
 
-class ProtectedQueryResultConfigurationTypeDef(TypedDict):
-    outputConfiguration: ProtectedQueryOutputConfigurationTypeDef
+class ProtectedQueryDistributeOutputConfigurationOutputTypeDef(TypedDict):
+    locations: List[ProtectedQueryDistributeOutputConfigurationLocationTypeDef]
 
-class ProtectedQueryResultTypeDef(TypedDict):
-    output: ProtectedQueryOutputTypeDef
+class ProtectedQueryDistributeOutputConfigurationTypeDef(TypedDict):
+    locations: Sequence[ProtectedQueryDistributeOutputConfigurationLocationTypeDef]
+
+class ProtectedQueryOutputTypeDef(TypedDict):
+    s3: NotRequired[ProtectedQueryS3OutputTypeDef]
+    memberList: NotRequired[List[ProtectedQuerySingleMemberOutputTypeDef]]
+    distribute: NotRequired[ProtectedQueryDistributeOutputTypeDef]
 
 class AnalysisRuleIdMappingTableTypeDef(TypedDict):
     joinColumns: List[str]
@@ -2251,33 +2263,20 @@ ProtectedJobTypeDef = TypedDict(
         "error": NotRequired[ProtectedJobErrorTypeDef],
     },
 )
-StartProtectedQueryInputTypeDef = TypedDict(
-    "StartProtectedQueryInputTypeDef",
-    {
-        "type": Literal["SQL"],
-        "membershipIdentifier": str,
-        "sqlParameters": ProtectedQuerySQLParametersUnionTypeDef,
-        "resultConfiguration": NotRequired[ProtectedQueryResultConfigurationTypeDef],
-        "computeConfiguration": NotRequired[ComputeConfigurationTypeDef],
-    },
-)
-ProtectedQueryTypeDef = TypedDict(
-    "ProtectedQueryTypeDef",
-    {
-        "id": str,
-        "membershipId": str,
-        "membershipArn": str,
-        "createTime": datetime,
-        "status": ProtectedQueryStatusType,
-        "sqlParameters": NotRequired[ProtectedQuerySQLParametersOutputTypeDef],
-        "resultConfiguration": NotRequired[ProtectedQueryResultConfigurationTypeDef],
-        "statistics": NotRequired[ProtectedQueryStatisticsTypeDef],
-        "result": NotRequired[ProtectedQueryResultTypeDef],
-        "error": NotRequired[ProtectedQueryErrorTypeDef],
-        "differentialPrivacy": NotRequired[DifferentialPrivacyParametersTypeDef],
-        "computeConfiguration": NotRequired[ComputeConfigurationTypeDef],
-    },
-)
+
+class ProtectedQueryOutputConfigurationOutputTypeDef(TypedDict):
+    s3: NotRequired[ProtectedQueryS3OutputConfigurationTypeDef]
+    member: NotRequired[ProtectedQueryMemberOutputConfigurationTypeDef]
+    distribute: NotRequired[ProtectedQueryDistributeOutputConfigurationOutputTypeDef]
+
+class ProtectedQueryOutputConfigurationTypeDef(TypedDict):
+    s3: NotRequired[ProtectedQueryS3OutputConfigurationTypeDef]
+    member: NotRequired[ProtectedQueryMemberOutputConfigurationTypeDef]
+    distribute: NotRequired[ProtectedQueryDistributeOutputConfigurationTypeDef]
+
+class ProtectedQueryResultTypeDef(TypedDict):
+    output: ProtectedQueryOutputTypeDef
+
 AnalysisRulePolicyV1TypeDef = TypedDict(
     "AnalysisRulePolicyV1TypeDef",
     {
@@ -2451,17 +2450,11 @@ class UpdateProtectedJobOutputTypeDef(TypedDict):
     protectedJob: ProtectedJobTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetProtectedQueryOutputTypeDef(TypedDict):
-    protectedQuery: ProtectedQueryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ProtectedQueryResultConfigurationOutputTypeDef(TypedDict):
+    outputConfiguration: ProtectedQueryOutputConfigurationOutputTypeDef
 
-class StartProtectedQueryOutputTypeDef(TypedDict):
-    protectedQuery: ProtectedQueryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateProtectedQueryOutputTypeDef(TypedDict):
-    protectedQuery: ProtectedQueryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ProtectedQueryResultConfigurationTypeDef(TypedDict):
+    outputConfiguration: ProtectedQueryOutputConfigurationTypeDef
 
 class AnalysisRulePolicyTypeDef(TypedDict):
     v1: NotRequired[AnalysisRulePolicyV1TypeDef]
@@ -2532,6 +2525,26 @@ ConfiguredTableAnalysisRuleTypeDef = TypedDict(
 ConfiguredTableAnalysisRulePolicyUnionTypeDef = Union[
     ConfiguredTableAnalysisRulePolicyTypeDef, ConfiguredTableAnalysisRulePolicyOutputTypeDef
 ]
+ProtectedQueryTypeDef = TypedDict(
+    "ProtectedQueryTypeDef",
+    {
+        "id": str,
+        "membershipId": str,
+        "membershipArn": str,
+        "createTime": datetime,
+        "status": ProtectedQueryStatusType,
+        "sqlParameters": NotRequired[ProtectedQuerySQLParametersOutputTypeDef],
+        "resultConfiguration": NotRequired[ProtectedQueryResultConfigurationOutputTypeDef],
+        "statistics": NotRequired[ProtectedQueryStatisticsTypeDef],
+        "result": NotRequired[ProtectedQueryResultTypeDef],
+        "error": NotRequired[ProtectedQueryErrorTypeDef],
+        "differentialPrivacy": NotRequired[DifferentialPrivacyParametersTypeDef],
+        "computeConfiguration": NotRequired[ComputeConfigurationTypeDef],
+    },
+)
+ProtectedQueryResultConfigurationUnionTypeDef = Union[
+    ProtectedQueryResultConfigurationTypeDef, ProtectedQueryResultConfigurationOutputTypeDef
+]
 AnalysisRuleTypeDef = TypedDict(
     "AnalysisRuleTypeDef",
     {
@@ -2590,6 +2603,29 @@ class UpdateConfiguredTableAnalysisRuleInputTypeDef(TypedDict):
     configuredTableIdentifier: str
     analysisRuleType: ConfiguredTableAnalysisRuleTypeType
     analysisRulePolicy: ConfiguredTableAnalysisRulePolicyUnionTypeDef
+
+class GetProtectedQueryOutputTypeDef(TypedDict):
+    protectedQuery: ProtectedQueryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartProtectedQueryOutputTypeDef(TypedDict):
+    protectedQuery: ProtectedQueryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateProtectedQueryOutputTypeDef(TypedDict):
+    protectedQuery: ProtectedQueryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+StartProtectedQueryInputTypeDef = TypedDict(
+    "StartProtectedQueryInputTypeDef",
+    {
+        "type": Literal["SQL"],
+        "membershipIdentifier": str,
+        "sqlParameters": ProtectedQuerySQLParametersUnionTypeDef,
+        "resultConfiguration": NotRequired[ProtectedQueryResultConfigurationUnionTypeDef],
+        "computeConfiguration": NotRequired[ComputeConfigurationTypeDef],
+    },
+)
 
 class BatchGetSchemaAnalysisRuleOutputTypeDef(TypedDict):
     analysisRules: List[AnalysisRuleTypeDef]

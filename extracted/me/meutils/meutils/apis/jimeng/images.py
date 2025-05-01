@@ -390,7 +390,7 @@ if __name__ == '__main__':
 
     data = {
         "model": "seededit",
-        "prompt": "https://oss.ffire.cc/files/kling_watermark.png 让这个女人带上墨镜，衣服换个颜色把",
+        "prompt": "https://oss.ffire.cc/files/kling_watermark.png 让这个女人带上墨镜，衣服换个颜色",
         # "prompt": "草拟吗 艹",
         # "prompt": "让这个女人带上墨镜，衣服换个颜色",
         # "prompt": "Add a background for this photo, sort of sizzle it.",
@@ -405,7 +405,8 @@ if __name__ == '__main__':
 
     # arun(generate(ImageRequest(prompt="fuck you")))
     prompt = "A plump Chinese beauty wearing a wedding  dress revealing her skirt and underwear is swinging on the swing,Happy smile,cleavage,Exposed thighs,Spread your legs open,Extend your leg,panties,upskirt,Barefoot,sole"
-    prompt = "  a dog"
+    prompt = "a dog cat"
+    prompt = "https://oss.ffire.cc/files/kling_watermark.png 让这个女人带上墨镜，衣服换个颜色...  "
     request = ImageRequest(prompt=prompt, size="1328x1328")
     # request = ImageRequest(prompt=prompt, size="1024x1024")
 
@@ -415,4 +416,5 @@ if __name__ == '__main__':
 
     # arun(get_task(task.task_id, task.system_fingerprint))
 
-    arun(generate(request))
+    # arun(generate(request))
+

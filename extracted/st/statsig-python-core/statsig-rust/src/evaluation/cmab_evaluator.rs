@@ -4,7 +4,7 @@ use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluator::SpecType;
 use crate::evaluation::evaluator_context::EvaluatorContext;
 use crate::evaluation::get_unit_id::get_unit_id;
-use crate::spec_types::{CMABConfig, CMABGroup, CMABGroupConfig};
+use crate::specs_response::cmab_types::{CMABConfig, CMABGroup, CMABGroupConfig};
 use crate::unwrap_or_return;
 use lazy_static::lazy_static;
 use rand::seq::SliceRandom;
@@ -308,10 +308,12 @@ fn get_cmab_score_for_group(
     score += config_for_group.intercept;
     score += config_for_group.alpha;
     for (key, value) in weights_categorical {
-        let user_value = ctx.user.get_user_value(&Some(DynamicString::from(key)));
+        let user_value = ctx
+            .user
+            .get_user_value(&Some(DynamicString::from(key.clone())));
         let user_value_string = match user_value {
             Some(v) => match &v.string_value {
-                Some(s) => s.clone(),
+                Some(s) => s.value.clone(),
                 None => v.json_value.to_string(),
             },
             None => continue,
@@ -324,7 +326,9 @@ fn get_cmab_score_for_group(
     }
 
     for (key, value) in weights_numerical {
-        let user_value = ctx.user.get_user_value(&Some(DynamicString::from(key)));
+        let user_value = ctx
+            .user
+            .get_user_value(&Some(DynamicString::from(key.clone())));
         let user_value_float = match user_value {
             Some(v) => match v.float_value {
                 Some(f) => f,

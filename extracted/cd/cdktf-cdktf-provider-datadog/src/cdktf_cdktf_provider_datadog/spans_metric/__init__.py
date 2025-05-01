@@ -1,7 +1,7 @@
 r'''
 # `datadog_spans_metric`
 
-Refer to the Terraform Registry for docs: [`datadog_spans_metric`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric).
+Refer to the Terraform Registry for docs: [`datadog_spans_metric`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpansMetric(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.spansMetric.SpansMetric",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric datadog_spans_metric}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric datadog_spans_metric}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class SpansMetric(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric datadog_spans_metric} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric datadog_spans_metric} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the span-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#name SpansMetric#name}
-        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#compute SpansMetric#compute}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#filter SpansMetric#filter}
-        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#group_by SpansMetric#group_by}
+        :param name: The name of the span-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#name SpansMetric#name}
+        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#compute SpansMetric#compute}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#filter SpansMetric#filter}
+        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#group_by SpansMetric#group_by}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class SpansMetric(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpansMetric to import.
-        :param import_from_id: The id of the existing SpansMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpansMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpansMetric to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class SpansMetric(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#aggregation_type SpansMetric#aggregation_type}
-        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when the ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#include_percentiles SpansMetric#include_percentiles}
-        :param path: The path to the value the span-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#path SpansMetric#path}
+        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#aggregation_type SpansMetric#aggregation_type}
+        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when the ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#include_percentiles SpansMetric#include_percentiles}
+        :param path: The path to the value the span-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#path SpansMetric#path}
         '''
         value = SpansMetricCompute(
             aggregation_type=aggregation_type,
@@ -147,7 +147,7 @@ class SpansMetric(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, query: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param query: The search query - following the span search syntax. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#query SpansMetric#query}
+        :param query: The search query - following the span search syntax. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#query SpansMetric#query}
         '''
         value = SpansMetricFilter(query=query)
 
@@ -268,9 +268,9 @@ class SpansMetricCompute:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#aggregation_type SpansMetric#aggregation_type}
-        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when the ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#include_percentiles SpansMetric#include_percentiles}
-        :param path: The path to the value the span-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#path SpansMetric#path}
+        :param aggregation_type: The type of aggregation to use. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#aggregation_type SpansMetric#aggregation_type}
+        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when the ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#include_percentiles SpansMetric#include_percentiles}
+        :param path: The path to the value the span-based metric will aggregate on (only used if the aggregation type is a "distribution"). This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#path SpansMetric#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66aa2b43f5f275e0f13139926635a3f0ece99be36bb97b713be1e08018fd85ae)
@@ -289,7 +289,7 @@ class SpansMetricCompute:
     def aggregation_type(self) -> builtins.str:
         '''The type of aggregation to use. This field can't be updated after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#aggregation_type SpansMetric#aggregation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#aggregation_type SpansMetric#aggregation_type}
         '''
         result = self._values.get("aggregation_type")
         assert result is not None, "Required property 'aggregation_type' is missing"
@@ -301,7 +301,7 @@ class SpansMetricCompute:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Toggle to include or exclude percentile aggregations for distribution metrics. Only present when the ``aggregation_type`` is ``distribution``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#include_percentiles SpansMetric#include_percentiles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#include_percentiles SpansMetric#include_percentiles}
         '''
         result = self._values.get("include_percentiles")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -312,7 +312,7 @@ class SpansMetricCompute:
 
         This field can't be updated after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#path SpansMetric#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#path SpansMetric#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -474,10 +474,10 @@ class SpansMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the span-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#name SpansMetric#name}
-        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#compute SpansMetric#compute}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#filter SpansMetric#filter}
-        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#group_by SpansMetric#group_by}
+        :param name: The name of the span-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#name SpansMetric#name}
+        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#compute SpansMetric#compute}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#filter SpansMetric#filter}
+        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#group_by SpansMetric#group_by}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -590,7 +590,7 @@ class SpansMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the span-based metric. This field can't be updated after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#name SpansMetric#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#name SpansMetric#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -600,7 +600,7 @@ class SpansMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def compute(self) -> typing.Optional[SpansMetricCompute]:
         '''compute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#compute SpansMetric#compute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#compute SpansMetric#compute}
         '''
         result = self._values.get("compute")
         return typing.cast(typing.Optional[SpansMetricCompute], result)
@@ -609,7 +609,7 @@ class SpansMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional["SpansMetricFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#filter SpansMetric#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#filter SpansMetric#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["SpansMetricFilter"], result)
@@ -620,7 +620,7 @@ class SpansMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpansMetricGroupBy"]]]:
         '''group_by block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#group_by SpansMetric#group_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#group_by SpansMetric#group_by}
         '''
         result = self._values.get("group_by")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpansMetricGroupBy"]]], result)
@@ -645,7 +645,7 @@ class SpansMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SpansMetricFilter:
     def __init__(self, *, query: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param query: The search query - following the span search syntax. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#query SpansMetric#query}
+        :param query: The search query - following the span search syntax. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#query SpansMetric#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ee95a8a95f7ef79235d17ca79bd0c87626a56ab550a29501fd2984f1925035a)
@@ -658,7 +658,7 @@ class SpansMetricFilter:
     def query(self) -> typing.Optional[builtins.str]:
         '''The search query - following the span search syntax. Defaults to ``"*"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#query SpansMetric#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#query SpansMetric#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -747,8 +747,8 @@ class SpansMetricGroupBy:
         tag_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The path to the value the span-based metric will be aggregated over. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#path SpansMetric#path}
-        :param tag_name: Eventual name of the tag that gets created. By default, the path attribute is used as the tag name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#tag_name SpansMetric#tag_name}
+        :param path: The path to the value the span-based metric will be aggregated over. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#path SpansMetric#path}
+        :param tag_name: Eventual name of the tag that gets created. By default, the path attribute is used as the tag name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#tag_name SpansMetric#tag_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5cda622bb9c4320f2a19da56659353fb0d3c92d3a63a35092432dfbe6a0d6042)
@@ -764,7 +764,7 @@ class SpansMetricGroupBy:
     def path(self) -> builtins.str:
         '''The path to the value the span-based metric will be aggregated over.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#path SpansMetric#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#path SpansMetric#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -774,7 +774,7 @@ class SpansMetricGroupBy:
     def tag_name(self) -> typing.Optional[builtins.str]:
         '''Eventual name of the tag that gets created. By default, the path attribute is used as the tag name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/spans_metric#tag_name SpansMetric#tag_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/spans_metric#tag_name SpansMetric#tag_name}
         '''
         result = self._values.get("tag_name")
         return typing.cast(typing.Optional[builtins.str], result)

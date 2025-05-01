@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_action_connection`
 
-Refer to the Terraform Registry for docs: [`data_datadog_action_connection`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection).
+Refer to the Terraform Registry for docs: [`data_datadog_action_connection`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogActionConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogActionConnection.DataDatadogActionConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection datadog_action_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection datadog_action_connection}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataDatadogActionConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection datadog_action_connection} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection datadog_action_connection} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: ID for Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#id DataDatadogActionConnection#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#http DataDatadogActionConnection#http}
+        :param id: ID for Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#id DataDatadogActionConnection#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#http DataDatadogActionConnection#http}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataDatadogActionConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogActionConnection to import.
-        :param import_from_id: The id of the existing DataDatadogActionConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogActionConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogActionConnection to import is found.
         '''
         if __debug__:
@@ -124,7 +124,7 @@ class DataDatadogActionConnection(
         token_auth: typing.Optional[typing.Union["DataDatadogActionConnectionHttpTokenAuth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#token_auth DataDatadogActionConnection#token_auth}
+        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#token_auth DataDatadogActionConnection#token_auth}
         '''
         value = DataDatadogActionConnectionHttp(token_auth=token_auth)
 
@@ -367,8 +367,8 @@ class DataDatadogActionConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: ID for Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#id DataDatadogActionConnection#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#http DataDatadogActionConnection#http}
+        :param id: ID for Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#id DataDatadogActionConnection#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#http DataDatadogActionConnection#http}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -473,7 +473,7 @@ class DataDatadogActionConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def id(self) -> builtins.str:
         '''ID for Connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#id DataDatadogActionConnection#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#id DataDatadogActionConnection#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -486,7 +486,7 @@ class DataDatadogActionConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http(self) -> typing.Optional["DataDatadogActionConnectionHttp"]:
         '''http block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#http DataDatadogActionConnection#http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#http DataDatadogActionConnection#http}
         '''
         result = self._values.get("http")
         return typing.cast(typing.Optional["DataDatadogActionConnectionHttp"], result)
@@ -515,7 +515,7 @@ class DataDatadogActionConnectionHttp:
         token_auth: typing.Optional[typing.Union["DataDatadogActionConnectionHttpTokenAuth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#token_auth DataDatadogActionConnection#token_auth}
+        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#token_auth DataDatadogActionConnection#token_auth}
         '''
         if isinstance(token_auth, dict):
             token_auth = DataDatadogActionConnectionHttpTokenAuth(**token_auth)
@@ -530,7 +530,7 @@ class DataDatadogActionConnectionHttp:
     def token_auth(self) -> typing.Optional["DataDatadogActionConnectionHttpTokenAuth"]:
         '''token_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#token_auth DataDatadogActionConnection#token_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#token_auth DataDatadogActionConnection#token_auth}
         '''
         result = self._values.get("token_auth")
         return typing.cast(typing.Optional["DataDatadogActionConnectionHttpTokenAuth"], result)
@@ -576,9 +576,9 @@ class DataDatadogActionConnectionHttpOutputReference(
         url_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataDatadogActionConnectionHttpTokenAuthUrlParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#header DataDatadogActionConnection#header}
-        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#token DataDatadogActionConnection#token}
-        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#url_parameter DataDatadogActionConnection#url_parameter}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#header DataDatadogActionConnection#header}
+        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#token DataDatadogActionConnection#token}
+        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#url_parameter DataDatadogActionConnection#url_parameter}
         '''
         value = DataDatadogActionConnectionHttpTokenAuth(
             header=header, token=token, url_parameter=url_parameter
@@ -643,9 +643,9 @@ class DataDatadogActionConnectionHttpTokenAuth:
         url_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataDatadogActionConnectionHttpTokenAuthUrlParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#header DataDatadogActionConnection#header}
-        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#token DataDatadogActionConnection#token}
-        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#url_parameter DataDatadogActionConnection#url_parameter}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#header DataDatadogActionConnection#header}
+        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#token DataDatadogActionConnection#token}
+        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#url_parameter DataDatadogActionConnection#url_parameter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e7ff58480214168bc6b12760bdc8bad88c5669d5e38c447b1f219bd88bf30f8)
@@ -666,7 +666,7 @@ class DataDatadogActionConnectionHttpTokenAuth:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogActionConnectionHttpTokenAuthHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#header DataDatadogActionConnection#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#header DataDatadogActionConnection#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogActionConnectionHttpTokenAuthHeader"]]], result)
@@ -677,7 +677,7 @@ class DataDatadogActionConnectionHttpTokenAuth:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogActionConnectionHttpTokenAuthToken"]]]:
         '''token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#token DataDatadogActionConnection#token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#token DataDatadogActionConnection#token}
         '''
         result = self._values.get("token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogActionConnectionHttpTokenAuthToken"]]], result)
@@ -688,7 +688,7 @@ class DataDatadogActionConnectionHttpTokenAuth:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogActionConnectionHttpTokenAuthUrlParameter"]]]:
         '''url_parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/action_connection#url_parameter DataDatadogActionConnection#url_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/action_connection#url_parameter DataDatadogActionConnection#url_parameter}
         '''
         result = self._values.get("url_parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogActionConnectionHttpTokenAuthUrlParameter"]]], result)

@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_user_contact_method`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_user_contact_method`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method).
+Refer to the Terraform Registry for docs: [`data_pagerduty_user_contact_method`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyUserContactMethod(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyUserContactMethod.DataPagerdutyUserContactMethod",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method pagerduty_user_contact_method}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method pagerduty_user_contact_method}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataPagerdutyUserContactMethod(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method pagerduty_user_contact_method} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method pagerduty_user_contact_method} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param label: The name of the contact method to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#label DataPagerdutyUserContactMethod#label}
-        :param type: The type of the contact method. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#type DataPagerdutyUserContactMethod#type}
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#user_id DataPagerdutyUserContactMethod#user_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#id DataPagerdutyUserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label: The name of the contact method to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#label DataPagerdutyUserContactMethod#label}
+        :param type: The type of the contact method. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#type DataPagerdutyUserContactMethod#type}
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#user_id DataPagerdutyUserContactMethod#user_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#id DataPagerdutyUserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataPagerdutyUserContactMethod(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyUserContactMethod to import.
-        :param import_from_id: The id of the existing DataPagerdutyUserContactMethod that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyUserContactMethod that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyUserContactMethod to import is found.
         '''
         if __debug__:
@@ -280,10 +280,10 @@ class DataPagerdutyUserContactMethodConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param label: The name of the contact method to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#label DataPagerdutyUserContactMethod#label}
-        :param type: The type of the contact method. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#type DataPagerdutyUserContactMethod#type}
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#user_id DataPagerdutyUserContactMethod#user_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#id DataPagerdutyUserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label: The name of the contact method to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#label DataPagerdutyUserContactMethod#label}
+        :param type: The type of the contact method. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#type DataPagerdutyUserContactMethod#type}
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#user_id DataPagerdutyUserContactMethod#user_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#id DataPagerdutyUserContactMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -390,7 +390,7 @@ class DataPagerdutyUserContactMethodConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def label(self) -> builtins.str:
         '''The name of the contact method to find in the PagerDuty API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#label DataPagerdutyUserContactMethod#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#label DataPagerdutyUserContactMethod#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -400,7 +400,7 @@ class DataPagerdutyUserContactMethodConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def type(self) -> builtins.str:
         '''The type of the contact method.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#type DataPagerdutyUserContactMethod#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#type DataPagerdutyUserContactMethod#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -408,14 +408,14 @@ class DataPagerdutyUserContactMethodConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def user_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#user_id DataPagerdutyUserContactMethod#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#user_id DataPagerdutyUserContactMethod#user_id}.'''
         result = self._values.get("user_id")
         assert result is not None, "Required property 'user_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/user_contact_method#id DataPagerdutyUserContactMethod#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/user_contact_method#id DataPagerdutyUserContactMethod#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

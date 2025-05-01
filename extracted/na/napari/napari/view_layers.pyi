@@ -525,8 +525,8 @@ def view_path(
         str, pathlib.Path, collections.abc.Sequence[Union[str, pathlib.Path]]
     ],
     *,
-    stack: Union[bool, list[list[Union[str, pathlib.Path]]]] = False,
-    plugin: Optional[str] = 'napari',
+    stack: bool | list[list[typing.Union[str, pathlib.Path]]] = False,
+    plugin: str | None = 'napari',
     layer_type: Optional[
         Literal[
             graph,

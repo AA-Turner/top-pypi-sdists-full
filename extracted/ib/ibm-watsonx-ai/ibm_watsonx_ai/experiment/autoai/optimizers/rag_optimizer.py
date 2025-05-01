@@ -15,10 +15,17 @@ from ibm_watsonx_ai.helpers.connections import (
     ContainerLocation,
     DataConnection,
 )
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
+from ibm_watsonx_ai.foundation_models.schema import BaseSchema
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai.experiment.autoai.engines import RAGEngine
     from ibm_watsonx_ai.foundation_models.extensions.rag.pattern import RAGPattern
+    from ibm_watsonx_ai.foundation_models.schema import (
+        AutoAIRAGModelConfig,
+        AutoAIRAGCustomModelConfig,
+    )
 
 __all__ = ["RAGOptimizer"]
 
@@ -41,8 +48,8 @@ class RAGOptimizer:
     :param retrieval_methods: Retrieval methods to be used.
     :type retrieval_methods: list[str], optional
 
-    :param foundation_models: The foundation models to try.
-    :type foundation_models: list[str], optional
+    :param foundation_models: List of foundation models to try. Custom foundation models and model config are also supported for Cloud and CPD >= 5.2.
+    :type foundation_models: list[str | dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig], optional
 
     :param max_number_of_rag_patterns: The maximum number of RAG patterns to create.
     :type max_number_of_rag_patterns: int, optional
@@ -66,7 +73,9 @@ class RAGOptimizer:
         chunking_methods: list[str] | None = None,
         embedding_models: list[str] | None = None,
         retrieval_methods: list[str] | None = None,
-        foundation_models: list[str] | None = None,
+        foundation_models: (
+            list[str | dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig] | None
+        ) = None,
         max_number_of_rag_patterns: int | None = None,
         optimization_metrics: list[str] | None = None,
         chunking: list[dict] | None = None,
@@ -80,18 +89,52 @@ class RAGOptimizer:
             chunking_methods_deprecated_warning = "The parameter chunking_methods is deprecated, please use `chunking` instead"
             warn(chunking_methods_deprecated_warning, category=DeprecationWarning)
 
-        self._params = {
-            "name": name,
-            "description": description,
-            "chunking": chunking,
-            "embedding_models": embedding_models,
-            "retrieval_methods": retrieval_methods,
-            "retrieval": retrieval,
-            "foundation_models": foundation_models,
-            "generation": generation,
-            "max_number_of_rag_patterns": max_number_of_rag_patterns,
-            "optimization_metrics": optimization_metrics,
-        }
+        WMLResource._validate_type(
+            foundation_models, "foundation_models", list, mandatory=False
+        )
+
+        self._params: dict[str, Any] = {}
+
+        if foundation_models is not None:
+            if self._engine._client.CPD_version <= 5.1:
+                if any(not isinstance(fm, str) for fm in foundation_models):
+                    raise WMLClientError(
+                        "Parameter `foundation_models` must be a list of string for CPD 5.1 or below."
+                    )
+                self._params["foundation_models"] = foundation_models
+            else:
+                foundation_models_conv = []
+                for fm in foundation_models:
+                    if isinstance(fm, BaseSchema):
+                        foundation_models_conv.append(fm.to_dict())
+                    elif isinstance(fm, dict):
+                        foundation_models_conv.append(fm)
+                    elif isinstance(fm, str):
+                        foundation_models_conv.append({"model_id": fm})
+                    else:
+                        raise WMLClientError(
+                            f"Invalid item type '{type(fm)}' provided in `foundation_models` list."
+                        )
+
+                if isinstance(generation, dict):
+                    generation["foundation_models"] = foundation_models_conv
+                else:
+                    generation = {"foundation_models": foundation_models_conv}
+
+        self._params.update(
+            {
+                "name": name,
+                "description": description,
+                "chunking": chunking,
+                "embedding_models": embedding_models,
+                "retrieval_methods": retrieval_methods,
+                "retrieval": retrieval,
+                "generation": generation,
+                "max_number_of_rag_patterns": max_number_of_rag_patterns,
+                "optimization_metrics": optimization_metrics,
+            }
+        )
+
         self._engine.initiate_optimizer_metadata(self._params, **kwargs)
         self._engine._params = self._params
 

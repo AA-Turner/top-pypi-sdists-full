@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: psycopg
-Version: 3.2.6
+Version: 3.2.7
 Summary: PostgreSQL database adapter for Python
 Home-page: https://psycopg.org/psycopg3/
 Author: Daniele Varrazzo
@@ -38,9 +38,9 @@ Requires-Dist: backports.zoneinfo>=0.2.0; python_version < "3.9"
 Requires-Dist: typing-extensions>=4.6; python_version < "3.13"
 Requires-Dist: tzdata; sys_platform == "win32"
 Provides-Extra: c
-Requires-Dist: psycopg-c==3.2.6; implementation_name != "pypy" and extra == "c"
+Requires-Dist: psycopg-c==3.2.7; implementation_name != "pypy" and extra == "c"
 Provides-Extra: binary
-Requires-Dist: psycopg-binary==3.2.6; implementation_name != "pypy" and extra == "binary"
+Requires-Dist: psycopg-binary==3.2.7; implementation_name != "pypy" and extra == "binary"
 Provides-Extra: pool
 Requires-Dist: psycopg-pool; extra == "pool"
 Provides-Extra: test
@@ -61,12 +61,14 @@ Requires-Dist: isort-psycopg; extra == "dev"
 Requires-Dist: mypy>=1.14; extra == "dev"
 Requires-Dist: pre-commit>=4.0.1; extra == "dev"
 Requires-Dist: types-setuptools>=57.4; extra == "dev"
+Requires-Dist: types-shapely>=2.0; extra == "dev"
 Requires-Dist: wheel>=0.37; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: Sphinx>=5.0; extra == "docs"
 Requires-Dist: furo==2022.6.21; extra == "docs"
 Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints>=1.12; extra == "docs"
+Dynamic: license-file
 
 Psycopg 3: PostgreSQL database adapter for Python
 =================================================

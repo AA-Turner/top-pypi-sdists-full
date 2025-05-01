@@ -721,6 +721,24 @@ eks.Cluster(self, "HelloEKS",
 )
 ```
 
+To provide additional Helm chart values supported by `albController` in CDK, use the `additionalHelmChartValues` property. For example, the following code snippet shows how to set the `enableWafV2` flag:
+
+```python
+from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+
+
+eks.Cluster(self, "HelloEKS",
+    version=eks.KubernetesVersion.V1_32,
+    alb_controller=eks.AlbControllerOptions(
+        version=eks.AlbControllerVersion.V2_8_2,
+        additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
+            enable_wafv2=False
+        )
+    ),
+    kubectl_layer=KubectlV32Layer(self, "kubectl")
+)
+```
+
 The `albController` requires `defaultCapacity` or at least one nodegroup. If there's no `defaultCapacity` or available
 nodegroup for the cluster, the `albController` deployment would fail.
 
@@ -2917,6 +2935,10 @@ class AlbController(
             version=alb_controller_version,
         
             # the properties below are optional
+            additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
+                enable_waf=False,
+                enable_wafv2=False
+            ),
             policy=policy,
             repository="repository"
         )
@@ -2929,6 +2951,7 @@ class AlbController(
         *,
         cluster: "Cluster",
         version: "AlbControllerVersion",
+        additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2937,6 +2960,7 @@ class AlbController(
         :param id: -
         :param cluster: [disable-awslint:ref-via-interface] Cluster to install the controller onto.
         :param version: Version of the controller.
+        :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
@@ -2945,7 +2969,11 @@ class AlbController(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AlbControllerProps(
-            cluster=cluster, version=version, policy=policy, repository=repository
+            cluster=cluster,
+            version=version,
+            additional_helm_chart_values=additional_helm_chart_values,
+            policy=policy,
+            repository=repository,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2958,6 +2986,7 @@ class AlbController(
         *,
         cluster: "Cluster",
         version: "AlbControllerVersion",
+        additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> "AlbController":
@@ -2968,6 +2997,7 @@ class AlbController(
         :param scope: -
         :param cluster: [disable-awslint:ref-via-interface] Cluster to install the controller onto.
         :param version: Version of the controller.
+        :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
@@ -2975,10 +3005,89 @@ class AlbController(
             type_hints = typing.get_type_hints(_typecheckingstub__1b3813db11381f0166360b7dc6066bdeadc4a52043da6eba56f9a55a4bfd6157)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = AlbControllerProps(
-            cluster=cluster, version=version, policy=policy, repository=repository
+            cluster=cluster,
+            version=version,
+            additional_helm_chart_values=additional_helm_chart_values,
+            policy=policy,
+            repository=repository,
         )
 
         return typing.cast("AlbController", jsii.sinvoke(cls, "create", [scope, props]))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_eks.AlbControllerHelmChartOptions",
+    jsii_struct_bases=[],
+    name_mapping={"enable_waf": "enableWaf", "enable_wafv2": "enableWafv2"},
+)
+class AlbControllerHelmChartOptions:
+    def __init__(
+        self,
+        *,
+        enable_waf: typing.Optional[builtins.bool] = None,
+        enable_wafv2: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Helm chart options that can be set for AlbControllerChart To add any new supported values refer https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/helm/aws-load-balancer-controller/values.yaml.
+
+        :param enable_waf: Enable or disable AWS WAF on the ALB ingress controller. Default: - no value defined for this helm chart option, so it will not be set in the helm chart values
+        :param enable_wafv2: Enable or disable AWS WAFv2 on the ALB ingress controller. Default: - no value defined for this helm chart option, so it will not be set in the helm chart values
+
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+            
+            
+            eks.Cluster(self, "HelloEKS",
+                version=eks.KubernetesVersion.V1_32,
+                alb_controller=eks.AlbControllerOptions(
+                    version=eks.AlbControllerVersion.V2_8_2,
+                    additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
+                        enable_wafv2=False
+                    )
+                ),
+                kubectl_layer=KubectlV32Layer(self, "kubectl")
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__281499b199c1a76de8c09b4fa8c74547b8a256e9ceb223d10f672ae9e7a452d1)
+            check_type(argname="argument enable_waf", value=enable_waf, expected_type=type_hints["enable_waf"])
+            check_type(argname="argument enable_wafv2", value=enable_wafv2, expected_type=type_hints["enable_wafv2"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enable_waf is not None:
+            self._values["enable_waf"] = enable_waf
+        if enable_wafv2 is not None:
+            self._values["enable_wafv2"] = enable_wafv2
+
+    @builtins.property
+    def enable_waf(self) -> typing.Optional[builtins.bool]:
+        '''Enable or disable AWS WAF on the ALB ingress controller.
+
+        :default: - no value defined for this helm chart option, so it will not be set in the helm chart values
+        '''
+        result = self._values.get("enable_waf")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_wafv2(self) -> typing.Optional[builtins.bool]:
+        '''Enable or disable AWS WAFv2 on the ALB ingress controller.
+
+        :default: - no value defined for this helm chart option, so it will not be set in the helm chart values
+        '''
+        result = self._values.get("enable_wafv2")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlbControllerHelmChartOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -2986,6 +3095,7 @@ class AlbController(
     jsii_struct_bases=[],
     name_mapping={
         "version": "version",
+        "additional_helm_chart_values": "additionalHelmChartValues",
         "policy": "policy",
         "repository": "repository",
     },
@@ -2995,12 +3105,14 @@ class AlbControllerOptions:
         self,
         *,
         version: "AlbControllerVersion",
+        additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for ``AlbController``.
 
         :param version: Version of the controller.
+        :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
 
@@ -3019,14 +3131,19 @@ class AlbControllerOptions:
                 kubectl_layer=KubectlV32Layer(self, "kubectl")
             )
         '''
+        if isinstance(additional_helm_chart_values, dict):
+            additional_helm_chart_values = AlbControllerHelmChartOptions(**additional_helm_chart_values)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b22ec5f19b5d1b4d655cc304c12c33352da257e2109041355aa01fc993ec3ef9)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "version": version,
         }
+        if additional_helm_chart_values is not None:
+            self._values["additional_helm_chart_values"] = additional_helm_chart_values
         if policy is not None:
             self._values["policy"] = policy
         if repository is not None:
@@ -3038,6 +3155,17 @@ class AlbControllerOptions:
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast("AlbControllerVersion", result)
+
+    @builtins.property
+    def additional_helm_chart_values(
+        self,
+    ) -> typing.Optional[AlbControllerHelmChartOptions]:
+        '''Additional helm chart values for ALB controller.
+
+        :default: - no additional helm chart values
+        '''
+        result = self._values.get("additional_helm_chart_values")
+        return typing.cast(typing.Optional[AlbControllerHelmChartOptions], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -3083,6 +3211,7 @@ class AlbControllerOptions:
     jsii_struct_bases=[AlbControllerOptions],
     name_mapping={
         "version": "version",
+        "additional_helm_chart_values": "additionalHelmChartValues",
         "policy": "policy",
         "repository": "repository",
         "cluster": "cluster",
@@ -3093,6 +3222,7 @@ class AlbControllerProps(AlbControllerOptions):
         self,
         *,
         version: "AlbControllerVersion",
+        additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
         cluster: "Cluster",
@@ -3100,6 +3230,7 @@ class AlbControllerProps(AlbControllerOptions):
         '''Properties for ``AlbController``.
 
         :param version: Version of the controller.
+        :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         :param cluster: [disable-awslint:ref-via-interface] Cluster to install the controller onto.
@@ -3121,13 +3252,20 @@ class AlbControllerProps(AlbControllerOptions):
                 version=alb_controller_version,
             
                 # the properties below are optional
+                additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
+                    enable_waf=False,
+                    enable_wafv2=False
+                ),
                 policy=policy,
                 repository="repository"
             )
         '''
+        if isinstance(additional_helm_chart_values, dict):
+            additional_helm_chart_values = AlbControllerHelmChartOptions(**additional_helm_chart_values)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f52254abb63608be11e6e9e1ec6c94ebb428a9ab274e1bda653dd78d26cd509)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
@@ -3135,6 +3273,8 @@ class AlbControllerProps(AlbControllerOptions):
             "version": version,
             "cluster": cluster,
         }
+        if additional_helm_chart_values is not None:
+            self._values["additional_helm_chart_values"] = additional_helm_chart_values
         if policy is not None:
             self._values["policy"] = policy
         if repository is not None:
@@ -3146,6 +3286,17 @@ class AlbControllerProps(AlbControllerOptions):
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast("AlbControllerVersion", result)
+
+    @builtins.property
+    def additional_helm_chart_values(
+        self,
+    ) -> typing.Optional[AlbControllerHelmChartOptions]:
+        '''Additional helm chart values for ALB controller.
+
+        :default: - no additional helm chart values
+        '''
+        result = self._values.get("additional_helm_chart_values")
+        return typing.cast(typing.Optional[AlbControllerHelmChartOptions], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -19532,6 +19683,10 @@ class ClusterOptions(CommonClusterOptions):
                     version=alb_controller_version,
             
                     # the properties below are optional
+                    additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
+                        enable_waf=False,
+                        enable_wafv2=False
+                    ),
                     policy=policy,
                     repository="repository"
                 ),
@@ -21452,6 +21607,7 @@ __all__ = [
     "AddonAttributes",
     "AddonProps",
     "AlbController",
+    "AlbControllerHelmChartOptions",
     "AlbControllerOptions",
     "AlbControllerProps",
     "AlbControllerVersion",
@@ -21621,6 +21777,7 @@ def _typecheckingstub__5e2ca421e3f17c3114d53057ba096ab3f90bd3b8ed6c2e0f75f61c88d
     *,
     cluster: Cluster,
     version: AlbControllerVersion,
+    additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21632,8 +21789,17 @@ def _typecheckingstub__1b3813db11381f0166360b7dc6066bdeadc4a52043da6eba56f9a55a4
     *,
     cluster: Cluster,
     version: AlbControllerVersion,
+    additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__281499b199c1a76de8c09b4fa8c74547b8a256e9ceb223d10f672ae9e7a452d1(
+    *,
+    enable_waf: typing.Optional[builtins.bool] = None,
+    enable_wafv2: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21641,6 +21807,7 @@ def _typecheckingstub__1b3813db11381f0166360b7dc6066bdeadc4a52043da6eba56f9a55a4
 def _typecheckingstub__b22ec5f19b5d1b4d655cc304c12c33352da257e2109041355aa01fc993ec3ef9(
     *,
     version: AlbControllerVersion,
+    additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21650,6 +21817,7 @@ def _typecheckingstub__b22ec5f19b5d1b4d655cc304c12c33352da257e2109041355aa01fc99
 def _typecheckingstub__9f52254abb63608be11e6e9e1ec6c94ebb428a9ab274e1bda653dd78d26cd509(
     *,
     version: AlbControllerVersion,
+    additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
     cluster: Cluster,

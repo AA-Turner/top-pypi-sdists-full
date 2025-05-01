@@ -82,6 +82,8 @@ from pyarrow._compute import register_aggregate_function as register_aggregate_f
 from pyarrow._compute import register_scalar_function as register_scalar_function
 from pyarrow._compute import register_tabular_function as register_tabular_function
 from pyarrow._compute import register_vector_function as register_vector_function
+
+from pyarrow._compute import _Order, _Placement
 from pyarrow._stubs_typing import ArrayLike, ScalarLike
 from . import lib
 
@@ -132,12 +134,10 @@ BinaryScalar: TypeAlias = (
 )
 StringScalar: TypeAlias = lib.Scalar[lib.StringType] | lib.Scalar[lib.LargeStringType]
 StringOrBinaryScalar: TypeAlias = StringScalar | BinaryScalar
+_ListScalar: TypeAlias = lib.ListViewScalar[_DataTypeT] | lib.FixedSizeListScalar[_DataTypeT, Any]
+_LargeListScalar: TypeAlias = lib.LargeListScalar[_DataTypeT] | lib.LargeListViewScalar[_DataTypeT]
 ListScalar: TypeAlias = (
-    lib.ListScalar[_DataTypeT]
-    | lib.LargeListScalar[_DataTypeT]
-    | lib.ListViewScalar[_DataTypeT]
-    | lib.LargeListViewScalar[_DataTypeT]
-    | lib.FixedSizeListScalar[_DataTypeT, Any]
+    lib.ListScalar[_DataTypeT] | _ListScalar[_DataTypeT] | _LargeListScalar[_DataTypeT]
 )
 TemporalScalar: TypeAlias = (
     lib.Date32Scalar
@@ -161,6 +161,7 @@ _NumericOrDurationArrayT = TypeVar("_NumericOrDurationArrayT", bound=NumericOrDu
 NumericOrTemporalArray: TypeAlias = ArrayOrChunkedArray[_NumericOrTemporalScalarT]
 _NumericOrTemporalArrayT = TypeVar("_NumericOrTemporalArrayT", bound=NumericOrTemporalArray)
 BooleanArray: TypeAlias = ArrayOrChunkedArray[lib.BooleanScalar]
+_BooleanArrayT = TypeVar("_BooleanArrayT", bound=BooleanArray)
 IntegerArray: TypeAlias = ArrayOrChunkedArray[IntegerScalar]
 _FloatScalarT = TypeVar("_FloatScalarT", bound=FloatScalar)
 FloatArray: TypeAlias = ArrayOrChunkedArray[FloatScalar]
@@ -177,6 +178,9 @@ _StringOrBinaryArrayT = TypeVar("_StringOrBinaryArrayT", bound=StringOrBinaryArr
 _TemporalScalarT = TypeVar("_TemporalScalarT", bound=TemporalScalar)
 TemporalArray: TypeAlias = ArrayOrChunkedArray[TemporalScalar]
 _TemporalArrayT = TypeVar("_TemporalArrayT", bound=TemporalArray)
+_ListArray: TypeAlias = ArrayOrChunkedArray[_ListScalar[_DataTypeT]]
+_LargeListArray: TypeAlias = ArrayOrChunkedArray[_LargeListScalar[_DataTypeT]]
+ListArray: TypeAlias = ArrayOrChunkedArray[ListScalar[_DataTypeT]]
 # =============================== 1. Aggregation ===============================
 
 # ========================= 1.1 functions =========================
@@ -616,19 +620,35 @@ def bit_wise_and(
 ) -> _NumericArrayT: ...
 @overload
 def bit_wise_and(
-    x: NumericScalar, y: NumericScalar, /, *, memory_pool: lib.MemoryPool | None = None
-) -> NumericScalar: ...
+    x: NumericScalar, y: _NumericArrayT, /, *, memory_pool: lib.MemoryPool | None = None
+) -> _NumericArrayT: ...
 @overload
 def bit_wise_and(
-    x: NumericArray | NumericScalar,
-    y: NumericArray | NumericScalar,
+    x: _NumericArrayT, y: NumericScalar, /, *, memory_pool: lib.MemoryPool | None = None
+) -> _NumericArrayT: ...
+@overload
+def bit_wise_and(
+    x: Expression,
+    y: Expression,
     /,
     *,
     memory_pool: lib.MemoryPool | None = None,
-) -> NumericArray: ...
+) -> Expression: ...
 @overload
 def bit_wise_and(
-    x: Expression | Any, y: Expression | Any, /, *, memory_pool: lib.MemoryPool | None = None
+    x: Expression,
+    y: NumericScalar | ArrayOrChunkedArray[NumericScalar],
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> Expression: ...
+@overload
+def bit_wise_and(
+    x: NumericScalar | ArrayOrChunkedArray[NumericScalar],
+    y: Expression,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
 ) -> Expression: ...
 @overload
 def bit_wise_not(
@@ -1078,6 +1098,14 @@ def and_(
     *,
     memory_pool: lib.MemoryPool | None = None,
 ) -> Expression: ...
+@overload
+def and_(
+    x: ScalarOrArray[lib.BooleanScalar],
+    y: ScalarOrArray[lib.BooleanScalar],
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> ScalarOrArray[lib.BooleanScalar]: ...
 
 and_kleene = _clone_signature(and_)
 and_not = _clone_signature(and_)
@@ -1092,11 +1120,11 @@ def invert(
 ) -> lib.BooleanScalar: ...
 @overload
 def invert(
-    x: lib.BooleanArray,
+    x: _BooleanArrayT,
     /,
     *,
     memory_pool: lib.MemoryPool | None = None,
-) -> lib.BooleanArray: ...
+) -> _BooleanArrayT: ...
 @overload
 def invert(
     x: Expression,
@@ -1937,18 +1965,25 @@ def if_else(
 
 @overload
 def list_value_length(
-    lists: lib.ListArray | lib.ListViewArray | lib.FixedSizeListArray | lib.ChunkedArray,
+    lists: _ListArray[Any],
     /,
     *,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.Int32Array: ...
 @overload
 def list_value_length(
-    lists: lib.LargeListArray | lib.LargeListViewArray | lib.ChunkedArray,
+    lists: _LargeListArray[Any],
     /,
     *,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.Int64Array: ...
+@overload
+def list_value_length(
+    lists: ListArray[Any],
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.Int32Array | lib.Int64Array: ...
 @overload
 def list_value_length(
     lists: Expression,
@@ -2584,9 +2619,9 @@ def indices_nonzero(
 def array_sort_indices(
     array: lib.Array | lib.ChunkedArray,
     /,
-    order: Literal["ascending", "descending"] = "ascending",
+    order: _Order = "ascending",
     *,
-    null_placement: Literal["at_start", "at_end"] = "at_end",
+    null_placement: _Placement = "at_end",
     options: ArraySortOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.UInt64Array: ...
@@ -2594,9 +2629,9 @@ def array_sort_indices(
 def array_sort_indices(
     array: Expression,
     /,
-    order: Literal["ascending", "descending"] = "ascending",
+    order: _Order = "ascending",
     *,
-    null_placement: Literal["at_start", "at_end"] = "at_end",
+    null_placement: _Placement = "at_end",
     options: ArraySortOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> Expression: ...
@@ -2606,7 +2641,7 @@ def partition_nth_indices(
     /,
     pivot: int,
     *,
-    null_placement: Literal["at_start", "at_end"] = "at_end",
+    null_placement: _Placement = "at_end",
     options: PartitionNthOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.UInt64Array: ...
@@ -2616,16 +2651,16 @@ def partition_nth_indices(
     /,
     pivot: int,
     *,
-    null_placement: Literal["at_start", "at_end"] = "at_end",
+    null_placement: _Placement = "at_end",
     options: PartitionNthOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> Expression: ...
 def rank(
     input: lib.Array | lib.ChunkedArray,
     /,
-    sort_keys: Literal["ascending", "descending"] = "ascending",
+    sort_keys: _Order = "ascending",
     *,
-    null_placement: Literal["at_start", "at_end"] = "at_end",
+    null_placement: _Placement = "at_end",
     tiebreaker: Literal["min", "max", "first", "dense"] = "first",
     options: RankOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
@@ -2635,7 +2670,7 @@ def select_k_unstable(
     input: lib.Array | lib.ChunkedArray,
     /,
     k: int,
-    sort_keys: list[tuple[str, Literal["ascending", "descending"]]],
+    sort_keys: list[tuple[str, _Order]],
     *,
     options: SelectKOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
@@ -2645,7 +2680,7 @@ def select_k_unstable(
     input: Expression,
     /,
     k: int,
-    sort_keys: list[tuple[str, Literal["ascending", "descending"]]],
+    sort_keys: list[tuple[str, _Order]],
     *,
     options: SelectKOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
@@ -2654,9 +2689,9 @@ def select_k_unstable(
 def sort_indices(
     input: lib.Array | lib.ChunkedArray | lib.RecordBatch | lib.Table,
     /,
-    sort_keys: Sequence[tuple[str, Literal["ascending", "descending"]]],
+    sort_keys: Sequence[tuple[str, _Order]] = (),
     *,
-    null_placement: Literal["at_start", "at_end"] = "at_end",
+    null_placement: _Placement = "at_end",
     options: SortOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.UInt64Array: ...
@@ -2664,9 +2699,9 @@ def sort_indices(
 def sort_indices(
     input: Expression,
     /,
-    sort_keys: Sequence[tuple[str, Literal["ascending", "descending"]]],
+    sort_keys: Sequence[tuple[str, _Order]] = (),
     *,
-    null_placement: Literal["at_start", "at_end"] = "at_end",
+    null_placement: _Placement = "at_end",
     options: SortOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> Expression: ...
@@ -2674,12 +2709,32 @@ def sort_indices(
 # ========================= 3.6 Structural transforms =========================
 @overload
 def list_element(
-    lists: Expression, index, /, *, memory_pool: lib.MemoryPool | None = None
+    lists: Expression, index: ScalarLike, /, *, memory_pool: lib.MemoryPool | None = None
 ) -> Expression: ...
 @overload
 def list_element(
-    lists, index, /, *, memory_pool: lib.MemoryPool | None = None
-) -> lib.ListArray: ...
+    lists: lib.Array[ListScalar[_DataTypeT]],
+    index: ScalarLike,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.Array[lib.Scalar[_DataTypeT]]: ...
+@overload
+def list_element(
+    lists: lib.ChunkedArray[ListScalar[_DataTypeT]],
+    index: ScalarLike,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.ChunkedArray[lib.Scalar[_DataTypeT]]: ...
+@overload
+def list_element(
+    lists: ListScalar[_DataTypeT],
+    index: ScalarLike,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> _DataTypeT: ...
 @overload
 def list_flatten(
     lists: Expression,
@@ -2691,20 +2746,20 @@ def list_flatten(
 ) -> Expression: ...
 @overload
 def list_flatten(
-    lists,
+    lists: ArrayOrChunkedArray[ListScalar[Any]],
     /,
     recursive: bool = False,
     *,
     options: ListFlattenOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> lib.ListArray: ...
+) -> lib.ListArray[Any]: ...
 @overload
 def list_parent_indices(
     lists: Expression, /, *, memory_pool: lib.MemoryPool | None = None
 ) -> Expression: ...
 @overload
 def list_parent_indices(
-    lists, /, *, memory_pool: lib.MemoryPool | None = None
+    lists: ArrayOrChunkedArray[Any], /, *, memory_pool: lib.MemoryPool | None = None
 ) -> lib.Int64Array: ...
 @overload
 def list_slice(
@@ -2720,7 +2775,7 @@ def list_slice(
 ) -> Expression: ...
 @overload
 def list_slice(
-    lists,
+    lists: ArrayOrChunkedArray[Any],
     /,
     start: int,
     stop: int | None = None,
@@ -2729,7 +2784,7 @@ def list_slice(
     *,
     options: ListSliceOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> lib.ListArray: ...
+) -> lib.ListArray[Any]: ...
 def map_lookup(
     container,
     /,

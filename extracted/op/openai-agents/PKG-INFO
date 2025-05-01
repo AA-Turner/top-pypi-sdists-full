@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openai-agents
-Version: 0.0.13
+Version: 0.0.14
 Summary: OpenAI Agents SDK
 Project-URL: Homepage, https://github.com/openai/openai-agents-python
 Project-URL: Repository, https://github.com/openai/openai-agents-python
@@ -26,7 +26,7 @@ Requires-Dist: requests<3,>=2.0
 Requires-Dist: types-requests<3,>=2.0
 Requires-Dist: typing-extensions<5,>=4.12.2
 Provides-Extra: litellm
-Requires-Dist: litellm<2,>=1.65.0; extra == 'litellm'
+Requires-Dist: litellm<2,>=1.67.4.post1; extra == 'litellm'
 Provides-Extra: viz
 Requires-Dist: graphviz>=0.17; extra == 'viz'
 Provides-Extra: voice

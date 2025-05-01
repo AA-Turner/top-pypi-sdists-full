@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: scmrepo
-Version: 3.3.10
+Version: 3.3.11
 Summary: scmrepo
 Author-email: Iterative <support@dvc.org>
 License: Apache-2.0
@@ -38,12 +38,13 @@ Requires-Dist: pytest-sugar; extra == "tests"
 Requires-Dist: pytest-test-utils<0.2,>=0.1.0; extra == "tests"
 Requires-Dist: proxy.py; extra == "tests"
 Provides-Extra: dev
-Requires-Dist: mypy==1.14.1; extra == "dev"
+Requires-Dist: mypy==1.15.0; extra == "dev"
 Requires-Dist: scmrepo[tests]; extra == "dev"
 Requires-Dist: types-certifi; extra == "dev"
 Requires-Dist: types-mock; extra == "dev"
 Requires-Dist: types-paramiko; extra == "dev"
 Requires-Dist: types-tqdm; extra == "dev"
+Dynamic: license-file
 
 scmrepo
 =======

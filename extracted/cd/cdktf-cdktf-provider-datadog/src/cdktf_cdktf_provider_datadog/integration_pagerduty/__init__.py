@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_pagerduty`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_pagerduty`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty).
+Refer to the Terraform Registry for docs: [`datadog_integration_pagerduty`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationPagerduty(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationPagerduty.IntegrationPagerduty",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty datadog_integration_pagerduty}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty datadog_integration_pagerduty}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class IntegrationPagerduty(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty datadog_integration_pagerduty} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty datadog_integration_pagerduty} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param subdomain: Your PagerDuty account’s personalized subdomain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#subdomain IntegrationPagerduty#subdomain}
-        :param api_token: Your PagerDuty API token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#api_token IntegrationPagerduty#api_token}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#id IntegrationPagerduty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param schedules: Array of your schedule URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#schedules IntegrationPagerduty#schedules}
+        :param subdomain: Your PagerDuty account’s personalized subdomain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#subdomain IntegrationPagerduty#subdomain}
+        :param api_token: Your PagerDuty API token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#api_token IntegrationPagerduty#api_token}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#id IntegrationPagerduty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param schedules: Array of your schedule URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#schedules IntegrationPagerduty#schedules}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class IntegrationPagerduty(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationPagerduty to import.
-        :param import_from_id: The id of the existing IntegrationPagerduty that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationPagerduty that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationPagerduty to import is found.
         '''
         if __debug__:
@@ -258,10 +258,10 @@ class IntegrationPagerdutyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param subdomain: Your PagerDuty account’s personalized subdomain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#subdomain IntegrationPagerduty#subdomain}
-        :param api_token: Your PagerDuty API token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#api_token IntegrationPagerduty#api_token}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#id IntegrationPagerduty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param schedules: Array of your schedule URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#schedules IntegrationPagerduty#schedules}
+        :param subdomain: Your PagerDuty account’s personalized subdomain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#subdomain IntegrationPagerduty#subdomain}
+        :param api_token: Your PagerDuty API token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#api_token IntegrationPagerduty#api_token}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#id IntegrationPagerduty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param schedules: Array of your schedule URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#schedules IntegrationPagerduty#schedules}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,7 +370,7 @@ class IntegrationPagerdutyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subdomain(self) -> builtins.str:
         '''Your PagerDuty account’s personalized subdomain name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#subdomain IntegrationPagerduty#subdomain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#subdomain IntegrationPagerduty#subdomain}
         '''
         result = self._values.get("subdomain")
         assert result is not None, "Required property 'subdomain' is missing"
@@ -380,14 +380,14 @@ class IntegrationPagerdutyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_token(self) -> typing.Optional[builtins.str]:
         '''Your PagerDuty API token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#api_token IntegrationPagerduty#api_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#api_token IntegrationPagerduty#api_token}
         '''
         result = self._values.get("api_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#id IntegrationPagerduty#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#id IntegrationPagerduty#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -399,7 +399,7 @@ class IntegrationPagerdutyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schedules(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Array of your schedule URLs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_pagerduty#schedules IntegrationPagerduty#schedules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_pagerduty#schedules IntegrationPagerduty#schedules}
         '''
         result = self._values.get("schedules")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

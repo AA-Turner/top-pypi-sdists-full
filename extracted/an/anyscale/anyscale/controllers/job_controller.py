@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import asyncio
+from collections import defaultdict
+from enum import Enum
 import os
 import random
 import string
 import time
-from typing import Any, cast, Dict, List, Optional
+from typing import Any, Callable, cast, Dict, Iterable, List, Optional
 
 import click
 import tabulate
@@ -23,10 +27,21 @@ from anyscale.client.openapi_client.models.create_internal_production_job import
 from anyscale.client.openapi_client.models.create_job_queue_config import (
     CreateJobQueueConfig,
 )
+from anyscale.client.openapi_client.models.decorated_job_queue import DecoratedJobQueue
 from anyscale.client.openapi_client.models.decorated_production_job import (
     DecoratedProductionJob,
 )
+from anyscale.client.openapi_client.models.decoratedjobqueue_response import (
+    DecoratedjobqueueResponse,
+)
 from anyscale.client.openapi_client.models.ha_job_states import HaJobStates
+from anyscale.client.openapi_client.models.job_queue_sort_directive import (
+    JobQueueSortDirective,
+)
+from anyscale.client.openapi_client.models.job_queues_query import JobQueuesQuery
+from anyscale.client.openapi_client.models.update_job_queue_request import (
+    UpdateJobQueueRequest,
+)
 from anyscale.controllers.base_controller import BaseController
 from anyscale.models.job_model import JobConfig
 from anyscale.project_utils import infer_project_id
@@ -45,7 +60,7 @@ from anyscale.util import (
     populate_unspecified_cluster_configs_from_current_workspace,
     validate_job_config_dict,
 )
-from anyscale.utils.connect_helpers import search_entities
+from anyscale.utils.connect_helpers import paginate, search_entities
 from anyscale.utils.runtime_env import override_runtime_env_config
 from anyscale.utils.workload_types import Workload
 
@@ -294,7 +309,7 @@ class JobController(BaseController):
         project_id: Optional[str],
         include_archived: bool,
         max_items: int,
-        states: List[str],
+        states: List[HaJobStates],
     ) -> None:
         """
         This function will list jobs.
@@ -338,6 +353,7 @@ class JobController(BaseController):
                 )
             else:
                 creator_id = None
+
             resp = self.api_client.list_decorated_jobs_api_v2_decorated_ha_jobs_get(
                 project_id=project_id,
                 name=name,
@@ -647,3 +663,199 @@ class JobController(BaseController):
             ),
         )
         return job_runs
+
+    def update_job_queue(
+        self,
+        job_queue_id: str,
+        job_queue_name: str,
+        max_concurrency: Optional[int] = None,
+        idle_timeout_s: Optional[int] = None,
+    ):
+        job_queue: DecoratedJobQueue = _resolve_object(
+            fetch_by_id=cast(
+                Callable[[str], DecoratedjobqueueResponse],
+                self.api_client.get_job_queue_api_v2_job_queues_job_queue_id_get,
+            ),
+            fetch_by_id_param=job_queue_id,
+            fetch_by_name=cast(
+                Callable[[str], DecoratedjobqueueResponse],
+                self.api_client.list_job_queues_api_v2_job_queues_post,
+            ),
+            fetch_by_name_query={
+                "job_queues_query": {"name": {"equals": job_queue_name,}}
+            },
+            object_type_description="job queue",
+        )
+
+        queue: DecoratedJobQueue = self.api_client.update_job_queue_api_v2_job_queues_job_queue_id_put(
+            job_queue_id=job_queue.id,
+            update_job_queue_request=UpdateJobQueueRequest(
+                max_concurrency=max_concurrency, idle_timeout_sec=idle_timeout_s,
+            ),
+        ).result
+
+        _print_job_queue_vertical(queue, JobQueueView.ALL)
+
+    def get_job_queue(self, job_queue_id: str):
+        queue: DecoratedJobQueue = self.api_client.get_job_queue_api_v2_job_queues_job_queue_id_get(
+            job_queue_id=job_queue_id
+        ).result
+
+        _print_job_queue_vertical(queue, JobQueueView.ALL)
+
+    def list_job_queues(
+        self,
+        include_all_users: bool,
+        view: JobQueueView,
+        page_size: int,
+        max_items: Optional[int],
+        sorting_directives: List[JobQueueSortDirective],
+        interactive: bool,
+    ):
+        creator_id = (
+            None
+            if include_all_users
+            else self.api_client.get_user_info_api_v2_userinfo_get().result.id
+        )
+
+        def build_query(paging_token: Optional[str], count: int) -> Dict:
+            return {
+                "job_queues_query": JobQueuesQuery(
+                    creator_id=creator_id,
+                    paging=PageQuery(paging_token=paging_token, count=count),
+                    sorting_directives=sorting_directives,
+                )
+            }
+
+        for batch in paginate(
+            search_function=self.api_client.list_job_queues_api_v2_job_queues_post,
+            query_builder=build_query,
+            interactive=interactive,
+            page_size=page_size,
+            max_items=max_items,
+        ):
+            _render_job_queues(batch, view)
+
+
+def _render_jobs(jobs):
+    jobs_table = [
+        [
+            job.name,
+            job.id,
+            job.project.name,
+            job.last_job_run.cluster.name
+            if job.last_job_run and job.last_job_run.cluster
+            else None,
+            job.state.current_state,
+            job.creator.email,
+            job.config.entrypoint
+            if len(job.config.entrypoint) < 50
+            else job.config.entrypoint[:50] + " ...",
+        ]
+        for job in jobs
+    ]
+
+    table = tabulate.tabulate(
+        jobs_table,
+        headers=[
+            "NAME",
+            "ID",
+            "PROJECT NAME",
+            "CLUSTER NAME",
+            "CURRENT STATE",
+            "CREATOR",
+            "ENTRYPOINT",
+        ],
+        tablefmt="plain",
+    )
+    click.echo(f"{table}")
+
+
+class JobQueueView(Enum):
+    ALL = DecoratedJobQueue.attribute_map.keys()
+    STATS = [
+        "id",
+        "name",
+        "total_jobs",
+        "active_jobs",
+        "successful_jobs",
+        "failed_jobs",
+    ]
+    DEFAULT = [
+        "id",
+        "name",
+        "cluster_id",
+        "creator_id",
+        "max_concurrency",
+        "idle_timeout_sec",
+        "current_cluster_state",
+        "created_at",
+    ]
+
+
+def _format_job_queue(queue: DecoratedJobQueue, view: JobQueueView) -> List[str]:
+    formatters: Dict[str, Callable[[Any], Any]] = defaultdict(lambda: (lambda v: v))
+    formatters["created_at"] = lambda k: k.strftime("%Y-%m-%d %H:%M:%S")
+
+    return [formatters[field](getattr(queue, field, "")) or "" for field in view.value]
+
+
+def _render_job_queues(queues: Iterable[DecoratedJobQueue], view: JobQueueView):
+    if not queues:
+        click.echo("No job queues found!")
+        return
+    table = tabulate.tabulate(
+        [
+            _format_job_queue(queue, view)
+            for queue in cast(Iterable[DecoratedJobQueue], queues)
+        ],
+        headers=[field.replace("_", " ").upper() for field in view.value],
+        tablefmt="plain",
+        maxcolwidths=30,  # type: ignore
+        numalign="center",
+        stralign="center",
+    )
+    click.echo(table)
+
+
+def _print_job_queue_vertical(queue: DecoratedJobQueue, job_queue_view: JobQueueView):
+    """
+    Print single job queue with headers as a vertical table
+    """
+    for header, value in zip(
+        [field.replace("_", " ").upper() for field in job_queue_view.value],
+        _format_job_queue(queue, job_queue_view),
+    ):
+        print(f"{header:<{30}}: {value}")
+
+
+def _resolve_object(
+    fetch_by_id: Optional[Callable[[str], object]],
+    fetch_by_id_param: Optional[str],
+    fetch_by_name,
+    fetch_by_name_query,
+    object_type_description: str,
+) -> Any:
+    """Given job_id or job_name, retrieve decorated ha job spec"""
+    if fetch_by_id_param is None and fetch_by_name_query is None:
+        raise click.ClickException(
+            "Either `--id` or `--name` must be passed in for object."
+        )
+    if fetch_by_id_param:
+        try:
+            return fetch_by_id(fetch_by_id_param).result  # type: ignore
+        except Exception as e:  # noqa: BLE001
+            raise click.ClickException(
+                f"Could not fetch {object_type_description} by id: {e}"
+            )
+
+    object_list_resp: List[Any] = fetch_by_name(**fetch_by_name_query).results
+    if len(object_list_resp) == 0:
+        raise click.ClickException(
+            f"No {object_type_description} found with the provided name"
+        )
+    if len(object_list_resp) > 1:
+        raise click.ClickException(
+            f"Multiple {object_type_description}s found with the provided name"
+        )
+    return object_list_resp[0]

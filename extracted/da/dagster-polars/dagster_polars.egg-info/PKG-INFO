@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-polars
-Version: 0.27.1
+Version: 0.27.2
 Summary: Dagster integration library for Polars
 Author-email: Daniel Gafni <danielgafni16@gmail.com>
 Project-URL: Repository, https://github.com/dagster-io/community-integrations/tree/main/libraries/dagster-polars

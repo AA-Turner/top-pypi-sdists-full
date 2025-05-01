@@ -1,7 +1,7 @@
 r'''
 # `datadog_observability_pipeline`
 
-Refer to the Terraform Registry for docs: [`datadog_observability_pipeline`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline).
+Refer to the Terraform Registry for docs: [`datadog_observability_pipeline`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ObservabilityPipeline(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.observabilityPipeline.ObservabilityPipeline",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline datadog_observability_pipeline}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline datadog_observability_pipeline}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class ObservabilityPipeline(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline datadog_observability_pipeline} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline datadog_observability_pipeline} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#config ObservabilityPipeline#config}
+        :param name: The pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#config ObservabilityPipeline#config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class ObservabilityPipeline(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ObservabilityPipeline to import.
-        :param import_from_id: The id of the existing ObservabilityPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ObservabilityPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ObservabilityPipeline to import is found.
         '''
         if __debug__:
@@ -126,9 +126,9 @@ class ObservabilityPipeline(
         sources: typing.Optional[typing.Union["ObservabilityPipelineConfigSources", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#destinations ObservabilityPipeline#destinations}
-        :param processors: processors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#processors ObservabilityPipeline#processors}
-        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#sources ObservabilityPipeline#sources}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#destinations ObservabilityPipeline#destinations}
+        :param processors: processors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#processors ObservabilityPipeline#processors}
+        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#sources ObservabilityPipeline#sources}
         '''
         value = ObservabilityPipelineConfigA(
             destinations=destinations, processors=processors, sources=sources
@@ -225,8 +225,8 @@ class ObservabilityPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#config ObservabilityPipeline#config}
+        :param name: The pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#config ObservabilityPipeline#config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -331,7 +331,7 @@ class ObservabilityPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The pipeline name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -341,7 +341,7 @@ class ObservabilityPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config(self) -> typing.Optional["ObservabilityPipelineConfigA"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#config ObservabilityPipeline#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#config ObservabilityPipeline#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["ObservabilityPipelineConfigA"], result)
@@ -376,9 +376,9 @@ class ObservabilityPipelineConfigA:
         sources: typing.Optional[typing.Union["ObservabilityPipelineConfigSources", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#destinations ObservabilityPipeline#destinations}
-        :param processors: processors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#processors ObservabilityPipeline#processors}
-        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#sources ObservabilityPipeline#sources}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#destinations ObservabilityPipeline#destinations}
+        :param processors: processors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#processors ObservabilityPipeline#processors}
+        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#sources ObservabilityPipeline#sources}
         '''
         if isinstance(destinations, dict):
             destinations = ObservabilityPipelineConfigDestinations(**destinations)
@@ -405,7 +405,7 @@ class ObservabilityPipelineConfigA:
     ) -> typing.Optional["ObservabilityPipelineConfigDestinations"]:
         '''destinations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#destinations ObservabilityPipeline#destinations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#destinations ObservabilityPipeline#destinations}
         '''
         result = self._values.get("destinations")
         return typing.cast(typing.Optional["ObservabilityPipelineConfigDestinations"], result)
@@ -414,7 +414,7 @@ class ObservabilityPipelineConfigA:
     def processors(self) -> typing.Optional["ObservabilityPipelineConfigProcessors"]:
         '''processors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#processors ObservabilityPipeline#processors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#processors ObservabilityPipeline#processors}
         '''
         result = self._values.get("processors")
         return typing.cast(typing.Optional["ObservabilityPipelineConfigProcessors"], result)
@@ -423,7 +423,7 @@ class ObservabilityPipelineConfigA:
     def sources(self) -> typing.Optional["ObservabilityPipelineConfigSources"]:
         '''sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#sources ObservabilityPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#sources ObservabilityPipeline#sources}
         '''
         result = self._values.get("sources")
         return typing.cast(typing.Optional["ObservabilityPipelineConfigSources"], result)
@@ -467,7 +467,7 @@ class ObservabilityPipelineConfigAOutputReference(
         datadog_logs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigDestinationsDatadogLogs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param datadog_logs: datadog_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#datadog_logs ObservabilityPipeline#datadog_logs}
+        :param datadog_logs: datadog_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#datadog_logs ObservabilityPipeline#datadog_logs}
         '''
         value = ObservabilityPipelineConfigDestinations(datadog_logs=datadog_logs)
 
@@ -485,12 +485,12 @@ class ObservabilityPipelineConfigAOutputReference(
         rename_fields: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigProcessorsRenameFields", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param add_fields: add_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#add_fields ObservabilityPipeline#add_fields}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#filter ObservabilityPipeline#filter}
-        :param parse_json: parse_json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#parse_json ObservabilityPipeline#parse_json}
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#quota ObservabilityPipeline#quota}
-        :param remove_fields: remove_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#remove_fields ObservabilityPipeline#remove_fields}
-        :param rename_fields: rename_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#rename_fields ObservabilityPipeline#rename_fields}
+        :param add_fields: add_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#add_fields ObservabilityPipeline#add_fields}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#filter ObservabilityPipeline#filter}
+        :param parse_json: parse_json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#parse_json ObservabilityPipeline#parse_json}
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#quota ObservabilityPipeline#quota}
+        :param remove_fields: remove_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#remove_fields ObservabilityPipeline#remove_fields}
+        :param rename_fields: rename_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#rename_fields ObservabilityPipeline#rename_fields}
         '''
         value = ObservabilityPipelineConfigProcessors(
             add_fields=add_fields,
@@ -511,8 +511,8 @@ class ObservabilityPipelineConfigAOutputReference(
         kafka: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigSourcesKafka", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param datadog_agent: datadog_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#datadog_agent ObservabilityPipeline#datadog_agent}
-        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#kafka ObservabilityPipeline#kafka}
+        :param datadog_agent: datadog_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#datadog_agent ObservabilityPipeline#datadog_agent}
+        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#kafka ObservabilityPipeline#kafka}
         '''
         value = ObservabilityPipelineConfigSources(
             datadog_agent=datadog_agent, kafka=kafka
@@ -598,7 +598,7 @@ class ObservabilityPipelineConfigDestinations:
         datadog_logs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigDestinationsDatadogLogs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param datadog_logs: datadog_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#datadog_logs ObservabilityPipeline#datadog_logs}
+        :param datadog_logs: datadog_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#datadog_logs ObservabilityPipeline#datadog_logs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ade6b9ae46e12b43fc9b2b75670b6fa0834fe8bd3c5a5c300bd8a93f9a303c6)
@@ -613,7 +613,7 @@ class ObservabilityPipelineConfigDestinations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigDestinationsDatadogLogs"]]]:
         '''datadog_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#datadog_logs ObservabilityPipeline#datadog_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#datadog_logs ObservabilityPipeline#datadog_logs}
         '''
         result = self._values.get("datadog_logs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigDestinationsDatadogLogs"]]], result)
@@ -643,8 +643,8 @@ class ObservabilityPipelineConfigDestinationsDatadogLogs:
         inputs: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param id: The unique ID of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inputs: The inputs for the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        :param id: The unique ID of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inputs: The inputs for the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ac7dd044594db6b267b5b808b4b6d3114fd6b446568da2576017b50d75475a7)
@@ -659,7 +659,7 @@ class ObservabilityPipelineConfigDestinationsDatadogLogs:
     def id(self) -> builtins.str:
         '''The unique ID of the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -672,7 +672,7 @@ class ObservabilityPipelineConfigDestinationsDatadogLogs:
     def inputs(self) -> typing.List[builtins.str]:
         '''The inputs for the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         result = self._values.get("inputs")
         assert result is not None, "Required property 'inputs' is missing"
@@ -952,12 +952,12 @@ class ObservabilityPipelineConfigProcessors:
         rename_fields: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigProcessorsRenameFields", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param add_fields: add_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#add_fields ObservabilityPipeline#add_fields}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#filter ObservabilityPipeline#filter}
-        :param parse_json: parse_json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#parse_json ObservabilityPipeline#parse_json}
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#quota ObservabilityPipeline#quota}
-        :param remove_fields: remove_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#remove_fields ObservabilityPipeline#remove_fields}
-        :param rename_fields: rename_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#rename_fields ObservabilityPipeline#rename_fields}
+        :param add_fields: add_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#add_fields ObservabilityPipeline#add_fields}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#filter ObservabilityPipeline#filter}
+        :param parse_json: parse_json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#parse_json ObservabilityPipeline#parse_json}
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#quota ObservabilityPipeline#quota}
+        :param remove_fields: remove_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#remove_fields ObservabilityPipeline#remove_fields}
+        :param rename_fields: rename_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#rename_fields ObservabilityPipeline#rename_fields}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70735c7949657318d76c2bf80bfb931c6f4d1dda94d21c87d73dbb72b28bbd6b)
@@ -987,7 +987,7 @@ class ObservabilityPipelineConfigProcessors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsAddFields"]]]:
         '''add_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#add_fields ObservabilityPipeline#add_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#add_fields ObservabilityPipeline#add_fields}
         '''
         result = self._values.get("add_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsAddFields"]]], result)
@@ -998,7 +998,7 @@ class ObservabilityPipelineConfigProcessors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#filter ObservabilityPipeline#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#filter ObservabilityPipeline#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsFilter"]]], result)
@@ -1009,7 +1009,7 @@ class ObservabilityPipelineConfigProcessors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsParseJson"]]]:
         '''parse_json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#parse_json ObservabilityPipeline#parse_json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#parse_json ObservabilityPipeline#parse_json}
         '''
         result = self._values.get("parse_json")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsParseJson"]]], result)
@@ -1020,7 +1020,7 @@ class ObservabilityPipelineConfigProcessors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsQuota"]]]:
         '''quota block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#quota ObservabilityPipeline#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#quota ObservabilityPipeline#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsQuota"]]], result)
@@ -1031,7 +1031,7 @@ class ObservabilityPipelineConfigProcessors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsRemoveFields"]]]:
         '''remove_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#remove_fields ObservabilityPipeline#remove_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#remove_fields ObservabilityPipeline#remove_fields}
         '''
         result = self._values.get("remove_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsRemoveFields"]]], result)
@@ -1042,7 +1042,7 @@ class ObservabilityPipelineConfigProcessors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsRenameFields"]]]:
         '''rename_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#rename_fields ObservabilityPipeline#rename_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#rename_fields ObservabilityPipeline#rename_fields}
         '''
         result = self._values.get("rename_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsRenameFields"]]], result)
@@ -1079,10 +1079,10 @@ class ObservabilityPipelineConfigProcessorsAddFields:
         field: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigProcessorsAddFieldsField", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
-        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
-        :param field: field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        :param field: field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec882221963f5a89d0b572d7a253b5286d8ec1586f34630cd95410af7b450ee7)
@@ -1102,7 +1102,7 @@ class ObservabilityPipelineConfigProcessorsAddFields:
     def id(self) -> builtins.str:
         '''The unique ID of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1115,7 +1115,7 @@ class ObservabilityPipelineConfigProcessorsAddFields:
     def include(self) -> builtins.str:
         '''A Datadog search query used to determine which logs this processor targets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -1125,7 +1125,7 @@ class ObservabilityPipelineConfigProcessorsAddFields:
     def inputs(self) -> typing.List[builtins.str]:
         '''The inputs for the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         result = self._values.get("inputs")
         assert result is not None, "Required property 'inputs' is missing"
@@ -1137,7 +1137,7 @@ class ObservabilityPipelineConfigProcessorsAddFields:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsAddFieldsField"]]]:
         '''field block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsAddFieldsField"]]], result)
@@ -1162,8 +1162,8 @@ class ObservabilityPipelineConfigProcessorsAddFields:
 class ObservabilityPipelineConfigProcessorsAddFieldsField:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The field name to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
-        :param value: The value to assign to the field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
+        :param name: The field name to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        :param value: The value to assign to the field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__600686e000790fe141c4b2e9f31a997eeb27c1ae29016a70ee2f9bb024b8882d)
@@ -1178,7 +1178,7 @@ class ObservabilityPipelineConfigProcessorsAddFieldsField:
     def name(self) -> builtins.str:
         '''The field name to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1188,7 +1188,7 @@ class ObservabilityPipelineConfigProcessorsAddFieldsField:
     def value(self) -> builtins.str:
         '''The value to assign to the field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1608,9 +1608,9 @@ class ObservabilityPipelineConfigProcessorsFilter:
         inputs: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include: A Datadog search query used to determine which logs should pass through the filter. Logs that match this query continue to downstream components; others are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
-        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include: A Datadog search query used to determine which logs should pass through the filter. Logs that match this query continue to downstream components; others are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__716f86525bbefc8f88c9c5a55769316492c07ceaa74dc3e5604319633f7d201c)
@@ -1627,7 +1627,7 @@ class ObservabilityPipelineConfigProcessorsFilter:
     def id(self) -> builtins.str:
         '''The unique ID of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1642,7 +1642,7 @@ class ObservabilityPipelineConfigProcessorsFilter:
 
         Logs that match this query continue to downstream components; others are dropped.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -1652,7 +1652,7 @@ class ObservabilityPipelineConfigProcessorsFilter:
     def inputs(self) -> typing.List[builtins.str]:
         '''The inputs for the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         result = self._values.get("inputs")
         assert result is not None, "Required property 'inputs' is missing"
@@ -2090,10 +2090,10 @@ class ObservabilityPipelineConfigProcessorsParseJson:
         inputs: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param field: The field to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
-        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
-        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        :param field: The field to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30b5bc2e45530f50f7e6155fbbd9e717db91020a4adb16ac25236468d4cbe4bf)
@@ -2112,7 +2112,7 @@ class ObservabilityPipelineConfigProcessorsParseJson:
     def field(self) -> builtins.str:
         '''The field to parse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
         '''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
@@ -2122,7 +2122,7 @@ class ObservabilityPipelineConfigProcessorsParseJson:
     def id(self) -> builtins.str:
         '''The unique ID of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2135,7 +2135,7 @@ class ObservabilityPipelineConfigProcessorsParseJson:
     def include(self) -> builtins.str:
         '''A Datadog search query used to determine which logs this processor targets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -2145,7 +2145,7 @@ class ObservabilityPipelineConfigProcessorsParseJson:
     def inputs(self) -> typing.List[builtins.str]:
         '''The inputs for the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         result = self._values.get("inputs")
         assert result is not None, "Required property 'inputs' is missing"
@@ -2398,15 +2398,15 @@ class ObservabilityPipelineConfigProcessorsQuota:
         partition_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param drop_events: Whether to drop events exceeding the limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#drop_events ObservabilityPipeline#drop_events}
-        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
-        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
-        :param name: The name of the quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
-        :param ignore_when_missing_partitions: Whether to ignore when partition fields are missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#ignore_when_missing_partitions ObservabilityPipeline#ignore_when_missing_partitions}
-        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#overrides ObservabilityPipeline#overrides}
-        :param partition_fields: List of partition fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#partition_fields ObservabilityPipeline#partition_fields}
+        :param drop_events: Whether to drop events exceeding the limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#drop_events ObservabilityPipeline#drop_events}
+        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        :param name: The name of the quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        :param ignore_when_missing_partitions: Whether to ignore when partition fields are missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#ignore_when_missing_partitions ObservabilityPipeline#ignore_when_missing_partitions}
+        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#overrides ObservabilityPipeline#overrides}
+        :param partition_fields: List of partition fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#partition_fields ObservabilityPipeline#partition_fields}
         '''
         if isinstance(limit, dict):
             limit = ObservabilityPipelineConfigProcessorsQuotaLimit(**limit)
@@ -2440,7 +2440,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     def drop_events(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether to drop events exceeding the limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#drop_events ObservabilityPipeline#drop_events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#drop_events ObservabilityPipeline#drop_events}
         '''
         result = self._values.get("drop_events")
         assert result is not None, "Required property 'drop_events' is missing"
@@ -2450,7 +2450,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     def id(self) -> builtins.str:
         '''The unique ID of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2463,7 +2463,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     def include(self) -> builtins.str:
         '''A Datadog search query used to determine which logs this processor targets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -2473,7 +2473,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     def inputs(self) -> typing.List[builtins.str]:
         '''The inputs for the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         result = self._values.get("inputs")
         assert result is not None, "Required property 'inputs' is missing"
@@ -2483,7 +2483,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     def limit(self) -> "ObservabilityPipelineConfigProcessorsQuotaLimit":
         '''limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         result = self._values.get("limit")
         assert result is not None, "Required property 'limit' is missing"
@@ -2493,7 +2493,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     def name(self) -> builtins.str:
         '''The name of the quota.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2505,7 +2505,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to ignore when partition fields are missing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#ignore_when_missing_partitions ObservabilityPipeline#ignore_when_missing_partitions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#ignore_when_missing_partitions ObservabilityPipeline#ignore_when_missing_partitions}
         '''
         result = self._values.get("ignore_when_missing_partitions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2516,7 +2516,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsQuotaOverrides"]]]:
         '''overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#overrides ObservabilityPipeline#overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#overrides ObservabilityPipeline#overrides}
         '''
         result = self._values.get("overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsQuotaOverrides"]]], result)
@@ -2525,7 +2525,7 @@ class ObservabilityPipelineConfigProcessorsQuota:
     def partition_fields(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of partition fields.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#partition_fields ObservabilityPipeline#partition_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#partition_fields ObservabilityPipeline#partition_fields}
         '''
         result = self._values.get("partition_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2550,8 +2550,8 @@ class ObservabilityPipelineConfigProcessorsQuota:
 class ObservabilityPipelineConfigProcessorsQuotaLimit:
     def __init__(self, *, enforce: builtins.str, limit: jsii.Number) -> None:
         '''
-        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
-        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
+        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4dee7801dfff0c689049c646a00b943dacfc5f5d1cf0d25fd8171ea137e5a92c)
@@ -2566,7 +2566,7 @@ class ObservabilityPipelineConfigProcessorsQuotaLimit:
     def enforce(self) -> builtins.str:
         '''Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
         '''
         result = self._values.get("enforce")
         assert result is not None, "Required property 'enforce' is missing"
@@ -2576,7 +2576,7 @@ class ObservabilityPipelineConfigProcessorsQuotaLimit:
     def limit(self) -> jsii.Number:
         '''The daily quota limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         result = self._values.get("limit")
         assert result is not None, "Required property 'limit' is missing"
@@ -2788,8 +2788,8 @@ class ObservabilityPipelineConfigProcessorsQuotaOutputReference(
     @jsii.member(jsii_name="putLimit")
     def put_limit(self, *, enforce: builtins.str, limit: jsii.Number) -> None:
         '''
-        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
-        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
+        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         value = ObservabilityPipelineConfigProcessorsQuotaLimit(
             enforce=enforce, limit=limit
@@ -3008,8 +3008,8 @@ class ObservabilityPipelineConfigProcessorsQuotaOverrides:
         field: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigProcessorsQuotaOverridesField", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
-        :param field: field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        :param field: field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
         '''
         if isinstance(limit, dict):
             limit = ObservabilityPipelineConfigProcessorsQuotaOverridesLimit(**limit)
@@ -3027,7 +3027,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverrides:
     def limit(self) -> "ObservabilityPipelineConfigProcessorsQuotaOverridesLimit":
         '''limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         result = self._values.get("limit")
         assert result is not None, "Required property 'limit' is missing"
@@ -3039,7 +3039,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverrides:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsQuotaOverridesField"]]]:
         '''field block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsQuotaOverridesField"]]], result)
@@ -3064,8 +3064,8 @@ class ObservabilityPipelineConfigProcessorsQuotaOverrides:
 class ObservabilityPipelineConfigProcessorsQuotaOverridesField:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
-        :param value: The field value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
+        :param name: The field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        :param value: The field value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61af1950a287739bfec7ec9421099d1bbc57cdef0e3c27c130c0a7a74fd65445)
@@ -3080,7 +3080,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverridesField:
     def name(self) -> builtins.str:
         '''The field name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3090,7 +3090,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverridesField:
     def value(self) -> builtins.str:
         '''The field value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -3287,8 +3287,8 @@ class ObservabilityPipelineConfigProcessorsQuotaOverridesFieldOutputReference(
 class ObservabilityPipelineConfigProcessorsQuotaOverridesLimit:
     def __init__(self, *, enforce: builtins.str, limit: jsii.Number) -> None:
         '''
-        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
-        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
+        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db902c552d2bb6c42a48a64cc7557124218afbe8c1029eed7d25000136534b5a)
@@ -3303,7 +3303,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverridesLimit:
     def enforce(self) -> builtins.str:
         '''Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
         '''
         result = self._values.get("enforce")
         assert result is not None, "Required property 'enforce' is missing"
@@ -3313,7 +3313,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverridesLimit:
     def limit(self) -> jsii.Number:
         '''The daily quota limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         result = self._values.get("limit")
         assert result is not None, "Required property 'limit' is missing"
@@ -3538,8 +3538,8 @@ class ObservabilityPipelineConfigProcessorsQuotaOverridesOutputReference(
     @jsii.member(jsii_name="putLimit")
     def put_limit(self, *, enforce: builtins.str, limit: jsii.Number) -> None:
         '''
-        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
-        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
+        :param enforce: Whether to enforce by 'bytes' or 'events'. Valid values are ``bytes``, ``events``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#enforce ObservabilityPipeline#enforce}
+        :param limit: The daily quota limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#limit ObservabilityPipeline#limit}
         '''
         value = ObservabilityPipelineConfigProcessorsQuotaOverridesLimit(
             enforce=enforce, limit=limit
@@ -3615,10 +3615,10 @@ class ObservabilityPipelineConfigProcessorsRemoveFields:
         inputs: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param fields: List of fields to remove from the events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#fields ObservabilityPipeline#fields}
-        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
-        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        :param fields: List of fields to remove from the events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#fields ObservabilityPipeline#fields}
+        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        :param inputs: The inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06ad0615220b708f5abd61c8dab0dd9d0cdfb6e0874ae9521118b49a257692b2)
@@ -3637,7 +3637,7 @@ class ObservabilityPipelineConfigProcessorsRemoveFields:
     def fields(self) -> typing.List[builtins.str]:
         '''List of fields to remove from the events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#fields ObservabilityPipeline#fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#fields ObservabilityPipeline#fields}
         '''
         result = self._values.get("fields")
         assert result is not None, "Required property 'fields' is missing"
@@ -3647,7 +3647,7 @@ class ObservabilityPipelineConfigProcessorsRemoveFields:
     def id(self) -> builtins.str:
         '''The unique ID of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3660,7 +3660,7 @@ class ObservabilityPipelineConfigProcessorsRemoveFields:
     def include(self) -> builtins.str:
         '''A Datadog search query used to determine which logs this processor targets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -3670,7 +3670,7 @@ class ObservabilityPipelineConfigProcessorsRemoveFields:
     def inputs(self) -> typing.List[builtins.str]:
         '''The inputs for the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         result = self._values.get("inputs")
         assert result is not None, "Required property 'inputs' is missing"
@@ -3913,10 +3913,10 @@ class ObservabilityPipelineConfigProcessorsRenameFields:
         field: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigProcessorsRenameFieldsField", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
-        :param inputs: he inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
-        :param field: field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        :param id: The unique ID of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include: A Datadog search query used to determine which logs this processor targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        :param inputs: he inputs for the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        :param field: field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__849fb1f97819bfd610bcc90a4fa3cfbf8c464ffe831b9a07fcd7438516b944b1)
@@ -3936,7 +3936,7 @@ class ObservabilityPipelineConfigProcessorsRenameFields:
     def id(self) -> builtins.str:
         '''The unique ID of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3949,7 +3949,7 @@ class ObservabilityPipelineConfigProcessorsRenameFields:
     def include(self) -> builtins.str:
         '''A Datadog search query used to determine which logs this processor targets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#include ObservabilityPipeline#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -3959,7 +3959,7 @@ class ObservabilityPipelineConfigProcessorsRenameFields:
     def inputs(self) -> typing.List[builtins.str]:
         '''he inputs for the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#inputs ObservabilityPipeline#inputs}
         '''
         result = self._values.get("inputs")
         assert result is not None, "Required property 'inputs' is missing"
@@ -3971,7 +3971,7 @@ class ObservabilityPipelineConfigProcessorsRenameFields:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsRenameFieldsField"]]]:
         '''field block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#field ObservabilityPipeline#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigProcessorsRenameFieldsField"]]], result)
@@ -4006,9 +4006,9 @@ class ObservabilityPipelineConfigProcessorsRenameFieldsField:
         source: builtins.str,
     ) -> None:
         '''
-        :param destination: Destination field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#destination ObservabilityPipeline#destination}
-        :param preserve_source: Whether to keep the original field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#preserve_source ObservabilityPipeline#preserve_source}
-        :param source: Source field to rename. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#source ObservabilityPipeline#source}
+        :param destination: Destination field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#destination ObservabilityPipeline#destination}
+        :param preserve_source: Whether to keep the original field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#preserve_source ObservabilityPipeline#preserve_source}
+        :param source: Source field to rename. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#source ObservabilityPipeline#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec911e68d925c617fd922cac083783e7833f677602ebb88e4c94bd7456820924)
@@ -4025,7 +4025,7 @@ class ObservabilityPipelineConfigProcessorsRenameFieldsField:
     def destination(self) -> builtins.str:
         '''Destination field name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#destination ObservabilityPipeline#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#destination ObservabilityPipeline#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -4037,7 +4037,7 @@ class ObservabilityPipelineConfigProcessorsRenameFieldsField:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether to keep the original field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#preserve_source ObservabilityPipeline#preserve_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#preserve_source ObservabilityPipeline#preserve_source}
         '''
         result = self._values.get("preserve_source")
         assert result is not None, "Required property 'preserve_source' is missing"
@@ -4047,7 +4047,7 @@ class ObservabilityPipelineConfigProcessorsRenameFieldsField:
     def source(self) -> builtins.str:
         '''Source field to rename.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#source ObservabilityPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#source ObservabilityPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -4490,8 +4490,8 @@ class ObservabilityPipelineConfigSources:
         kafka: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigSourcesKafka", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param datadog_agent: datadog_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#datadog_agent ObservabilityPipeline#datadog_agent}
-        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#kafka ObservabilityPipeline#kafka}
+        :param datadog_agent: datadog_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#datadog_agent ObservabilityPipeline#datadog_agent}
+        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#kafka ObservabilityPipeline#kafka}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49015850ddc7b28aa0df549fd07e8652551f233acd25899cb805b635a0122141)
@@ -4509,7 +4509,7 @@ class ObservabilityPipelineConfigSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesDatadogAgent"]]]:
         '''datadog_agent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#datadog_agent ObservabilityPipeline#datadog_agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#datadog_agent ObservabilityPipeline#datadog_agent}
         '''
         result = self._values.get("datadog_agent")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesDatadogAgent"]]], result)
@@ -4520,7 +4520,7 @@ class ObservabilityPipelineConfigSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesKafka"]]]:
         '''kafka block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#kafka ObservabilityPipeline#kafka}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#kafka ObservabilityPipeline#kafka}
         '''
         result = self._values.get("kafka")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesKafka"]]], result)
@@ -4550,8 +4550,8 @@ class ObservabilityPipelineConfigSourcesDatadogAgent:
         tls: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigSourcesDatadogAgentTls", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param id: The unique ID of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
+        :param id: The unique ID of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40201c60390f36fa192eeac8d0af2513cf89c03af6641e65c0f35add37d87ebe)
@@ -4567,7 +4567,7 @@ class ObservabilityPipelineConfigSourcesDatadogAgent:
     def id(self) -> builtins.str:
         '''The unique ID of the source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4582,7 +4582,7 @@ class ObservabilityPipelineConfigSourcesDatadogAgent:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesDatadogAgentTls"]]]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesDatadogAgentTls"]]], result)
@@ -4796,9 +4796,9 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls:
         key_file: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
-        :param ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
-        :param key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
+        :param crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
+        :param ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
+        :param key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e1248ce1386d6f6612f15a5abcbbc84d0bb2700663daff7defe11323c2b3baf)
@@ -4817,7 +4817,7 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls:
     def crt_file(self) -> builtins.str:
         '''Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
         '''
         result = self._values.get("crt_file")
         assert result is not None, "Required property 'crt_file' is missing"
@@ -4827,7 +4827,7 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls:
     def ca_file(self) -> typing.Optional[builtins.str]:
         '''Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
         '''
         result = self._values.get("ca_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4836,7 +4836,7 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls:
     def key_file(self) -> typing.Optional[builtins.str]:
         '''Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
         '''
         result = self._values.get("key_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5073,12 +5073,12 @@ class ObservabilityPipelineConfigSourcesKafka:
         tls: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObservabilityPipelineConfigSourcesKafkaTls", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param group_id: The Kafka consumer group ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#group_id ObservabilityPipeline#group_id}
-        :param id: The unique ID of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#sasl ObservabilityPipeline#sasl}
-        :param topics: A list of Kafka topic names to subscribe to. The source ingests messages from each topic specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#topics ObservabilityPipeline#topics}
-        :param librdkafka_option: librdkafka_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#librdkafka_option ObservabilityPipeline#librdkafka_option}
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
+        :param group_id: The Kafka consumer group ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#group_id ObservabilityPipeline#group_id}
+        :param id: The unique ID of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#sasl ObservabilityPipeline#sasl}
+        :param topics: A list of Kafka topic names to subscribe to. The source ingests messages from each topic specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#topics ObservabilityPipeline#topics}
+        :param librdkafka_option: librdkafka_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#librdkafka_option ObservabilityPipeline#librdkafka_option}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
         '''
         if isinstance(sasl, dict):
             sasl = ObservabilityPipelineConfigSourcesKafkaSasl(**sasl)
@@ -5105,7 +5105,7 @@ class ObservabilityPipelineConfigSourcesKafka:
     def group_id(self) -> builtins.str:
         '''The Kafka consumer group ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#group_id ObservabilityPipeline#group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#group_id ObservabilityPipeline#group_id}
         '''
         result = self._values.get("group_id")
         assert result is not None, "Required property 'group_id' is missing"
@@ -5115,7 +5115,7 @@ class ObservabilityPipelineConfigSourcesKafka:
     def id(self) -> builtins.str:
         '''The unique ID of the source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#id ObservabilityPipeline#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -5128,7 +5128,7 @@ class ObservabilityPipelineConfigSourcesKafka:
     def sasl(self) -> "ObservabilityPipelineConfigSourcesKafkaSasl":
         '''sasl block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#sasl ObservabilityPipeline#sasl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#sasl ObservabilityPipeline#sasl}
         '''
         result = self._values.get("sasl")
         assert result is not None, "Required property 'sasl' is missing"
@@ -5138,7 +5138,7 @@ class ObservabilityPipelineConfigSourcesKafka:
     def topics(self) -> typing.List[builtins.str]:
         '''A list of Kafka topic names to subscribe to. The source ingests messages from each topic specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#topics ObservabilityPipeline#topics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#topics ObservabilityPipeline#topics}
         '''
         result = self._values.get("topics")
         assert result is not None, "Required property 'topics' is missing"
@@ -5150,7 +5150,7 @@ class ObservabilityPipelineConfigSourcesKafka:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption"]]]:
         '''librdkafka_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#librdkafka_option ObservabilityPipeline#librdkafka_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#librdkafka_option ObservabilityPipeline#librdkafka_option}
         '''
         result = self._values.get("librdkafka_option")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption"]]], result)
@@ -5161,7 +5161,7 @@ class ObservabilityPipelineConfigSourcesKafka:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesKafkaTls"]]]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#tls ObservabilityPipeline#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObservabilityPipelineConfigSourcesKafkaTls"]]], result)
@@ -5186,8 +5186,8 @@ class ObservabilityPipelineConfigSourcesKafka:
 class ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The name of the librdkafka option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
-        :param value: The value of the librdkafka option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
+        :param name: The name of the librdkafka option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        :param value: The value of the librdkafka option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c5d0624a80c6c222871d6ebe171e184204118a3006ab0b82d2142b3b692e472)
@@ -5202,7 +5202,7 @@ class ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption:
     def name(self) -> builtins.str:
         '''The name of the librdkafka option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#name ObservabilityPipeline#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5212,7 +5212,7 @@ class ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption:
     def value(self) -> builtins.str:
         '''The value of the librdkafka option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#value ObservabilityPipeline#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -5536,7 +5536,7 @@ class ObservabilityPipelineConfigSourcesKafkaOutputReference(
     @jsii.member(jsii_name="putSasl")
     def put_sasl(self, *, mechanism: builtins.str) -> None:
         '''
-        :param mechanism: SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are ``PLAIN``, ``SCRAM-SHA-256``, ``SCRAM-SHA-512``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#mechanism ObservabilityPipeline#mechanism}
+        :param mechanism: SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are ``PLAIN``, ``SCRAM-SHA-256``, ``SCRAM-SHA-512``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#mechanism ObservabilityPipeline#mechanism}
         '''
         value = ObservabilityPipelineConfigSourcesKafkaSasl(mechanism=mechanism)
 
@@ -5678,7 +5678,7 @@ class ObservabilityPipelineConfigSourcesKafkaOutputReference(
 class ObservabilityPipelineConfigSourcesKafkaSasl:
     def __init__(self, *, mechanism: builtins.str) -> None:
         '''
-        :param mechanism: SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are ``PLAIN``, ``SCRAM-SHA-256``, ``SCRAM-SHA-512``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#mechanism ObservabilityPipeline#mechanism}
+        :param mechanism: SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are ``PLAIN``, ``SCRAM-SHA-256``, ``SCRAM-SHA-512``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#mechanism ObservabilityPipeline#mechanism}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b6e38ce744df0cb92bf762198c4adc184d3b7f046d504de1c3685045cf9735e)
@@ -5691,7 +5691,7 @@ class ObservabilityPipelineConfigSourcesKafkaSasl:
     def mechanism(self) -> builtins.str:
         '''SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are ``PLAIN``, ``SCRAM-SHA-256``, ``SCRAM-SHA-512``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#mechanism ObservabilityPipeline#mechanism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#mechanism ObservabilityPipeline#mechanism}
         '''
         result = self._values.get("mechanism")
         assert result is not None, "Required property 'mechanism' is missing"
@@ -5778,9 +5778,9 @@ class ObservabilityPipelineConfigSourcesKafkaTls:
         key_file: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
-        :param ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
-        :param key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
+        :param crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
+        :param ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
+        :param key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94d6c7bbbd7f2b61906e176457cf1a945c1143eb7863214425d60b683a1c10f5)
@@ -5799,7 +5799,7 @@ class ObservabilityPipelineConfigSourcesKafkaTls:
     def crt_file(self) -> builtins.str:
         '''Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#crt_file ObservabilityPipeline#crt_file}
         '''
         result = self._values.get("crt_file")
         assert result is not None, "Required property 'crt_file' is missing"
@@ -5809,7 +5809,7 @@ class ObservabilityPipelineConfigSourcesKafkaTls:
     def ca_file(self) -> typing.Optional[builtins.str]:
         '''Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#ca_file ObservabilityPipeline#ca_file}
         '''
         result = self._values.get("ca_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5818,7 +5818,7 @@ class ObservabilityPipelineConfigSourcesKafkaTls:
     def key_file(self) -> typing.Optional[builtins.str]:
         '''Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/observability_pipeline#key_file ObservabilityPipeline#key_file}
         '''
         result = self._values.get("key_file")
         return typing.cast(typing.Optional[builtins.str], result)

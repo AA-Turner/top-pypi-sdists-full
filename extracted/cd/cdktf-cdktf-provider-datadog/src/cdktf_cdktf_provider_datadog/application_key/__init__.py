@@ -1,7 +1,7 @@
 r'''
 # `datadog_application_key`
 
-Refer to the Terraform Registry for docs: [`datadog_application_key`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key).
+Refer to the Terraform Registry for docs: [`datadog_application_key`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.applicationKey.ApplicationKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key datadog_application_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key datadog_application_key}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class ApplicationKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key datadog_application_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key datadog_application_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name for Application Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key#name ApplicationKey#name}
-        :param scopes: Authorization scopes for the Application Key. Application Keys configured with no scopes have full access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key#scopes ApplicationKey#scopes}
+        :param name: Name for Application Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key#name ApplicationKey#name}
+        :param scopes: Authorization scopes for the Application Key. Application Keys configured with no scopes have full access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key#scopes ApplicationKey#scopes}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class ApplicationKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationKey to import.
-        :param import_from_id: The id of the existing ApplicationKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationKey to import is found.
         '''
         if __debug__:
@@ -216,8 +216,8 @@ class ApplicationKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name for Application Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key#name ApplicationKey#name}
-        :param scopes: Authorization scopes for the Application Key. Application Keys configured with no scopes have full access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key#scopes ApplicationKey#scopes}
+        :param name: Name for Application Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key#name ApplicationKey#name}
+        :param scopes: Authorization scopes for the Application Key. Application Keys configured with no scopes have full access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key#scopes ApplicationKey#scopes}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -320,7 +320,7 @@ class ApplicationKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name for Application Key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key#name ApplicationKey#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key#name ApplicationKey#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -330,7 +330,7 @@ class ApplicationKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Authorization scopes for the Application Key. Application Keys configured with no scopes have full access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/application_key#scopes ApplicationKey#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/application_key#scopes ApplicationKey#scopes}
         '''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

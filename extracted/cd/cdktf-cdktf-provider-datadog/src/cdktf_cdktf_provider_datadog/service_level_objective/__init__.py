@@ -1,7 +1,7 @@
 r'''
 # `datadog_service_level_objective`
 
-Refer to the Terraform Registry for docs: [`datadog_service_level_objective`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective).
+Refer to the Terraform Registry for docs: [`datadog_service_level_objective`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceLevelObjective(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.serviceLevelObjective.ServiceLevelObjective",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective datadog_service_level_objective}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective datadog_service_level_objective}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class ServiceLevelObjective(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective datadog_service_level_objective} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective datadog_service_level_objective} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of Datadog service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#name ServiceLevelObjective#name}
-        :param thresholds: thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#thresholds ServiceLevelObjective#thresholds}
-        :param type: The type of the service level objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API `documentation page <https://docs.datadoghq.com/api/v1/service-level-objectives/#create-a-slo-object>`_. Valid values are ``metric``, ``monitor``, ``time_slice``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#type ServiceLevelObjective#type}
-        :param description: A description of this service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#description ServiceLevelObjective#description}
-        :param force_delete: A boolean indicating whether this monitor can be deleted even if it's referenced by other resources (for example, dashboards). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#force_delete ServiceLevelObjective#force_delete}
-        :param groups: A static set of groups to filter monitor-based SLOs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#groups ServiceLevelObjective#groups}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#id ServiceLevelObjective#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monitor_ids: A static set of monitor IDs to use as part of the SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#monitor_ids ServiceLevelObjective#monitor_ids}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
-        :param sli_specification: sli_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#sli_specification ServiceLevelObjective#sli_specification}
-        :param tags: A list of tags to associate with your service level objective. This can help you categorize and filter service level objectives in the service level objectives page of the UI. Note: it's not currently possible to filter by these tags when querying via the API Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#tags ServiceLevelObjective#tags}
-        :param target_threshold: The objective's target in ``(0,100)``. This must match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#target_threshold ServiceLevelObjective#target_threshold}
-        :param timeframe: The primary time frame for the objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
-        :param validate: Whether or not to validate the SLO. It checks if monitors added to a monitor SLO already exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#validate ServiceLevelObjective#validate}
-        :param warning_threshold: The objective's warning value in ``(0,100)``. This must be greater than the target value and match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#warning_threshold ServiceLevelObjective#warning_threshold}
+        :param name: Name of Datadog service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#name ServiceLevelObjective#name}
+        :param thresholds: thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#thresholds ServiceLevelObjective#thresholds}
+        :param type: The type of the service level objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API `documentation page <https://docs.datadoghq.com/api/v1/service-level-objectives/#create-a-slo-object>`_. Valid values are ``metric``, ``monitor``, ``time_slice``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#type ServiceLevelObjective#type}
+        :param description: A description of this service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#description ServiceLevelObjective#description}
+        :param force_delete: A boolean indicating whether this monitor can be deleted even if it's referenced by other resources (for example, dashboards). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#force_delete ServiceLevelObjective#force_delete}
+        :param groups: A static set of groups to filter monitor-based SLOs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#groups ServiceLevelObjective#groups}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#id ServiceLevelObjective#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monitor_ids: A static set of monitor IDs to use as part of the SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#monitor_ids ServiceLevelObjective#monitor_ids}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param sli_specification: sli_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#sli_specification ServiceLevelObjective#sli_specification}
+        :param tags: A list of tags to associate with your service level objective. This can help you categorize and filter service level objectives in the service level objectives page of the UI. Note: it's not currently possible to filter by these tags when querying via the API Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#tags ServiceLevelObjective#tags}
+        :param target_threshold: The objective's target in ``(0,100)``. This must match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#target_threshold ServiceLevelObjective#target_threshold}
+        :param timeframe: The primary time frame for the objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
+        :param validate: Whether or not to validate the SLO. It checks if monitors added to a monitor SLO already exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#validate ServiceLevelObjective#validate}
+        :param warning_threshold: The objective's warning value in ``(0,100)``. This must be greater than the target value and match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#warning_threshold ServiceLevelObjective#warning_threshold}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class ServiceLevelObjective(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceLevelObjective to import.
-        :param import_from_id: The id of the existing ServiceLevelObjective that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceLevelObjective that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceLevelObjective to import is found.
         '''
         if __debug__:
@@ -159,8 +159,8 @@ class ServiceLevelObjective(
     @jsii.member(jsii_name="putQuery")
     def put_query(self, *, denominator: builtins.str, numerator: builtins.str) -> None:
         '''
-        :param denominator: The sum of the ``total`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#denominator ServiceLevelObjective#denominator}
-        :param numerator: The sum of all the ``good`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#numerator ServiceLevelObjective#numerator}
+        :param denominator: The sum of the ``total`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#denominator ServiceLevelObjective#denominator}
+        :param numerator: The sum of all the ``good`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#numerator ServiceLevelObjective#numerator}
         '''
         value = ServiceLevelObjectiveQuery(
             denominator=denominator, numerator=numerator
@@ -175,7 +175,7 @@ class ServiceLevelObjective(
         time_slice: typing.Union["ServiceLevelObjectiveSliSpecificationTimeSlice", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param time_slice: time_slice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#time_slice ServiceLevelObjective#time_slice}
+        :param time_slice: time_slice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#time_slice ServiceLevelObjective#time_slice}
         '''
         value = ServiceLevelObjectiveSliSpecification(time_slice=time_slice)
 
@@ -569,21 +569,21 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of Datadog service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#name ServiceLevelObjective#name}
-        :param thresholds: thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#thresholds ServiceLevelObjective#thresholds}
-        :param type: The type of the service level objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API `documentation page <https://docs.datadoghq.com/api/v1/service-level-objectives/#create-a-slo-object>`_. Valid values are ``metric``, ``monitor``, ``time_slice``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#type ServiceLevelObjective#type}
-        :param description: A description of this service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#description ServiceLevelObjective#description}
-        :param force_delete: A boolean indicating whether this monitor can be deleted even if it's referenced by other resources (for example, dashboards). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#force_delete ServiceLevelObjective#force_delete}
-        :param groups: A static set of groups to filter monitor-based SLOs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#groups ServiceLevelObjective#groups}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#id ServiceLevelObjective#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monitor_ids: A static set of monitor IDs to use as part of the SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#monitor_ids ServiceLevelObjective#monitor_ids}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
-        :param sli_specification: sli_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#sli_specification ServiceLevelObjective#sli_specification}
-        :param tags: A list of tags to associate with your service level objective. This can help you categorize and filter service level objectives in the service level objectives page of the UI. Note: it's not currently possible to filter by these tags when querying via the API Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#tags ServiceLevelObjective#tags}
-        :param target_threshold: The objective's target in ``(0,100)``. This must match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#target_threshold ServiceLevelObjective#target_threshold}
-        :param timeframe: The primary time frame for the objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
-        :param validate: Whether or not to validate the SLO. It checks if monitors added to a monitor SLO already exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#validate ServiceLevelObjective#validate}
-        :param warning_threshold: The objective's warning value in ``(0,100)``. This must be greater than the target value and match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#warning_threshold ServiceLevelObjective#warning_threshold}
+        :param name: Name of Datadog service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#name ServiceLevelObjective#name}
+        :param thresholds: thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#thresholds ServiceLevelObjective#thresholds}
+        :param type: The type of the service level objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API `documentation page <https://docs.datadoghq.com/api/v1/service-level-objectives/#create-a-slo-object>`_. Valid values are ``metric``, ``monitor``, ``time_slice``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#type ServiceLevelObjective#type}
+        :param description: A description of this service level objective. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#description ServiceLevelObjective#description}
+        :param force_delete: A boolean indicating whether this monitor can be deleted even if it's referenced by other resources (for example, dashboards). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#force_delete ServiceLevelObjective#force_delete}
+        :param groups: A static set of groups to filter monitor-based SLOs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#groups ServiceLevelObjective#groups}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#id ServiceLevelObjective#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monitor_ids: A static set of monitor IDs to use as part of the SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#monitor_ids ServiceLevelObjective#monitor_ids}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param sli_specification: sli_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#sli_specification ServiceLevelObjective#sli_specification}
+        :param tags: A list of tags to associate with your service level objective. This can help you categorize and filter service level objectives in the service level objectives page of the UI. Note: it's not currently possible to filter by these tags when querying via the API Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#tags ServiceLevelObjective#tags}
+        :param target_threshold: The objective's target in ``(0,100)``. This must match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#target_threshold ServiceLevelObjective#target_threshold}
+        :param timeframe: The primary time frame for the objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
+        :param validate: Whether or not to validate the SLO. It checks if monitors added to a monitor SLO already exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#validate ServiceLevelObjective#validate}
+        :param warning_threshold: The objective's warning value in ``(0,100)``. This must be greater than the target value and match the corresponding thresholds of the primary time frame. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#warning_threshold ServiceLevelObjective#warning_threshold}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -727,7 +727,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of Datadog service level objective.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#name ServiceLevelObjective#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#name ServiceLevelObjective#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -739,7 +739,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceLevelObjectiveThresholds"]]:
         '''thresholds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#thresholds ServiceLevelObjective#thresholds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#thresholds ServiceLevelObjective#thresholds}
         '''
         result = self._values.get("thresholds")
         assert result is not None, "Required property 'thresholds' is missing"
@@ -751,7 +751,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API `documentation page <https://docs.datadoghq.com/api/v1/service-level-objectives/#create-a-slo-object>`_. Valid values are ``metric``, ``monitor``, ``time_slice``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#type ServiceLevelObjective#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#type ServiceLevelObjective#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -761,7 +761,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of this service level objective.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#description ServiceLevelObjective#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#description ServiceLevelObjective#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -772,7 +772,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''A boolean indicating whether this monitor can be deleted even if it's referenced by other resources (for example, dashboards).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#force_delete ServiceLevelObjective#force_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#force_delete ServiceLevelObjective#force_delete}
         '''
         result = self._values.get("force_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -781,14 +781,14 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A static set of groups to filter monitor-based SLOs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#groups ServiceLevelObjective#groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#groups ServiceLevelObjective#groups}
         '''
         result = self._values.get("groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#id ServiceLevelObjective#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#id ServiceLevelObjective#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -800,7 +800,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitor_ids(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''A static set of monitor IDs to use as part of the SLO.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#monitor_ids ServiceLevelObjective#monitor_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#monitor_ids ServiceLevelObjective#monitor_ids}
         '''
         result = self._values.get("monitor_ids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -809,7 +809,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> typing.Optional["ServiceLevelObjectiveQuery"]:
         '''query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional["ServiceLevelObjectiveQuery"], result)
@@ -820,7 +820,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServiceLevelObjectiveSliSpecification"]:
         '''sli_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#sli_specification ServiceLevelObjective#sli_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#sli_specification ServiceLevelObjective#sli_specification}
         '''
         result = self._values.get("sli_specification")
         return typing.cast(typing.Optional["ServiceLevelObjectiveSliSpecification"], result)
@@ -831,7 +831,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This can help you categorize and filter service level objectives in the service level objectives page of the UI. Note: it's not currently possible to filter by these tags when querying via the API
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#tags ServiceLevelObjective#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#tags ServiceLevelObjective#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -840,7 +840,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_threshold(self) -> typing.Optional[jsii.Number]:
         '''The objective's target in ``(0,100)``. This must match the corresponding thresholds of the primary time frame.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#target_threshold ServiceLevelObjective#target_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#target_threshold ServiceLevelObjective#target_threshold}
         '''
         result = self._values.get("target_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -851,7 +851,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
         '''
         result = self._values.get("timeframe")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -862,7 +862,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not to validate the SLO. It checks if monitors added to a monitor SLO already exist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#validate ServiceLevelObjective#validate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#validate ServiceLevelObjective#validate}
         '''
         result = self._values.get("validate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -873,7 +873,7 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This must be greater than the target value and match the corresponding thresholds of the primary time frame.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#warning_threshold ServiceLevelObjective#warning_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#warning_threshold ServiceLevelObjective#warning_threshold}
         '''
         result = self._values.get("warning_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -898,8 +898,8 @@ class ServiceLevelObjectiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ServiceLevelObjectiveQuery:
     def __init__(self, *, denominator: builtins.str, numerator: builtins.str) -> None:
         '''
-        :param denominator: The sum of the ``total`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#denominator ServiceLevelObjective#denominator}
-        :param numerator: The sum of all the ``good`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#numerator ServiceLevelObjective#numerator}
+        :param denominator: The sum of the ``total`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#denominator ServiceLevelObjective#denominator}
+        :param numerator: The sum of all the ``good`` events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#numerator ServiceLevelObjective#numerator}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__268e427658d3899ed81ea172f685c0cee60658032a0441d2aa0184c1e8b51c42)
@@ -914,7 +914,7 @@ class ServiceLevelObjectiveQuery:
     def denominator(self) -> builtins.str:
         '''The sum of the ``total`` events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#denominator ServiceLevelObjective#denominator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#denominator ServiceLevelObjective#denominator}
         '''
         result = self._values.get("denominator")
         assert result is not None, "Required property 'denominator' is missing"
@@ -924,7 +924,7 @@ class ServiceLevelObjectiveQuery:
     def numerator(self) -> builtins.str:
         '''The sum of all the ``good`` events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#numerator ServiceLevelObjective#numerator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#numerator ServiceLevelObjective#numerator}
         '''
         result = self._values.get("numerator")
         assert result is not None, "Required property 'numerator' is missing"
@@ -1024,7 +1024,7 @@ class ServiceLevelObjectiveSliSpecification:
         time_slice: typing.Union["ServiceLevelObjectiveSliSpecificationTimeSlice", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param time_slice: time_slice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#time_slice ServiceLevelObjective#time_slice}
+        :param time_slice: time_slice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#time_slice ServiceLevelObjective#time_slice}
         '''
         if isinstance(time_slice, dict):
             time_slice = ServiceLevelObjectiveSliSpecificationTimeSlice(**time_slice)
@@ -1039,7 +1039,7 @@ class ServiceLevelObjectiveSliSpecification:
     def time_slice(self) -> "ServiceLevelObjectiveSliSpecificationTimeSlice":
         '''time_slice block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#time_slice ServiceLevelObjective#time_slice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#time_slice ServiceLevelObjective#time_slice}
         '''
         result = self._values.get("time_slice")
         assert result is not None, "Required property 'time_slice' is missing"
@@ -1087,10 +1087,10 @@ class ServiceLevelObjectiveSliSpecificationOutputReference(
         query_interval_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param comparator: The comparator used to compare the SLI value to the threshold. Valid values are ``>``, ``>=``, ``<``, ``<=``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#comparator ServiceLevelObjective#comparator}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
-        :param threshold: The threshold value to which each SLI value will be compared. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#threshold ServiceLevelObjective#threshold}
-        :param query_interval_seconds: The interval used when querying data, which defines the size of a time slice. Valid values are ``60``, ``300``. Defaults to ``300``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query_interval_seconds ServiceLevelObjective#query_interval_seconds}
+        :param comparator: The comparator used to compare the SLI value to the threshold. Valid values are ``>``, ``>=``, ``<``, ``<=``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#comparator ServiceLevelObjective#comparator}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param threshold: The threshold value to which each SLI value will be compared. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#threshold ServiceLevelObjective#threshold}
+        :param query_interval_seconds: The interval used when querying data, which defines the size of a time slice. Valid values are ``60``, ``300``. Defaults to ``300``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query_interval_seconds ServiceLevelObjective#query_interval_seconds}
         '''
         value = ServiceLevelObjectiveSliSpecificationTimeSlice(
             comparator=comparator,
@@ -1151,10 +1151,10 @@ class ServiceLevelObjectiveSliSpecificationTimeSlice:
         query_interval_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param comparator: The comparator used to compare the SLI value to the threshold. Valid values are ``>``, ``>=``, ``<``, ``<=``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#comparator ServiceLevelObjective#comparator}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
-        :param threshold: The threshold value to which each SLI value will be compared. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#threshold ServiceLevelObjective#threshold}
-        :param query_interval_seconds: The interval used when querying data, which defines the size of a time slice. Valid values are ``60``, ``300``. Defaults to ``300``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query_interval_seconds ServiceLevelObjective#query_interval_seconds}
+        :param comparator: The comparator used to compare the SLI value to the threshold. Valid values are ``>``, ``>=``, ``<``, ``<=``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#comparator ServiceLevelObjective#comparator}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param threshold: The threshold value to which each SLI value will be compared. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#threshold ServiceLevelObjective#threshold}
+        :param query_interval_seconds: The interval used when querying data, which defines the size of a time slice. Valid values are ``60``, ``300``. Defaults to ``300``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query_interval_seconds ServiceLevelObjective#query_interval_seconds}
         '''
         if isinstance(query, dict):
             query = ServiceLevelObjectiveSliSpecificationTimeSliceQuery(**query)
@@ -1176,7 +1176,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSlice:
     def comparator(self) -> builtins.str:
         '''The comparator used to compare the SLI value to the threshold. Valid values are ``>``, ``>=``, ``<``, ``<=``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#comparator ServiceLevelObjective#comparator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#comparator ServiceLevelObjective#comparator}
         '''
         result = self._values.get("comparator")
         assert result is not None, "Required property 'comparator' is missing"
@@ -1186,7 +1186,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSlice:
     def query(self) -> "ServiceLevelObjectiveSliSpecificationTimeSliceQuery":
         '''query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -1196,7 +1196,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSlice:
     def threshold(self) -> jsii.Number:
         '''The threshold value to which each SLI value will be compared.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#threshold ServiceLevelObjective#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#threshold ServiceLevelObjective#threshold}
         '''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
@@ -1208,7 +1208,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSlice:
 
         Valid values are ``60``, ``300``. Defaults to ``300``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query_interval_seconds ServiceLevelObjective#query_interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query_interval_seconds ServiceLevelObjective#query_interval_seconds}
         '''
         result = self._values.get("query_interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1253,8 +1253,8 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceOutputReference(
         query: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ServiceLevelObjectiveSliSpecificationTimeSliceQueryQuery", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param formula: formula block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#formula ServiceLevelObjective#formula}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param formula: formula block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#formula ServiceLevelObjective#formula}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
         '''
         value = ServiceLevelObjectiveSliSpecificationTimeSliceQuery(
             formula=formula, query=query
@@ -1362,8 +1362,8 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQuery:
         query: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ServiceLevelObjectiveSliSpecificationTimeSliceQueryQuery", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param formula: formula block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#formula ServiceLevelObjective#formula}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param formula: formula block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#formula ServiceLevelObjective#formula}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
         '''
         if isinstance(formula, dict):
             formula = ServiceLevelObjectiveSliSpecificationTimeSliceQueryFormula(**formula)
@@ -1380,7 +1380,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQuery:
     def formula(self) -> "ServiceLevelObjectiveSliSpecificationTimeSliceQueryFormula":
         '''formula block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#formula ServiceLevelObjective#formula}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#formula ServiceLevelObjective#formula}
         '''
         result = self._values.get("formula")
         assert result is not None, "Required property 'formula' is missing"
@@ -1392,7 +1392,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQuery:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceLevelObjectiveSliSpecificationTimeSliceQueryQuery"]]:
         '''query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -1418,7 +1418,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQuery:
 class ServiceLevelObjectiveSliSpecificationTimeSliceQueryFormula:
     def __init__(self, *, formula_expression: builtins.str) -> None:
         '''
-        :param formula_expression: The formula string, which is an expression involving named queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#formula_expression ServiceLevelObjective#formula_expression}
+        :param formula_expression: The formula string, which is an expression involving named queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#formula_expression ServiceLevelObjective#formula_expression}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f5d9e685a20717a59c30b7ca574fc9c3fc7e2beccfbc14e018d0477cee4b69b)
@@ -1431,7 +1431,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryFormula:
     def formula_expression(self) -> builtins.str:
         '''The formula string, which is an expression involving named queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#formula_expression ServiceLevelObjective#formula_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#formula_expression ServiceLevelObjective#formula_expression}
         '''
         result = self._values.get("formula_expression")
         assert result is not None, "Required property 'formula_expression' is missing"
@@ -1527,7 +1527,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryOutputReference(
     @jsii.member(jsii_name="putFormula")
     def put_formula(self, *, formula_expression: builtins.str) -> None:
         '''
-        :param formula_expression: The formula string, which is an expression involving named queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#formula_expression ServiceLevelObjective#formula_expression}
+        :param formula_expression: The formula string, which is an expression involving named queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#formula_expression ServiceLevelObjective#formula_expression}
         '''
         value = ServiceLevelObjectiveSliSpecificationTimeSliceQueryFormula(
             formula_expression=formula_expression
@@ -1604,7 +1604,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryQuery:
         metric_query: typing.Optional[typing.Union["ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metric_query: metric_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#metric_query ServiceLevelObjective#metric_query}
+        :param metric_query: metric_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#metric_query ServiceLevelObjective#metric_query}
         '''
         if isinstance(metric_query, dict):
             metric_query = ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery(**metric_query)
@@ -1621,7 +1621,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryQuery:
     ) -> typing.Optional["ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery"]:
         '''metric_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#metric_query ServiceLevelObjective#metric_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#metric_query ServiceLevelObjective#metric_query}
         '''
         result = self._values.get("metric_query")
         return typing.cast(typing.Optional["ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery"], result)
@@ -1745,9 +1745,9 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery:
         data_source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the query for use in formulas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#name ServiceLevelObjective#name}
-        :param query: The metrics query definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
-        :param data_source: The data source for metrics queries. Defaults to ``"metrics"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#data_source ServiceLevelObjective#data_source}
+        :param name: The name of the query for use in formulas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#name ServiceLevelObjective#name}
+        :param query: The metrics query definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param data_source: The data source for metrics queries. Defaults to ``"metrics"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#data_source ServiceLevelObjective#data_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4c06384952932169c29b1aaefdcee0d8098afccf7adbb1c9559237d9d3fc24b)
@@ -1765,7 +1765,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery:
     def name(self) -> builtins.str:
         '''The name of the query for use in formulas.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#name ServiceLevelObjective#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#name ServiceLevelObjective#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1775,7 +1775,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery:
     def query(self) -> builtins.str:
         '''The metrics query definition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -1785,7 +1785,7 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery:
     def data_source(self) -> typing.Optional[builtins.str]:
         '''The data source for metrics queries. Defaults to ``"metrics"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#data_source ServiceLevelObjective#data_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#data_source ServiceLevelObjective#data_source}
         '''
         result = self._values.get("data_source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1930,9 +1930,9 @@ class ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryOutputReference(
         data_source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the query for use in formulas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#name ServiceLevelObjective#name}
-        :param query: The metrics query definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#query ServiceLevelObjective#query}
-        :param data_source: The data source for metrics queries. Defaults to ``"metrics"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#data_source ServiceLevelObjective#data_source}
+        :param name: The name of the query for use in formulas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#name ServiceLevelObjective#name}
+        :param query: The metrics query definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#query ServiceLevelObjective#query}
+        :param data_source: The data source for metrics queries. Defaults to ``"metrics"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#data_source ServiceLevelObjective#data_source}
         '''
         value = ServiceLevelObjectiveSliSpecificationTimeSliceQueryQueryMetricQuery(
             name=name, query=query, data_source=data_source
@@ -1990,9 +1990,9 @@ class ServiceLevelObjectiveThresholds:
         warning: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target: The objective's target in ``(0,100)``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#target ServiceLevelObjective#target}
-        :param timeframe: The time frame for the objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
-        :param warning: The objective's warning value in ``(0,100)``. This must be greater than the target value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#warning ServiceLevelObjective#warning}
+        :param target: The objective's target in ``(0,100)``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#target ServiceLevelObjective#target}
+        :param timeframe: The time frame for the objective. The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
+        :param warning: The objective's warning value in ``(0,100)``. This must be greater than the target value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#warning ServiceLevelObjective#warning}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__708fb67636caab56311bbb3038cac267a56a064003dfa3c0a8eb18ed80f260db)
@@ -2010,7 +2010,7 @@ class ServiceLevelObjectiveThresholds:
     def target(self) -> jsii.Number:
         '''The objective's target in ``(0,100)``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#target ServiceLevelObjective#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#target ServiceLevelObjective#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -2022,7 +2022,7 @@ class ServiceLevelObjectiveThresholds:
 
         The mapping from these types to the types found in the Datadog Web UI can be found in the Datadog API documentation page. Valid values are ``7d``, ``30d``, ``90d``, ``custom``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#timeframe ServiceLevelObjective#timeframe}
         '''
         result = self._values.get("timeframe")
         assert result is not None, "Required property 'timeframe' is missing"
@@ -2032,7 +2032,7 @@ class ServiceLevelObjectiveThresholds:
     def warning(self) -> typing.Optional[jsii.Number]:
         '''The objective's warning value in ``(0,100)``. This must be greater than the target value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_level_objective#warning ServiceLevelObjective#warning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_level_objective#warning ServiceLevelObjective#warning}
         '''
         result = self._values.get("warning")
         return typing.cast(typing.Optional[jsii.Number], result)

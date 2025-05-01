@@ -28,6 +28,7 @@ class HostRole(object):
     """
     AUTO_ASSIGN = "auto-assign"
     MASTER = "master"
+    ARBITER = "arbiter"
     WORKER = "worker"
     BOOTSTRAP = "bootstrap"
 

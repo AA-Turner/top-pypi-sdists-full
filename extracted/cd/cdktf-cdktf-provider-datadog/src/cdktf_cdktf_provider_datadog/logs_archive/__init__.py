@@ -1,7 +1,7 @@
 r'''
 # `datadog_logs_archive`
 
-Refer to the Terraform Registry for docs: [`datadog_logs_archive`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive).
+Refer to the Terraform Registry for docs: [`datadog_logs_archive`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogsArchive(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.logsArchive.LogsArchive",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive datadog_logs_archive}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive datadog_logs_archive}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class LogsArchive(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive datadog_logs_archive} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive datadog_logs_archive} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Your archive name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#name LogsArchive#name}
-        :param query: The archive query/filter. Logs matching this query are included in the archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#query LogsArchive#query}
-        :param azure_archive: azure_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#azure_archive LogsArchive#azure_archive}
-        :param gcs_archive: gcs_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#gcs_archive LogsArchive#gcs_archive}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#id LogsArchive#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_tags: To store the tags in the archive, set the value ``true``. If it is set to ``false``, the tags will be dropped when the logs are sent to the archive. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#include_tags LogsArchive#include_tags}
-        :param rehydration_max_scan_size_in_gb: To limit the rehydration scan size for the archive, set a value in GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#rehydration_max_scan_size_in_gb LogsArchive#rehydration_max_scan_size_in_gb}
-        :param rehydration_tags: An array of tags to add to rehydrated logs from an archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#rehydration_tags LogsArchive#rehydration_tags}
-        :param s3_archive: s3_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#s3_archive LogsArchive#s3_archive}
+        :param name: Your archive name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#name LogsArchive#name}
+        :param query: The archive query/filter. Logs matching this query are included in the archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#query LogsArchive#query}
+        :param azure_archive: azure_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#azure_archive LogsArchive#azure_archive}
+        :param gcs_archive: gcs_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#gcs_archive LogsArchive#gcs_archive}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#id LogsArchive#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_tags: To store the tags in the archive, set the value ``true``. If it is set to ``false``, the tags will be dropped when the logs are sent to the archive. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#include_tags LogsArchive#include_tags}
+        :param rehydration_max_scan_size_in_gb: To limit the rehydration scan size for the archive, set a value in GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#rehydration_max_scan_size_in_gb LogsArchive#rehydration_max_scan_size_in_gb}
+        :param rehydration_tags: An array of tags to add to rehydrated logs from an archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#rehydration_tags LogsArchive#rehydration_tags}
+        :param s3_archive: s3_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#s3_archive LogsArchive#s3_archive}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class LogsArchive(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogsArchive to import.
-        :param import_from_id: The id of the existing LogsArchive that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogsArchive that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogsArchive to import is found.
         '''
         if __debug__:
@@ -149,11 +149,11 @@ class LogsArchive(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Your client id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#client_id LogsArchive#client_id}
-        :param container: The container where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#container LogsArchive#container}
-        :param storage_account: The associated storage account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#storage_account LogsArchive#storage_account}
-        :param tenant_id: Your tenant id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#tenant_id LogsArchive#tenant_id}
-        :param path: The path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
+        :param client_id: Your client id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#client_id LogsArchive#client_id}
+        :param container: The container where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#container LogsArchive#container}
+        :param storage_account: The associated storage account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#storage_account LogsArchive#storage_account}
+        :param tenant_id: Your tenant id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#tenant_id LogsArchive#tenant_id}
+        :param path: The path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
         '''
         value = LogsArchiveAzureArchive(
             client_id=client_id,
@@ -175,10 +175,10 @@ class LogsArchive(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Name of your GCS bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#bucket LogsArchive#bucket}
-        :param client_email: Your client email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#client_email LogsArchive#client_email}
-        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
-        :param project_id: Your project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#project_id LogsArchive#project_id}
+        :param bucket: Name of your GCS bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#bucket LogsArchive#bucket}
+        :param client_email: Your client email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#client_email LogsArchive#client_email}
+        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
+        :param project_id: Your project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#project_id LogsArchive#project_id}
         '''
         value = LogsArchiveGcsArchive(
             bucket=bucket, client_email=client_email, path=path, project_id=project_id
@@ -199,13 +199,13 @@ class LogsArchive(
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_id: Your AWS account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#account_id LogsArchive#account_id}
-        :param bucket: Name of your s3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#bucket LogsArchive#bucket}
-        :param role_name: Your AWS role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#role_name LogsArchive#role_name}
-        :param encryption_key: The AWS KMS encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#encryption_key LogsArchive#encryption_key}
-        :param encryption_type: The type of encryption on your archive. Valid values are ``NO_OVERRIDE``, ``SSE_S3``, ``SSE_KMS``. Defaults to ``"NO_OVERRIDE"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#encryption_type LogsArchive#encryption_type}
-        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
-        :param storage_class: The AWS S3 storage class used to upload the logs. Valid values are ``STANDARD``, ``STANDARD_IA``, ``ONEZONE_IA``, ``INTELLIGENT_TIERING``, ``GLACIER_IR``. Defaults to ``"STANDARD"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#storage_class LogsArchive#storage_class}
+        :param account_id: Your AWS account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#account_id LogsArchive#account_id}
+        :param bucket: Name of your s3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#bucket LogsArchive#bucket}
+        :param role_name: Your AWS role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#role_name LogsArchive#role_name}
+        :param encryption_key: The AWS KMS encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#encryption_key LogsArchive#encryption_key}
+        :param encryption_type: The type of encryption on your archive. Valid values are ``NO_OVERRIDE``, ``SSE_S3``, ``SSE_KMS``. Defaults to ``"NO_OVERRIDE"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#encryption_type LogsArchive#encryption_type}
+        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
+        :param storage_class: The AWS S3 storage class used to upload the logs. Valid values are ``STANDARD``, ``STANDARD_IA``, ``ONEZONE_IA``, ``INTELLIGENT_TIERING``, ``GLACIER_IR``. Defaults to ``"STANDARD"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#storage_class LogsArchive#storage_class}
         '''
         value = LogsArchiveS3Archive(
             account_id=account_id,
@@ -420,11 +420,11 @@ class LogsArchiveAzureArchive:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Your client id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#client_id LogsArchive#client_id}
-        :param container: The container where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#container LogsArchive#container}
-        :param storage_account: The associated storage account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#storage_account LogsArchive#storage_account}
-        :param tenant_id: Your tenant id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#tenant_id LogsArchive#tenant_id}
-        :param path: The path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
+        :param client_id: Your client id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#client_id LogsArchive#client_id}
+        :param container: The container where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#container LogsArchive#container}
+        :param storage_account: The associated storage account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#storage_account LogsArchive#storage_account}
+        :param tenant_id: Your tenant id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#tenant_id LogsArchive#tenant_id}
+        :param path: The path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__906b6ccc3905851f42ff1e28473feeda76202af64e9d12d49392ebeac20966fb)
@@ -446,7 +446,7 @@ class LogsArchiveAzureArchive:
     def client_id(self) -> builtins.str:
         '''Your client id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#client_id LogsArchive#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#client_id LogsArchive#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -456,7 +456,7 @@ class LogsArchiveAzureArchive:
     def container(self) -> builtins.str:
         '''The container where the archive is stored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#container LogsArchive#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#container LogsArchive#container}
         '''
         result = self._values.get("container")
         assert result is not None, "Required property 'container' is missing"
@@ -466,7 +466,7 @@ class LogsArchiveAzureArchive:
     def storage_account(self) -> builtins.str:
         '''The associated storage account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#storage_account LogsArchive#storage_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#storage_account LogsArchive#storage_account}
         '''
         result = self._values.get("storage_account")
         assert result is not None, "Required property 'storage_account' is missing"
@@ -476,7 +476,7 @@ class LogsArchiveAzureArchive:
     def tenant_id(self) -> builtins.str:
         '''Your tenant id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#tenant_id LogsArchive#tenant_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#tenant_id LogsArchive#tenant_id}
         '''
         result = self._values.get("tenant_id")
         assert result is not None, "Required property 'tenant_id' is missing"
@@ -486,7 +486,7 @@ class LogsArchiveAzureArchive:
     def path(self) -> typing.Optional[builtins.str]:
         '''The path where the archive is stored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -676,15 +676,15 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Your archive name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#name LogsArchive#name}
-        :param query: The archive query/filter. Logs matching this query are included in the archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#query LogsArchive#query}
-        :param azure_archive: azure_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#azure_archive LogsArchive#azure_archive}
-        :param gcs_archive: gcs_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#gcs_archive LogsArchive#gcs_archive}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#id LogsArchive#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_tags: To store the tags in the archive, set the value ``true``. If it is set to ``false``, the tags will be dropped when the logs are sent to the archive. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#include_tags LogsArchive#include_tags}
-        :param rehydration_max_scan_size_in_gb: To limit the rehydration scan size for the archive, set a value in GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#rehydration_max_scan_size_in_gb LogsArchive#rehydration_max_scan_size_in_gb}
-        :param rehydration_tags: An array of tags to add to rehydrated logs from an archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#rehydration_tags LogsArchive#rehydration_tags}
-        :param s3_archive: s3_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#s3_archive LogsArchive#s3_archive}
+        :param name: Your archive name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#name LogsArchive#name}
+        :param query: The archive query/filter. Logs matching this query are included in the archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#query LogsArchive#query}
+        :param azure_archive: azure_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#azure_archive LogsArchive#azure_archive}
+        :param gcs_archive: gcs_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#gcs_archive LogsArchive#gcs_archive}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#id LogsArchive#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_tags: To store the tags in the archive, set the value ``true``. If it is set to ``false``, the tags will be dropped when the logs are sent to the archive. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#include_tags LogsArchive#include_tags}
+        :param rehydration_max_scan_size_in_gb: To limit the rehydration scan size for the archive, set a value in GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#rehydration_max_scan_size_in_gb LogsArchive#rehydration_max_scan_size_in_gb}
+        :param rehydration_tags: An array of tags to add to rehydrated logs from an archive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#rehydration_tags LogsArchive#rehydration_tags}
+        :param s3_archive: s3_archive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#s3_archive LogsArchive#s3_archive}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -813,7 +813,7 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Your archive name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#name LogsArchive#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#name LogsArchive#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -823,7 +823,7 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> builtins.str:
         '''The archive query/filter. Logs matching this query are included in the archive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#query LogsArchive#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#query LogsArchive#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -833,7 +833,7 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def azure_archive(self) -> typing.Optional[LogsArchiveAzureArchive]:
         '''azure_archive block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#azure_archive LogsArchive#azure_archive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#azure_archive LogsArchive#azure_archive}
         '''
         result = self._values.get("azure_archive")
         return typing.cast(typing.Optional[LogsArchiveAzureArchive], result)
@@ -842,14 +842,14 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcs_archive(self) -> typing.Optional["LogsArchiveGcsArchive"]:
         '''gcs_archive block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#gcs_archive LogsArchive#gcs_archive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#gcs_archive LogsArchive#gcs_archive}
         '''
         result = self._values.get("gcs_archive")
         return typing.cast(typing.Optional["LogsArchiveGcsArchive"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#id LogsArchive#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#id LogsArchive#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -865,7 +865,7 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is set to ``false``, the tags will be dropped when the logs are sent to the archive. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#include_tags LogsArchive#include_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#include_tags LogsArchive#include_tags}
         '''
         result = self._values.get("include_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -874,7 +874,7 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rehydration_max_scan_size_in_gb(self) -> typing.Optional[jsii.Number]:
         '''To limit the rehydration scan size for the archive, set a value in GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#rehydration_max_scan_size_in_gb LogsArchive#rehydration_max_scan_size_in_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#rehydration_max_scan_size_in_gb LogsArchive#rehydration_max_scan_size_in_gb}
         '''
         result = self._values.get("rehydration_max_scan_size_in_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -883,7 +883,7 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rehydration_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An array of tags to add to rehydrated logs from an archive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#rehydration_tags LogsArchive#rehydration_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#rehydration_tags LogsArchive#rehydration_tags}
         '''
         result = self._values.get("rehydration_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -892,7 +892,7 @@ class LogsArchiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def s3_archive(self) -> typing.Optional["LogsArchiveS3Archive"]:
         '''s3_archive block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#s3_archive LogsArchive#s3_archive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#s3_archive LogsArchive#s3_archive}
         '''
         result = self._values.get("s3_archive")
         return typing.cast(typing.Optional["LogsArchiveS3Archive"], result)
@@ -929,10 +929,10 @@ class LogsArchiveGcsArchive:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Name of your GCS bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#bucket LogsArchive#bucket}
-        :param client_email: Your client email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#client_email LogsArchive#client_email}
-        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
-        :param project_id: Your project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#project_id LogsArchive#project_id}
+        :param bucket: Name of your GCS bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#bucket LogsArchive#bucket}
+        :param client_email: Your client email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#client_email LogsArchive#client_email}
+        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
+        :param project_id: Your project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#project_id LogsArchive#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cde829daff0fc4cc97d6cb6900074d4fc0b14d9d1c0478e07057eed34368f8b9)
@@ -953,7 +953,7 @@ class LogsArchiveGcsArchive:
     def bucket(self) -> builtins.str:
         '''Name of your GCS bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#bucket LogsArchive#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#bucket LogsArchive#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -963,7 +963,7 @@ class LogsArchiveGcsArchive:
     def client_email(self) -> builtins.str:
         '''Your client email.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#client_email LogsArchive#client_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#client_email LogsArchive#client_email}
         '''
         result = self._values.get("client_email")
         assert result is not None, "Required property 'client_email' is missing"
@@ -973,7 +973,7 @@ class LogsArchiveGcsArchive:
     def path(self) -> typing.Optional[builtins.str]:
         '''Path where the archive is stored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -982,7 +982,7 @@ class LogsArchiveGcsArchive:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''Your project id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#project_id LogsArchive#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#project_id LogsArchive#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1134,13 +1134,13 @@ class LogsArchiveS3Archive:
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_id: Your AWS account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#account_id LogsArchive#account_id}
-        :param bucket: Name of your s3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#bucket LogsArchive#bucket}
-        :param role_name: Your AWS role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#role_name LogsArchive#role_name}
-        :param encryption_key: The AWS KMS encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#encryption_key LogsArchive#encryption_key}
-        :param encryption_type: The type of encryption on your archive. Valid values are ``NO_OVERRIDE``, ``SSE_S3``, ``SSE_KMS``. Defaults to ``"NO_OVERRIDE"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#encryption_type LogsArchive#encryption_type}
-        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
-        :param storage_class: The AWS S3 storage class used to upload the logs. Valid values are ``STANDARD``, ``STANDARD_IA``, ``ONEZONE_IA``, ``INTELLIGENT_TIERING``, ``GLACIER_IR``. Defaults to ``"STANDARD"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#storage_class LogsArchive#storage_class}
+        :param account_id: Your AWS account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#account_id LogsArchive#account_id}
+        :param bucket: Name of your s3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#bucket LogsArchive#bucket}
+        :param role_name: Your AWS role name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#role_name LogsArchive#role_name}
+        :param encryption_key: The AWS KMS encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#encryption_key LogsArchive#encryption_key}
+        :param encryption_type: The type of encryption on your archive. Valid values are ``NO_OVERRIDE``, ``SSE_S3``, ``SSE_KMS``. Defaults to ``"NO_OVERRIDE"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#encryption_type LogsArchive#encryption_type}
+        :param path: Path where the archive is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
+        :param storage_class: The AWS S3 storage class used to upload the logs. Valid values are ``STANDARD``, ``STANDARD_IA``, ``ONEZONE_IA``, ``INTELLIGENT_TIERING``, ``GLACIER_IR``. Defaults to ``"STANDARD"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#storage_class LogsArchive#storage_class}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd454c112015d42664507b0b6b9127ec63733b12fde93e61ff860c1edb1b979e)
@@ -1169,7 +1169,7 @@ class LogsArchiveS3Archive:
     def account_id(self) -> builtins.str:
         '''Your AWS account id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#account_id LogsArchive#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#account_id LogsArchive#account_id}
         '''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
@@ -1179,7 +1179,7 @@ class LogsArchiveS3Archive:
     def bucket(self) -> builtins.str:
         '''Name of your s3 bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#bucket LogsArchive#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#bucket LogsArchive#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -1189,7 +1189,7 @@ class LogsArchiveS3Archive:
     def role_name(self) -> builtins.str:
         '''Your AWS role name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#role_name LogsArchive#role_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#role_name LogsArchive#role_name}
         '''
         result = self._values.get("role_name")
         assert result is not None, "Required property 'role_name' is missing"
@@ -1199,7 +1199,7 @@ class LogsArchiveS3Archive:
     def encryption_key(self) -> typing.Optional[builtins.str]:
         '''The AWS KMS encryption key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#encryption_key LogsArchive#encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#encryption_key LogsArchive#encryption_key}
         '''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1208,7 +1208,7 @@ class LogsArchiveS3Archive:
     def encryption_type(self) -> typing.Optional[builtins.str]:
         '''The type of encryption on your archive. Valid values are ``NO_OVERRIDE``, ``SSE_S3``, ``SSE_KMS``. Defaults to ``"NO_OVERRIDE"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#encryption_type LogsArchive#encryption_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#encryption_type LogsArchive#encryption_type}
         '''
         result = self._values.get("encryption_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1217,7 +1217,7 @@ class LogsArchiveS3Archive:
     def path(self) -> typing.Optional[builtins.str]:
         '''Path where the archive is stored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#path LogsArchive#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#path LogsArchive#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1228,7 +1228,7 @@ class LogsArchiveS3Archive:
 
         Valid values are ``STANDARD``, ``STANDARD_IA``, ``ONEZONE_IA``, ``INTELLIGENT_TIERING``, ``GLACIER_IR``. Defaults to ``"STANDARD"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive#storage_class LogsArchive#storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive#storage_class LogsArchive#storage_class}
         '''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)

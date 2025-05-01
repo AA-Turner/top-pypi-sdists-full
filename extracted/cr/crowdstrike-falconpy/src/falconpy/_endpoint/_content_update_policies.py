@@ -150,7 +150,9 @@ _content_update_policies_endpoints = [
           "override-allow",
           "override-pause",
           "override-revert",
-          "remove-host-group"
+          "remove-host-group",
+          "remove-pinned-content-version",
+          "set-pinned-content-version"
         ],
         "type": "string",
         "description": "The action to perform",
@@ -289,6 +291,28 @@ _content_update_policies_endpoints = [
         "description": "The property to sort by",
         "name": "sort",
         "in": "query"
+      }
+    ]
+  ],
+  [
+    "queryPinnableContentVersions",
+    "GET",
+    "/policy/queries/content-update-pin-versions/v1",
+    "Search for content versions available for pinning given the category.",
+    "content_update_policies",
+    [
+      {
+        "enum": [
+          "rapid_response_al_bl_listing",
+          "sensor_operations",
+          "system_critical",
+          "vulnerability_management"
+        ],
+        "type": "string",
+        "description": "Content category",
+        "name": "category",
+        "in": "query",
+        "required": True
       }
     ]
   ],

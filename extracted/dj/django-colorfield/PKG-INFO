@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-colorfield
-Version: 0.13.0
+Version: 0.14.0
 Summary: color field for django models with a nice color-picker in the admin.
 Author-email: Jared Forsyth <jared@jaredforsyth.com>, Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>
@@ -191,7 +191,7 @@ class MyForm(forms.Form):
 ```
 
 ### Admin
-The admin will kindly provide a simple [color picker](http://jscolor.com/) for all color fields. :)
+The admin will kindly provide a simple [color picker](https://coloris.js.org/) for all color fields. :)
 
 ---
 

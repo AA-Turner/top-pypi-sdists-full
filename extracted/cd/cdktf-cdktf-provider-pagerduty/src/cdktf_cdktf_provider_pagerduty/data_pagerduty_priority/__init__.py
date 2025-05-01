@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_priority`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_priority`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/priority).
+Refer to the Terraform Registry for docs: [`data_pagerduty_priority`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/priority).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyPriority(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyPriority.DataPagerdutyPriority",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/priority pagerduty_priority}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/priority pagerduty_priority}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataPagerdutyPriority(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/priority pagerduty_priority} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/priority pagerduty_priority} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the priority to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/priority#name DataPagerdutyPriority#name}
+        :param name: The name of the priority to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/priority#name DataPagerdutyPriority#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataPagerdutyPriority(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyPriority to import.
-        :param import_from_id: The id of the existing DataPagerdutyPriority that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/priority#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyPriority that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/priority#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyPriority to import is found.
         '''
         if __debug__:
@@ -190,7 +190,7 @@ class DataPagerdutyPriorityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the priority to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/priority#name DataPagerdutyPriority#name}
+        :param name: The name of the priority to find in the PagerDuty API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/priority#name DataPagerdutyPriority#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -290,7 +290,7 @@ class DataPagerdutyPriorityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the priority to find in the PagerDuty API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/priority#name DataPagerdutyPriority#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/priority#name DataPagerdutyPriority#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: graphrag
-Version: 2.2.0
+Version: 2.2.1
 Summary: GraphRAG: A graph-based retrieval-augmented generation (RAG) system.
 License: MIT
 Author: Alonso Guevara Fernández

@@ -70,11 +70,12 @@ dependencies = [
     "langchain-elasticsearch==0.3.0",
     "langchain-ibm>=0.3,<0.4",
     "langchain-chroma==0.1.4",
+    "pymilvus<2.5.7", # issue: 49386  pymilvus 2.5.7 is not compatible with lanchain-milvus 0.1.8
     "langchain-milvus==0.1.8",
     "grpcio>=1.54.3",
     "python-docx==1.1.2",
     "python-pptx==1.0.2",
-    "pypdf==4.2.0",
+    "pypdf>=4.2.0",
     "beautifulsoup4==4.12.3",
     "markdown==3.4.1",
     "pyYAML>=5.1.2",
@@ -194,7 +195,6 @@ filterwarnings = [
     "ignore:.*Model needs to be:UserWarning",
     "ignore:.*invalid escape sequence.*:DeprecationWarning"
 ]
-
 
 [tool.mypy]
 packages = [

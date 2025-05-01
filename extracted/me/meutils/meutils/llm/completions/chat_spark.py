@@ -13,7 +13,7 @@ from meutils.pipe import *
 from meutils.io.openai_files import file_extract, guess_mime_type
 from meutils.str_utils.json_utils import json_path
 
-from meutils.llm.clients import AsyncOpenAI
+from meutils.llm.clients import AsyncOpenAI, zhipuai_client
 from meutils.llm.openai_utils import to_openai_params
 
 from meutils.schemas.openai_types import chat_completion, chat_completion_chunk, CompletionRequest, CompletionUsage
@@ -40,6 +40,11 @@ class Completions(object):
             #             'content': [{"type": "image_url", "image_url": {"url": file_url}}]
             #         }
             #     ]
+            # {
+            #     "type": "image_url",
+            #     "image_url": {
+            #         "url": {
+            #             "url":
 
             file_content = await file_extract(file_url)
 
@@ -64,6 +69,8 @@ class Completions(object):
 
                                 if content_type == "image_url":
                                     image_url = content.get("image_url", "")
+                                    if isinstance(image_url, dict):
+                                        image_url = image_url.get("url", "")
 
                                     user_contents[i] = {"type": "image_url", "image_url": {"url": image_url}}
 
@@ -87,6 +94,10 @@ class Completions(object):
         logger.debug(request.model_dump_json(indent=4))
 
         data = to_openai_params(request)
+
+        if request.model.startswith("glm-4v-flash"):
+            return await zhipuai_client.chat.completions.create(**data)
+
         return await AsyncOpenAI(api_key=self.api_key).chat.completions.create(**data)
 
 

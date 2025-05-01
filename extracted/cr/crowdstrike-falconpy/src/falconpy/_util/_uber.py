@@ -109,7 +109,14 @@ def scrub_target(oper: str, scrubbed: str, kwas: dict) -> str:
         "RunIntegrationTask": ["id"],
         "DeleteIntegrationTask": ["id"],
         "UpdateIntegrationTask": ["id"],
-        "DeleteExecutorNode": ["id"]
+        "DeleteExecutorNode": ["id"],
+        "UploadLookupV1": ["repository"],
+        "GetLookupV1": ["repository"],
+        "GetLookupFromPackageWithNamespaceV1": ["repository", "namespace", "package", "filename"],
+        "GetLookupFromPackageV1": ["repository", "package", "filename"],
+        "StartSearchV1": ["repository"],
+        "GetSearchStatusV1": ["repository", "search_id"],
+        "StopSearchV1": ["repository", "id"]
     }
     for field_value, field_names in field_mapping.items():
         if oper == field_value:  # Only perform replacements on mapped operation IDs.
@@ -148,11 +155,12 @@ def handle_container_operations(kwa: dict, base_string: str) -> Tuple[dict, str,
 
 
 def uber_request_keywords(caller,
-                          meth: str,                            # .        o
-                          oper: str,                            # .           o
-                          tgt: str,                             # .      o
-                          kwa: dict,                            # .         O
-                          do_cont: bool                         # .       \/|\/
+                          meth: str,
+                          oper: str,                            # .        o
+                          tgt: str,                             # .           o
+                          kwa: dict,                            # .      o
+                          do_cont: bool,                        # .         O
+                          do_stream: bool                       # .       \/|\/
                           ) -> dict:                            # .        / \  o
     """Generate a properly formatted mapping of the keywords for this request."""
     return {
@@ -178,5 +186,6 @@ def uber_request_keywords(caller,
         "log_util": caller.log,
         "debug_record_count": caller.debug_record_count,
         "sanitize": caller.sanitize_log,
-        "pythonic": caller.pythonic
+        "pythonic": caller.pythonic,
+        "stream": do_stream
     }

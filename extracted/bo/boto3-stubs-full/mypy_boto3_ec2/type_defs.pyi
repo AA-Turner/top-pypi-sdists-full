@@ -172,6 +172,7 @@ from .literals import (
     IpamDiscoveryFailureCodeType,
     IpamExternalResourceVerificationTokenStateType,
     IpamManagementStateType,
+    IpamMeteredAccountType,
     IpamNetworkInterfaceAttachmentStatusType,
     IpamOverlapStatusType,
     IpamPoolAllocationResourceTypeType,
@@ -12778,6 +12779,7 @@ class IpamTypeDef(TypedDict):
     StateMessage: NotRequired[str]
     Tier: NotRequired[IpamTierType]
     EnablePrivateGua: NotRequired[bool]
+    MeteredAccount: NotRequired[IpamMeteredAccountType]
 
 class IpamResourceDiscoveryTypeDef(TypedDict):
     OwnerId: NotRequired[str]
@@ -12876,6 +12878,7 @@ class ModifyIpamRequestTypeDef(TypedDict):
     RemoveOperatingRegions: NotRequired[Sequence[RemoveIpamOperatingRegionTypeDef]]
     Tier: NotRequired[IpamTierType]
     EnablePrivateGua: NotRequired[bool]
+    MeteredAccount: NotRequired[IpamMeteredAccountType]
 
 class ModifyIpamResourceDiscoveryRequestTypeDef(TypedDict):
     IpamResourceDiscoveryId: str
@@ -16224,6 +16227,7 @@ class CreateIpamRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     Tier: NotRequired[IpamTierType]
     EnablePrivateGua: NotRequired[bool]
+    MeteredAccount: NotRequired[IpamMeteredAccountType]
 
 class CreateIpamResourceDiscoveryRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]

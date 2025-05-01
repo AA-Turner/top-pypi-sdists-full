@@ -310,8 +310,10 @@ class Scripts:
         return None
 
     def remove(self, job_id: str, remove_children: bool):
-        keys = self.getKeys(['', 'meta', 'repeat'])
-        args = [job_id, 1 if remove_children else 0]
+        keys = [self.toKey(job_id),
+                self.keys['meta'],
+                self.keys['repeat']]
+        args = [job_id, 1 if remove_children else 0, self.keys['']]
 
         return self.commands["removeJob"](keys=keys, args=args)
 
@@ -541,6 +543,7 @@ class Scripts:
             "attemptsMade": job.attemptsMade,
             "maxMetricsSize": getMetricsSize(opts),
             "fpof": opts.get("failParentOnFailure", False),
+            "cpof": opts.get("continueParentOnFailure", False),
             "idof": opts.get("ignoreDependencyOnFailure", False)
         }, use_bin_type=True)
 

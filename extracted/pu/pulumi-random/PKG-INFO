@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_random
-Version: 4.18.1
+Version: 4.18.2
 Summary: A Pulumi package to safely use randomness in Pulumi programs.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_software_catalog`
 
-Refer to the Terraform Registry for docs: [`data_datadog_software_catalog`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog).
+Refer to the Terraform Registry for docs: [`data_datadog_software_catalog`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogSoftwareCatalog(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogSoftwareCatalog.DataDatadogSoftwareCatalog",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog datadog_software_catalog}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog datadog_software_catalog}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataDatadogSoftwareCatalog(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog datadog_software_catalog} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog datadog_software_catalog} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter_exclude_snapshot: Filter entities by excluding snapshotted entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_exclude_snapshot DataDatadogSoftwareCatalog#filter_exclude_snapshot}
-        :param filter_id: Filter entities by UUID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_id DataDatadogSoftwareCatalog#filter_id}
-        :param filter_kind: Filter entities by kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_kind DataDatadogSoftwareCatalog#filter_kind}
-        :param filter_name: Filter entities by name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_name DataDatadogSoftwareCatalog#filter_name}
-        :param filter_owner: Filter entities by owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_owner DataDatadogSoftwareCatalog#filter_owner}
-        :param filter_ref: Filter entities by reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_ref DataDatadogSoftwareCatalog#filter_ref}
-        :param filter_relation_type: Filter entities by relation type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_relation_type DataDatadogSoftwareCatalog#filter_relation_type}
+        :param filter_exclude_snapshot: Filter entities by excluding snapshotted entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_exclude_snapshot DataDatadogSoftwareCatalog#filter_exclude_snapshot}
+        :param filter_id: Filter entities by UUID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_id DataDatadogSoftwareCatalog#filter_id}
+        :param filter_kind: Filter entities by kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_kind DataDatadogSoftwareCatalog#filter_kind}
+        :param filter_name: Filter entities by name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_name DataDatadogSoftwareCatalog#filter_name}
+        :param filter_owner: Filter entities by owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_owner DataDatadogSoftwareCatalog#filter_owner}
+        :param filter_ref: Filter entities by reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_ref DataDatadogSoftwareCatalog#filter_ref}
+        :param filter_relation_type: Filter entities by relation type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_relation_type DataDatadogSoftwareCatalog#filter_relation_type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataDatadogSoftwareCatalog(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogSoftwareCatalog to import.
-        :param import_from_id: The id of the existing DataDatadogSoftwareCatalog that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogSoftwareCatalog that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogSoftwareCatalog to import is found.
         '''
         if __debug__:
@@ -350,13 +350,13 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter_exclude_snapshot: Filter entities by excluding snapshotted entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_exclude_snapshot DataDatadogSoftwareCatalog#filter_exclude_snapshot}
-        :param filter_id: Filter entities by UUID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_id DataDatadogSoftwareCatalog#filter_id}
-        :param filter_kind: Filter entities by kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_kind DataDatadogSoftwareCatalog#filter_kind}
-        :param filter_name: Filter entities by name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_name DataDatadogSoftwareCatalog#filter_name}
-        :param filter_owner: Filter entities by owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_owner DataDatadogSoftwareCatalog#filter_owner}
-        :param filter_ref: Filter entities by reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_ref DataDatadogSoftwareCatalog#filter_ref}
-        :param filter_relation_type: Filter entities by relation type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_relation_type DataDatadogSoftwareCatalog#filter_relation_type}
+        :param filter_exclude_snapshot: Filter entities by excluding snapshotted entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_exclude_snapshot DataDatadogSoftwareCatalog#filter_exclude_snapshot}
+        :param filter_id: Filter entities by UUID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_id DataDatadogSoftwareCatalog#filter_id}
+        :param filter_kind: Filter entities by kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_kind DataDatadogSoftwareCatalog#filter_kind}
+        :param filter_name: Filter entities by name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_name DataDatadogSoftwareCatalog#filter_name}
+        :param filter_owner: Filter entities by owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_owner DataDatadogSoftwareCatalog#filter_owner}
+        :param filter_ref: Filter entities by reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_ref DataDatadogSoftwareCatalog#filter_ref}
+        :param filter_relation_type: Filter entities by relation type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_relation_type DataDatadogSoftwareCatalog#filter_relation_type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -474,7 +474,7 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_exclude_snapshot(self) -> typing.Optional[builtins.str]:
         '''Filter entities by excluding snapshotted entities.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_exclude_snapshot DataDatadogSoftwareCatalog#filter_exclude_snapshot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_exclude_snapshot DataDatadogSoftwareCatalog#filter_exclude_snapshot}
         '''
         result = self._values.get("filter_exclude_snapshot")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -483,7 +483,7 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_id(self) -> typing.Optional[builtins.str]:
         '''Filter entities by UUID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_id DataDatadogSoftwareCatalog#filter_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_id DataDatadogSoftwareCatalog#filter_id}
         '''
         result = self._values.get("filter_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -492,7 +492,7 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_kind(self) -> typing.Optional[builtins.str]:
         '''Filter entities by kind.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_kind DataDatadogSoftwareCatalog#filter_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_kind DataDatadogSoftwareCatalog#filter_kind}
         '''
         result = self._values.get("filter_kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -501,7 +501,7 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_name(self) -> typing.Optional[builtins.str]:
         '''Filter entities by name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_name DataDatadogSoftwareCatalog#filter_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_name DataDatadogSoftwareCatalog#filter_name}
         '''
         result = self._values.get("filter_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -510,7 +510,7 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_owner(self) -> typing.Optional[builtins.str]:
         '''Filter entities by owner.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_owner DataDatadogSoftwareCatalog#filter_owner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_owner DataDatadogSoftwareCatalog#filter_owner}
         '''
         result = self._values.get("filter_owner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -519,7 +519,7 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_ref(self) -> typing.Optional[builtins.str]:
         '''Filter entities by reference.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_ref DataDatadogSoftwareCatalog#filter_ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_ref DataDatadogSoftwareCatalog#filter_ref}
         '''
         result = self._values.get("filter_ref")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -528,7 +528,7 @@ class DataDatadogSoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_relation_type(self) -> typing.Optional[builtins.str]:
         '''Filter entities by relation type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/software_catalog#filter_relation_type DataDatadogSoftwareCatalog#filter_relation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/software_catalog#filter_relation_type DataDatadogSoftwareCatalog#filter_relation_type}
         '''
         result = self._values.get("filter_relation_type")
         return typing.cast(typing.Optional[builtins.str], result)

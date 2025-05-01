@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_users`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_users`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/users).
+Refer to the Terraform Registry for docs: [`data_pagerduty_users`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/users).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyUsers(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyUsers.DataPagerdutyUsers",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/users pagerduty_users}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/users pagerduty_users}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataPagerdutyUsers(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/users pagerduty_users} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/users pagerduty_users} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param team_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/users#team_ids DataPagerdutyUsers#team_ids}.
+        :param team_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/users#team_ids DataPagerdutyUsers#team_ids}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataPagerdutyUsers(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyUsers to import.
-        :param import_from_id: The id of the existing DataPagerdutyUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/users#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/users#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyUsers to import is found.
         '''
         if __debug__:
@@ -194,7 +194,7 @@ class DataPagerdutyUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param team_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/users#team_ids DataPagerdutyUsers#team_ids}.
+        :param team_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/users#team_ids DataPagerdutyUsers#team_ids}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -292,7 +292,7 @@ class DataPagerdutyUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def team_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/users#team_ids DataPagerdutyUsers#team_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/users#team_ids DataPagerdutyUsers#team_ids}.'''
         result = self._values.get("team_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

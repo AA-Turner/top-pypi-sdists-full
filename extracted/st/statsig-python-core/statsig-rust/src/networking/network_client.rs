@@ -1,11 +1,12 @@
 use chrono::Utc;
+use serde::Serialize;
 
 use super::providers::get_network_provider;
 use super::{HttpMethod, NetworkProvider, RequestArgs, Response};
 use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::observability::ErrorBoundaryEvent;
 use crate::sdk_diagnostics::marker::{ActionType, Marker, StepType};
-use crate::{log_d, log_i, log_w};
+use crate::{log_d, log_i, log_w, StatsigErr, StatsigOptions};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,13 +16,14 @@ use std::time::Duration;
 const RETRY_CODES: [u16; 8] = [408, 500, 502, 503, 504, 522, 524, 599];
 const SHUTDOWN_ERROR: &str = "Request was aborted because the client is shutting down";
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize)]
 pub enum NetworkError {
     ShutdownError,
     RequestFailed,
     RetriesExhausted,
     SerializationError(String),
     DisableNetworkOn,
+    RequestNotRetryable,
 }
 
 impl fmt::Display for NetworkError {
@@ -32,6 +34,7 @@ impl fmt::Display for NetworkError {
             NetworkError::RetriesExhausted => write!(f, "RetriesExhausted"),
             NetworkError::SerializationError(s) => write!(f, "SerializationError: {s}"),
             NetworkError::DisableNetworkOn => write!(f, "DisableNetworkOn"),
+            NetworkError::RequestNotRetryable => write!(f, "RequestNotRetryable"),
         }
     }
 }
@@ -52,16 +55,19 @@ impl NetworkClient {
     pub fn new(
         sdk_key: &str,
         headers: Option<HashMap<String, String>>,
-        disable_network: Option<bool>,
+        options: Option<&StatsigOptions>,
     ) -> Self {
         let net_provider = get_network_provider();
+        let disable_network: bool = options
+            .and_then(|opts| opts.disable_network)
+            .unwrap_or(false);
 
         NetworkClient {
             headers: headers.unwrap_or_default(),
             is_shutdown: Arc::new(AtomicBool::new(false)),
             net_provider,
             ops_stats: OPS_STATS.get_for_instance(sdk_key),
-            disable_network: disable_network.unwrap_or_default(),
+            disable_network,
             silent_on_network_failure: false,
         }
     }
@@ -182,19 +188,21 @@ impl NetworkClient {
             }
 
             if !RETRY_CODES.contains(&status) {
+                let msg = format!("Network error, not retrying: {} {}", status, error_message);
                 self.log_warning(
-                    format!("status:{} message:{}", status, error_message),
+                    StatsigErr::NetworkError(NetworkError::RequestNotRetryable, Some(msg)),
                     &request_args,
                 );
-                return Err(NetworkError::RequestFailed);
+                return Err(NetworkError::RequestNotRetryable);
             }
 
             if attempt >= request_args.retries {
+                let msg = format!(
+                    "Network error, retries exhausted: {} {}",
+                    status, error_message
+                );
                 self.log_warning(
-                    format!(
-                        "Network error, retries exhausted: {} {}",
-                        status, error_message
-                    ),
+                    StatsigErr::NetworkError(NetworkError::RetriesExhausted, Some(msg)),
                     &request_args,
                 );
                 return Err(NetworkError::RetriesExhausted);
@@ -220,14 +228,14 @@ impl NetworkClient {
         self
     }
 
-    fn log_warning(&self, message: String, args: &RequestArgs) {
-        log_w!(TAG, "{}", message);
+    fn log_warning(&self, error: StatsigErr, args: &RequestArgs) {
+        log_w!(TAG, "{}", error);
         if !self.silent_on_network_failure {
             let dedupe_key = format!("{:?}", args.diagnostics_key);
             self.ops_stats.log_error(ErrorBoundaryEvent {
                 tag: TAG.to_string(),
                 bypass_dedupe: false,
-                exception: message,
+                info: error,
                 dedupe_key: Some(dedupe_key),
                 extra: None,
             });

@@ -1,7 +1,7 @@
 r'''
 # `provider`
 
-Refer to the Terraform Registry for docs: [`pagerduty`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs).
+Refer to the Terraform Registry for docs: [`pagerduty`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PagerdutyProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.provider.PagerdutyProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs pagerduty}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs pagerduty}.'''
 
     def __init__(
         self,
@@ -60,18 +60,18 @@ class PagerdutyProvider(
         use_app_oauth_scoped_token: typing.Optional[typing.Union["PagerdutyProviderUseAppOauthScopedToken", typing.Dict[builtins.str, typing.Any]]] = None,
         user_token: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs pagerduty} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs pagerduty} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#alias PagerdutyProvider#alias}
-        :param api_url_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#api_url_override PagerdutyProvider#api_url_override}.
-        :param insecure_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#insecure_tls PagerdutyProvider#insecure_tls}.
-        :param service_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#service_region PagerdutyProvider#service_region}.
-        :param skip_credentials_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#skip_credentials_validation PagerdutyProvider#skip_credentials_validation}.
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#token PagerdutyProvider#token}.
-        :param use_app_oauth_scoped_token: use_app_oauth_scoped_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#use_app_oauth_scoped_token PagerdutyProvider#use_app_oauth_scoped_token}
-        :param user_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#user_token PagerdutyProvider#user_token}.
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#alias PagerdutyProvider#alias}
+        :param api_url_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#api_url_override PagerdutyProvider#api_url_override}.
+        :param insecure_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#insecure_tls PagerdutyProvider#insecure_tls}.
+        :param service_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#service_region PagerdutyProvider#service_region}.
+        :param skip_credentials_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#skip_credentials_validation PagerdutyProvider#skip_credentials_validation}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#token PagerdutyProvider#token}.
+        :param use_app_oauth_scoped_token: use_app_oauth_scoped_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#use_app_oauth_scoped_token PagerdutyProvider#use_app_oauth_scoped_token}
+        :param user_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#user_token PagerdutyProvider#user_token}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3509512539073bbac9bc9e66d0efe0caaf04a43d2d2d30a6569b117bd193cb4a)
@@ -103,7 +103,7 @@ class PagerdutyProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PagerdutyProvider to import.
-        :param import_from_id: The id of the existing PagerdutyProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PagerdutyProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PagerdutyProvider to import is found.
         '''
         if __debug__:
@@ -345,14 +345,14 @@ class PagerdutyProviderConfig:
         user_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#alias PagerdutyProvider#alias}
-        :param api_url_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#api_url_override PagerdutyProvider#api_url_override}.
-        :param insecure_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#insecure_tls PagerdutyProvider#insecure_tls}.
-        :param service_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#service_region PagerdutyProvider#service_region}.
-        :param skip_credentials_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#skip_credentials_validation PagerdutyProvider#skip_credentials_validation}.
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#token PagerdutyProvider#token}.
-        :param use_app_oauth_scoped_token: use_app_oauth_scoped_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#use_app_oauth_scoped_token PagerdutyProvider#use_app_oauth_scoped_token}
-        :param user_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#user_token PagerdutyProvider#user_token}.
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#alias PagerdutyProvider#alias}
+        :param api_url_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#api_url_override PagerdutyProvider#api_url_override}.
+        :param insecure_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#insecure_tls PagerdutyProvider#insecure_tls}.
+        :param service_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#service_region PagerdutyProvider#service_region}.
+        :param skip_credentials_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#skip_credentials_validation PagerdutyProvider#skip_credentials_validation}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#token PagerdutyProvider#token}.
+        :param use_app_oauth_scoped_token: use_app_oauth_scoped_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#use_app_oauth_scoped_token PagerdutyProvider#use_app_oauth_scoped_token}
+        :param user_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#user_token PagerdutyProvider#user_token}.
         '''
         if isinstance(use_app_oauth_scoped_token, dict):
             use_app_oauth_scoped_token = PagerdutyProviderUseAppOauthScopedToken(**use_app_oauth_scoped_token)
@@ -388,14 +388,14 @@ class PagerdutyProviderConfig:
     def alias(self) -> typing.Optional[builtins.str]:
         '''Alias name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#alias PagerdutyProvider#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#alias PagerdutyProvider#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def api_url_override(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#api_url_override PagerdutyProvider#api_url_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#api_url_override PagerdutyProvider#api_url_override}.'''
         result = self._values.get("api_url_override")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -403,13 +403,13 @@ class PagerdutyProviderConfig:
     def insecure_tls(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#insecure_tls PagerdutyProvider#insecure_tls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#insecure_tls PagerdutyProvider#insecure_tls}.'''
         result = self._values.get("insecure_tls")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def service_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#service_region PagerdutyProvider#service_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#service_region PagerdutyProvider#service_region}.'''
         result = self._values.get("service_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -417,13 +417,13 @@ class PagerdutyProviderConfig:
     def skip_credentials_validation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#skip_credentials_validation PagerdutyProvider#skip_credentials_validation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#skip_credentials_validation PagerdutyProvider#skip_credentials_validation}.'''
         result = self._values.get("skip_credentials_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#token PagerdutyProvider#token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#token PagerdutyProvider#token}.'''
         result = self._values.get("token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -433,14 +433,14 @@ class PagerdutyProviderConfig:
     ) -> typing.Optional["PagerdutyProviderUseAppOauthScopedToken"]:
         '''use_app_oauth_scoped_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#use_app_oauth_scoped_token PagerdutyProvider#use_app_oauth_scoped_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#use_app_oauth_scoped_token PagerdutyProvider#use_app_oauth_scoped_token}
         '''
         result = self._values.get("use_app_oauth_scoped_token")
         return typing.cast(typing.Optional["PagerdutyProviderUseAppOauthScopedToken"], result)
 
     @builtins.property
     def user_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#user_token PagerdutyProvider#user_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#user_token PagerdutyProvider#user_token}.'''
         result = self._values.get("user_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -474,9 +474,9 @@ class PagerdutyProviderUseAppOauthScopedToken:
         pd_subdomain: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param pd_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#pd_client_id PagerdutyProvider#pd_client_id}.
-        :param pd_client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#pd_client_secret PagerdutyProvider#pd_client_secret}.
-        :param pd_subdomain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#pd_subdomain PagerdutyProvider#pd_subdomain}.
+        :param pd_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#pd_client_id PagerdutyProvider#pd_client_id}.
+        :param pd_client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#pd_client_secret PagerdutyProvider#pd_client_secret}.
+        :param pd_subdomain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#pd_subdomain PagerdutyProvider#pd_subdomain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__334b7455ce7e77f942b9b1650228793b7612f5b73d90c734c7e266d8df20bee2)
@@ -493,19 +493,19 @@ class PagerdutyProviderUseAppOauthScopedToken:
 
     @builtins.property
     def pd_client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#pd_client_id PagerdutyProvider#pd_client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#pd_client_id PagerdutyProvider#pd_client_id}.'''
         result = self._values.get("pd_client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pd_client_secret(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#pd_client_secret PagerdutyProvider#pd_client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#pd_client_secret PagerdutyProvider#pd_client_secret}.'''
         result = self._values.get("pd_client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pd_subdomain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs#pd_subdomain PagerdutyProvider#pd_subdomain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs#pd_subdomain PagerdutyProvider#pd_subdomain}.'''
         result = self._values.get("pd_subdomain")
         return typing.cast(typing.Optional[builtins.str], result)
 

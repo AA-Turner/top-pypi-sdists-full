@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: strawberry-graphql-django
-Version: 0.58.0
+Version: 0.59.0
 Summary: Strawberry GraphQL Django extension
 License: MIT
 Keywords: graphql,api,django,strawberry-graphql
@@ -31,7 +31,7 @@ Requires-Dist: asgiref (>=3.8)
 Requires-Dist: django (>=4.2)
 Requires-Dist: django-choices-field (>=2.2.2) ; extra == "enum"
 Requires-Dist: django-debug-toolbar (>=3.4) ; extra == "debug-toolbar"
-Requires-Dist: strawberry-graphql (>=0.258.0)
+Requires-Dist: strawberry-graphql (>=0.264.0)
 Project-URL: Documentation, https://strawberry.rocks/docs/django
 Project-URL: Repository, https://github.com/strawberry-graphql/strawberry-django
 Description-Content-Type: text/markdown

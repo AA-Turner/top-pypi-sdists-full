@@ -100,7 +100,7 @@ class HostUpdateParams(object):
         :param host_role: The host_role of this HostUpdateParams.  # noqa: E501
         :type: str
         """
-        allowed_values = ["auto-assign", "master", "worker"]  # noqa: E501
+        allowed_values = ["auto-assign", "master", "arbiter", "worker"]  # noqa: E501
         if host_role not in allowed_values:
             raise ValueError(
                 "Invalid value for `host_role` ({0}), must be one of {1}"  # noqa: E501

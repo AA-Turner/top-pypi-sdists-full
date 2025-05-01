@@ -1,7 +1,7 @@
 r'''
 # `datadog_authn_mapping`
 
-Refer to the Terraform Registry for docs: [`datadog_authn_mapping`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping).
+Refer to the Terraform Registry for docs: [`datadog_authn_mapping`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AuthnMapping(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.authnMapping.AuthnMapping",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping datadog_authn_mapping}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping datadog_authn_mapping}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AuthnMapping(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping datadog_authn_mapping} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping datadog_authn_mapping} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key: Identity provider key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#key AuthnMapping#key}
-        :param value: Identity provider value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#value AuthnMapping#value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#id AuthnMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param role: The ID of a role to attach to all users with the corresponding key and value. Cannot be used in conjunction with ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#role AuthnMapping#role}
-        :param team: The ID of a team to add all users with the corresponding key and value to. Cannot be used in conjunction with ``role``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#team AuthnMapping#team}
+        :param key: Identity provider key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#key AuthnMapping#key}
+        :param value: Identity provider value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#value AuthnMapping#value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#id AuthnMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param role: The ID of a role to attach to all users with the corresponding key and value. Cannot be used in conjunction with ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#role AuthnMapping#role}
+        :param team: The ID of a team to add all users with the corresponding key and value to. Cannot be used in conjunction with ``role``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#team AuthnMapping#team}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AuthnMapping(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AuthnMapping to import.
-        :param import_from_id: The id of the existing AuthnMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AuthnMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AuthnMapping to import is found.
         '''
         if __debug__:
@@ -280,11 +280,11 @@ class AuthnMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key: Identity provider key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#key AuthnMapping#key}
-        :param value: Identity provider value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#value AuthnMapping#value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#id AuthnMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param role: The ID of a role to attach to all users with the corresponding key and value. Cannot be used in conjunction with ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#role AuthnMapping#role}
-        :param team: The ID of a team to add all users with the corresponding key and value to. Cannot be used in conjunction with ``role``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#team AuthnMapping#team}
+        :param key: Identity provider key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#key AuthnMapping#key}
+        :param value: Identity provider value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#value AuthnMapping#value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#id AuthnMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param role: The ID of a role to attach to all users with the corresponding key and value. Cannot be used in conjunction with ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#role AuthnMapping#role}
+        :param team: The ID of a team to add all users with the corresponding key and value to. Cannot be used in conjunction with ``role``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#team AuthnMapping#team}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -395,7 +395,7 @@ class AuthnMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key(self) -> builtins.str:
         '''Identity provider key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#key AuthnMapping#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#key AuthnMapping#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -405,7 +405,7 @@ class AuthnMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> builtins.str:
         '''Identity provider value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#value AuthnMapping#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#value AuthnMapping#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -413,7 +413,7 @@ class AuthnMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#id AuthnMapping#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#id AuthnMapping#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -427,7 +427,7 @@ class AuthnMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Cannot be used in conjunction with ``team``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#role AuthnMapping#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#role AuthnMapping#role}
         '''
         result = self._values.get("role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -438,7 +438,7 @@ class AuthnMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Cannot be used in conjunction with ``role``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/authn_mapping#team AuthnMapping#team}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/authn_mapping#team AuthnMapping#team}
         '''
         result = self._values.get("team")
         return typing.cast(typing.Optional[builtins.str], result)

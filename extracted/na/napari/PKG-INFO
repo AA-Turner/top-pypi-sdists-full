@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: napari
-Version: 0.5.6
+Version: 0.6.0
 Summary: n-dimensional array viewer in Python
 Author-email: napari team <napari-steering-council@googlegroups.com>
 License: BSD 3-Clause
@@ -17,10 +17,10 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -30,7 +30,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: appdirs>=1.4.4
@@ -45,31 +45,31 @@ Requires-Dist: magicgui>=0.7.0
 Requires-Dist: napari-console>=0.1.1
 Requires-Dist: napari-plugin-engine>=0.1.9
 Requires-Dist: napari-svg>=0.1.8
-Requires-Dist: npe2>=0.7.6
-Requires-Dist: numpy>=1.22.2
-Requires-Dist: numpydoc>=0.9.2
-Requires-Dist: pandas>=1.3.0
+Requires-Dist: npe2>=0.7.8
+Requires-Dist: numpy>=1.24.2
+Requires-Dist: numpydoc>=1.0.0
+Requires-Dist: pandas>=1.3.3
 Requires-Dist: Pillow>=9.0
 Requires-Dist: pint>=0.17
-Requires-Dist: psutil>=5.0
+Requires-Dist: psutil>=5.9.0
 Requires-Dist: psygnal>=0.5.0
-Requires-Dist: pydantic>=1.9.0
+Requires-Dist: pydantic>=2.2.0
 Requires-Dist: pygments>=2.6.0
-Requires-Dist: PyOpenGL>=3.1.0
+Requires-Dist: PyOpenGL>=3.1.5
 Requires-Dist: pywin32; platform_system == "Windows"
-Requires-Dist: PyYAML>=5.1
+Requires-Dist: PyYAML>=6.0
 Requires-Dist: qtpy>=2.3.1
 Requires-Dist: scikit-image[data]>=0.19.1
-Requires-Dist: scipy>=1.5.4
+Requires-Dist: scipy>=1.10.1
 Requires-Dist: superqt>=0.6.7
 Requires-Dist: tifffile>=2022.7.28
-Requires-Dist: toolz>=0.10.0
+Requires-Dist: toolz>=0.11.0
 Requires-Dist: tqdm>=4.56.0
-Requires-Dist: typing_extensions>=4.2.0
+Requires-Dist: typing_extensions>=4.6.1
 Requires-Dist: vispy<0.15,>=0.14.1
-Requires-Dist: wrapt>=1.11.1
+Requires-Dist: wrapt>=1.13.3
 Provides-Extra: pyside2
-Requires-Dist: PySide2!=5.15.0,>=5.13.2; (python_version < "3.11" and platform_machine != "arm64") and extra == "pyside2"
+Requires-Dist: PySide2>=5.15.1; (python_version < "3.11" and platform_machine != "arm64") and extra == "pyside2"
 Provides-Extra: pyside6-experimental
 Requires-Dist: PySide6<6.5; python_version < "3.12" and extra == "pyside6-experimental"
 Provides-Extra: pyqt6
@@ -78,7 +78,8 @@ Requires-Dist: PyQt6!=6.6.1; platform_system == "Darwin" and extra == "pyqt6"
 Provides-Extra: pyside
 Requires-Dist: napari[pyside2]; extra == "pyside"
 Provides-Extra: pyqt5
-Requires-Dist: PyQt5!=5.15.0,>=5.13.2; extra == "pyqt5"
+Requires-Dist: PyQt5>=5.15.8; extra == "pyqt5"
+Requires-Dist: pyqt5-qt5<=5.15.2; sys_platform == "Windows" and extra == "pyqt5"
 Provides-Extra: pyqt
 Requires-Dist: napari[pyqt5]; extra == "pyqt"
 Provides-Extra: qt
@@ -91,10 +92,16 @@ Requires-Dist: napari-plugin-manager<0.2.0,>=0.1.3; extra == "optional-base"
 Provides-Extra: optional-numba
 Requires-Dist: numba>=0.57.1; extra == "optional-numba"
 Provides-Extra: optional
-Requires-Dist: napari[optional-base,optional-numba]; extra == "optional"
+Requires-Dist: napari[bermuda,optional-base,optional-numba]; extra == "optional"
 Requires-Dist: triangle; extra == "optional"
-Requires-Dist: PartSegCore-compiled-backend>=0.15.8; extra == "optional"
+Provides-Extra: bermuda
+Requires-Dist: bermuda>=0.1.4; extra == "bermuda"
+Provides-Extra: partsegcore
+Requires-Dist: PartSegCore-compiled-backend>=0.15.11; extra == "partsegcore"
+Provides-Extra: all-optional
+Requires-Dist: napari[optional,partsegcore]; extra == "all-optional"
 Provides-Extra: testing
+Requires-Dist: napari[gallery]; extra == "testing"
 Requires-Dist: babel>=2.9.0; extra == "testing"
 Requires-Dist: fsspec>=2023.10.0; extra == "testing"
 Requires-Dist: hypothesis>=6.8.0; extra == "testing"
@@ -108,7 +115,7 @@ Requires-Dist: pyautogui>=0.9.54; extra == "testing"
 Requires-Dist: pytest-qt>=4.3.1; extra == "testing"
 Requires-Dist: pytest-pretty>=1.1.0; extra == "testing"
 Requires-Dist: pytest>=8.1.0; extra == "testing"
-Requires-Dist: tensorstore>=0.1.13; extra == "testing"
+Requires-Dist: tensorstore>=0.1.32; extra == "testing"
 Requires-Dist: virtualenv>=20.17; extra == "testing"
 Requires-Dist: xarray>=0.16.2; extra == "testing"
 Requires-Dist: IPython>=7.25.0; extra == "testing"
@@ -116,9 +123,43 @@ Requires-Dist: qtconsole>=4.5.1; extra == "testing"
 Requires-Dist: rich>=12.0.0; extra == "testing"
 Requires-Dist: napari[optional-base]; extra == "testing"
 Provides-Extra: testing-extra
-Requires-Dist: torch>=1.7; extra == "testing-extra"
+Requires-Dist: torch>=1.10.2; extra == "testing-extra"
+Provides-Extra: gallery
+Requires-Dist: glasbey; extra == "gallery"
+Requires-Dist: zarr; extra == "gallery"
+Requires-Dist: dask[array,distributed]; extra == "gallery"
+Requires-Dist: matplotlib; extra == "gallery"
+Requires-Dist: pooch; extra == "gallery"
+Requires-Dist: nilearn; extra == "gallery"
+Requires-Dist: xarray; extra == "gallery"
+Requires-Dist: h5netcdf; extra == "gallery"
+Provides-Extra: docs
+Requires-Dist: napari[gallery]; extra == "docs"
+Requires-Dist: sphinx<8; extra == "docs"
+Requires-Dist: sphinx-autobuild; extra == "docs"
+Requires-Dist: sphinx-tabs; extra == "docs"
+Requires-Dist: sphinx-tags; extra == "docs"
+Requires-Dist: sphinx-design; extra == "docs"
+Requires-Dist: sphinx-external-toc; extra == "docs"
+Requires-Dist: sphinx-favicon>=1.0; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinx-gallery; extra == "docs"
+Requires-Dist: sphinx_autodoc_typehints==1.12.0; extra == "docs"
+Requires-Dist: sphinxcontrib-mermaid>=1.0.0; extra == "docs"
+Requires-Dist: sphinxext-opengraph[social-cards]; extra == "docs"
+Requires-Dist: myst-nb; extra == "docs"
+Requires-Dist: napari-sphinx-theme>=0.3.0; extra == "docs"
+Requires-Dist: matplotlib; extra == "docs"
+Requires-Dist: lxml[html_clean]>5; extra == "docs"
+Requires-Dist: imageio-ffmpeg; extra == "docs"
+Requires-Dist: pydeps; extra == "docs"
+Requires-Dist: seedir; extra == "docs"
+Requires-Dist: triangle; extra == "docs"
+Requires-Dist: bermuda>=0.1.4; extra == "docs"
+Requires-Dist: pytest; extra == "docs"
+Requires-Dist: linkify-it-py; extra == "docs"
 Provides-Extra: release
-Requires-Dist: PyGithub>=1.44.1; extra == "release"
+Requires-Dist: PyGithub>=1.46; extra == "release"
 Requires-Dist: twine>=3.1.1; extra == "release"
 Requires-Dist: gitpython>=3.1.0; extra == "release"
 Requires-Dist: requests-cache>=0.9.2; extra == "release"
@@ -128,10 +169,13 @@ Requires-Dist: check-manifest>=0.42; extra == "dev"
 Requires-Dist: pre-commit>=2.9.0; extra == "dev"
 Requires-Dist: pydantic; extra == "dev"
 Requires-Dist: python-dotenv; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: tox-min-req; extra == "dev"
 Requires-Dist: napari[testing]; extra == "dev"
 Provides-Extra: build
 Requires-Dist: ruff; extra == "build"
 Requires-Dist: pyqt5; extra == "build"
+Dynamic: license-file
 
 # napari
 
@@ -140,15 +184,15 @@ Requires-Dist: pyqt5; extra == "build"
 [![napari on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/napari/napari/main?urlpath=%2Fdesktop)
 [![image.sc forum](https://img.shields.io/badge/dynamic/json.svg?label=forum&url=https%3A%2F%2Fforum.image.sc%2Ftags%2Fnapari.json&query=%24.topic_list.tags.0.topic_count&colorB=brightgreen&suffix=%20topics&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAABPklEQVR42m3SyyqFURTA8Y2BER0TDyExZ+aSPIKUlPIITFzKeQWXwhBlQrmFgUzMMFLKZeguBu5y+//17dP3nc5vuPdee6299gohUYYaDGOyyACq4JmQVoFujOMR77hNfOAGM+hBOQqB9TjHD36xhAa04RCuuXeKOvwHVWIKL9jCK2bRiV284QgL8MwEjAneeo9VNOEaBhzALGtoRy02cIcWhE34jj5YxgW+E5Z4iTPkMYpPLCNY3hdOYEfNbKYdmNngZ1jyEzw7h7AIb3fRTQ95OAZ6yQpGYHMMtOTgouktYwxuXsHgWLLl+4x++Kx1FJrjLTagA77bTPvYgw1rRqY56e+w7GNYsqX6JfPwi7aR+Y5SA+BXtKIRfkfJAYgj14tpOF6+I46c4/cAM3UhM3JxyKsxiOIhH0IO6SH/A1Kb1WBeUjbkAAAAAElFTkSuQmCC)](https://forum.image.sc/tag/napari)
 [![License](https://img.shields.io/pypi/l/napari.svg)](https://github.com/napari/napari/raw/main/LICENSE)
-[![Build Status](https://api.cirrus-ci.com/github/Napari/napari.svg)](https://cirrus-ci.com/napari/napari)
+[![Comprehensive Test](https://github.com/napari/napari/actions/workflows/test_comprehensive.yml/badge.svg)](https://github.com/napari/napari/actions/workflows/test_comprehensive.yml)
 [![Code coverage](https://codecov.io/gh/napari/napari/branch/main/graph/badge.svg)](https://codecov.io/gh/napari/napari)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/napari.svg)](https://python.org)
 [![Python package index](https://img.shields.io/pypi/v/napari.svg)](https://pypi.org/project/napari)
 [![Python package index download statistics](https://img.shields.io/pypi/dm/napari.svg)](https://pypistats.org/packages/napari)
 [![Development Status](https://img.shields.io/pypi/status/napari.svg)](https://en.wikipedia.org/wiki/Software_release_life_cycle#Alpha)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/python/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![DOI](https://zenodo.org/badge/144513571.svg)](https://zenodo.org/badge/latestdoi/144513571)
-[![NEP29](https://raster.shields.io/badge/Follows-NEP29-brightgreen.png)](https://numpy.org/neps/nep-0029-deprecation_policy.html)
+[![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0%20(aspiring!)-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
 
 **napari** is a fast, interactive, multi-dimensional image viewer for Python. It's designed for browsing, annotating, and analyzing large multi-dimensional images. It's built on top of Qt (for the GUI), vispy (for performant GPU-based rendering), and the scientific Python stack (numpy, scipy).
 
@@ -163,7 +207,7 @@ We're working on [tutorials](https://napari.org/stable/tutorials/), but you can 
 It is recommended to install napari into a virtual environment, like this:
 
 ```sh
-conda create -y -n napari-env -c conda-forge python=3.9
+conda create -y -n napari-env -c conda-forge python=3.11
 conda activate napari-env
 python -m pip install "napari[all]"
 ```
@@ -223,7 +267,9 @@ You can see details of [the project roadmap here](https://napari.org/stable/road
 
 Contributions are encouraged! Please read our [contributing guide](https://napari.org/dev/developers/contributing/index.html) to get started. Given that we're in an early stage, you may want to reach out on our [GitHub Issues](https://github.com/napari/napari/issues) before jumping in. 
 
-If you want to contribute or edit to our documentation, please go to [napari/docs](https://github.com/napari/docs). 
+If you want to contribute to or edit our documentation, please go to [napari/docs](https://github.com/napari/docs).
+
+Visit our [project weather report dashboard](https://napari.org/weather-report/) to see metrics and how development is progressing.
 
 ## code of conduct
 

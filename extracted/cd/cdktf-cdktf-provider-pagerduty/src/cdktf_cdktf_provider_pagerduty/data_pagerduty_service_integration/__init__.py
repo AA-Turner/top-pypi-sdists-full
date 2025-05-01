@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_service_integration`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_service_integration`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration).
+Refer to the Terraform Registry for docs: [`data_pagerduty_service_integration`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyServiceIntegration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyServiceIntegration.DataPagerdutyServiceIntegration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration pagerduty_service_integration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration pagerduty_service_integration}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataPagerdutyServiceIntegration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration pagerduty_service_integration} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration pagerduty_service_integration} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param integration_summary: examples "Amazon CloudWatch", "New Relic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration#integration_summary DataPagerdutyServiceIntegration#integration_summary}
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration#service_name DataPagerdutyServiceIntegration#service_name}.
+        :param integration_summary: examples "Amazon CloudWatch", "New Relic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration#integration_summary DataPagerdutyServiceIntegration#integration_summary}
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration#service_name DataPagerdutyServiceIntegration#service_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataPagerdutyServiceIntegration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyServiceIntegration to import.
-        :param import_from_id: The id of the existing DataPagerdutyServiceIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyServiceIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyServiceIntegration to import is found.
         '''
         if __debug__:
@@ -212,8 +212,8 @@ class DataPagerdutyServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param integration_summary: examples "Amazon CloudWatch", "New Relic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration#integration_summary DataPagerdutyServiceIntegration#integration_summary}
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration#service_name DataPagerdutyServiceIntegration#service_name}.
+        :param integration_summary: examples "Amazon CloudWatch", "New Relic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration#integration_summary DataPagerdutyServiceIntegration#integration_summary}
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration#service_name DataPagerdutyServiceIntegration#service_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -315,7 +315,7 @@ class DataPagerdutyServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def integration_summary(self) -> builtins.str:
         '''examples "Amazon CloudWatch", "New Relic".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration#integration_summary DataPagerdutyServiceIntegration#integration_summary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration#integration_summary DataPagerdutyServiceIntegration#integration_summary}
         '''
         result = self._values.get("integration_summary")
         assert result is not None, "Required property 'integration_summary' is missing"
@@ -323,7 +323,7 @@ class DataPagerdutyServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/service_integration#service_name DataPagerdutyServiceIntegration#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/service_integration#service_name DataPagerdutyServiceIntegration#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)

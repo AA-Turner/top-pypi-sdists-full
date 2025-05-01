@@ -1,7 +1,7 @@
 r'''
 # `datadog_downtime_schedule`
 
-Refer to the Terraform Registry for docs: [`datadog_downtime_schedule`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule).
+Refer to the Terraform Registry for docs: [`datadog_downtime_schedule`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DowntimeSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.downtimeSchedule.DowntimeSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule datadog_downtime_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule datadog_downtime_schedule}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DowntimeSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule datadog_downtime_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule datadog_downtime_schedule} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param scope: The scope to which the downtime applies. Must follow the `common search syntax <https://docs.datadoghq.com/logs/explorer/search_syntax/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#scope DowntimeSchedule#scope}
-        :param display_timezone: The timezone in which to display the downtime's start and end times in Datadog applications. This is not used as an offset for scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#display_timezone DowntimeSchedule#display_timezone}
-        :param message: A message to include with notifications for this downtime. Email notifications can be sent to specific users by using the same ``@username`` notation as events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#message DowntimeSchedule#message}
-        :param monitor_identifier: monitor_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_identifier DowntimeSchedule#monitor_identifier}
-        :param mute_first_recovery_notification: If the first recovery notification during a downtime should be muted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#mute_first_recovery_notification DowntimeSchedule#mute_first_recovery_notification}
-        :param notify_end_states: States that will trigger a monitor notification when the ``notify_end_types`` action occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#notify_end_states DowntimeSchedule#notify_end_states}
-        :param notify_end_types: Actions that will trigger a monitor notification if the downtime is in the ``notify_end_types`` state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#notify_end_types DowntimeSchedule#notify_end_types}
-        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#one_time_schedule DowntimeSchedule#one_time_schedule}
-        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#recurring_schedule DowntimeSchedule#recurring_schedule}
+        :param scope: The scope to which the downtime applies. Must follow the `common search syntax <https://docs.datadoghq.com/logs/explorer/search_syntax/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#scope DowntimeSchedule#scope}
+        :param display_timezone: The timezone in which to display the downtime's start and end times in Datadog applications. This is not used as an offset for scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#display_timezone DowntimeSchedule#display_timezone}
+        :param message: A message to include with notifications for this downtime. Email notifications can be sent to specific users by using the same ``@username`` notation as events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#message DowntimeSchedule#message}
+        :param monitor_identifier: monitor_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_identifier DowntimeSchedule#monitor_identifier}
+        :param mute_first_recovery_notification: If the first recovery notification during a downtime should be muted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#mute_first_recovery_notification DowntimeSchedule#mute_first_recovery_notification}
+        :param notify_end_states: States that will trigger a monitor notification when the ``notify_end_types`` action occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#notify_end_states DowntimeSchedule#notify_end_states}
+        :param notify_end_types: Actions that will trigger a monitor notification if the downtime is in the ``notify_end_types`` state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#notify_end_types DowntimeSchedule#notify_end_types}
+        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#one_time_schedule DowntimeSchedule#one_time_schedule}
+        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#recurring_schedule DowntimeSchedule#recurring_schedule}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DowntimeSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DowntimeSchedule to import.
-        :param import_from_id: The id of the existing DowntimeSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DowntimeSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DowntimeSchedule to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class DowntimeSchedule(
         monitor_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param monitor_id: ID of the monitor to prevent notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_id DowntimeSchedule#monitor_id}
-        :param monitor_tags: A list of monitor tags. For example, tags that are applied directly to monitors, not tags that are used in monitor queries (which are filtered by the scope parameter), to which the downtime applies. The resulting downtime applies to monitors that match **all** provided monitor tags. Setting ``monitor_tags`` to ``[*]`` configures the downtime to mute all monitors for the given scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_tags DowntimeSchedule#monitor_tags}
+        :param monitor_id: ID of the monitor to prevent notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_id DowntimeSchedule#monitor_id}
+        :param monitor_tags: A list of monitor tags. For example, tags that are applied directly to monitors, not tags that are used in monitor queries (which are filtered by the scope parameter), to which the downtime applies. The resulting downtime applies to monitors that match **all** provided monitor tags. Setting ``monitor_tags`` to ``[*]`` configures the downtime to mute all monitors for the given scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_tags DowntimeSchedule#monitor_tags}
         '''
         value = DowntimeScheduleMonitorIdentifier(
             monitor_id=monitor_id, monitor_tags=monitor_tags
@@ -163,8 +163,8 @@ class DowntimeSchedule(
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end: ISO-8601 Datetime to end the downtime. Must include a UTC offset of zero. If not provided, the downtime never ends. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#end DowntimeSchedule#end}
-        :param start: ISO-8601 Datetime to start the downtime. Must include a UTC offset of zero. If not provided, the downtime starts the moment it is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#start DowntimeSchedule#start}
+        :param end: ISO-8601 Datetime to end the downtime. Must include a UTC offset of zero. If not provided, the downtime never ends. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#end DowntimeSchedule#end}
+        :param start: ISO-8601 Datetime to start the downtime. Must include a UTC offset of zero. If not provided, the downtime starts the moment it is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#start DowntimeSchedule#start}
         '''
         value = DowntimeScheduleOneTimeSchedule(end=end, start=start)
 
@@ -178,8 +178,8 @@ class DowntimeSchedule(
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#recurrence DowntimeSchedule#recurrence}
-        :param timezone: The timezone in which to schedule the downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#timezone DowntimeSchedule#timezone}
+        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#recurrence DowntimeSchedule#recurrence}
+        :param timezone: The timezone in which to schedule the downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#timezone DowntimeSchedule#timezone}
         '''
         value = DowntimeScheduleRecurringSchedule(
             recurrence=recurrence, timezone=timezone
@@ -434,15 +434,15 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param scope: The scope to which the downtime applies. Must follow the `common search syntax <https://docs.datadoghq.com/logs/explorer/search_syntax/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#scope DowntimeSchedule#scope}
-        :param display_timezone: The timezone in which to display the downtime's start and end times in Datadog applications. This is not used as an offset for scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#display_timezone DowntimeSchedule#display_timezone}
-        :param message: A message to include with notifications for this downtime. Email notifications can be sent to specific users by using the same ``@username`` notation as events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#message DowntimeSchedule#message}
-        :param monitor_identifier: monitor_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_identifier DowntimeSchedule#monitor_identifier}
-        :param mute_first_recovery_notification: If the first recovery notification during a downtime should be muted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#mute_first_recovery_notification DowntimeSchedule#mute_first_recovery_notification}
-        :param notify_end_states: States that will trigger a monitor notification when the ``notify_end_types`` action occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#notify_end_states DowntimeSchedule#notify_end_states}
-        :param notify_end_types: Actions that will trigger a monitor notification if the downtime is in the ``notify_end_types`` state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#notify_end_types DowntimeSchedule#notify_end_types}
-        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#one_time_schedule DowntimeSchedule#one_time_schedule}
-        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#recurring_schedule DowntimeSchedule#recurring_schedule}
+        :param scope: The scope to which the downtime applies. Must follow the `common search syntax <https://docs.datadoghq.com/logs/explorer/search_syntax/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#scope DowntimeSchedule#scope}
+        :param display_timezone: The timezone in which to display the downtime's start and end times in Datadog applications. This is not used as an offset for scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#display_timezone DowntimeSchedule#display_timezone}
+        :param message: A message to include with notifications for this downtime. Email notifications can be sent to specific users by using the same ``@username`` notation as events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#message DowntimeSchedule#message}
+        :param monitor_identifier: monitor_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_identifier DowntimeSchedule#monitor_identifier}
+        :param mute_first_recovery_notification: If the first recovery notification during a downtime should be muted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#mute_first_recovery_notification DowntimeSchedule#mute_first_recovery_notification}
+        :param notify_end_states: States that will trigger a monitor notification when the ``notify_end_types`` action occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#notify_end_states DowntimeSchedule#notify_end_states}
+        :param notify_end_types: Actions that will trigger a monitor notification if the downtime is in the ``notify_end_types`` state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#notify_end_types DowntimeSchedule#notify_end_types}
+        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#one_time_schedule DowntimeSchedule#one_time_schedule}
+        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#recurring_schedule DowntimeSchedule#recurring_schedule}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -572,7 +572,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope(self) -> builtins.str:
         '''The scope to which the downtime applies. Must follow the `common search syntax <https://docs.datadoghq.com/logs/explorer/search_syntax/>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#scope DowntimeSchedule#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#scope DowntimeSchedule#scope}
         '''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
@@ -584,7 +584,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is not used as an offset for scheduling.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#display_timezone DowntimeSchedule#display_timezone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#display_timezone DowntimeSchedule#display_timezone}
         '''
         result = self._values.get("display_timezone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -595,7 +595,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Email notifications can be sent to specific users by using the same ``@username`` notation as events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#message DowntimeSchedule#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#message DowntimeSchedule#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -606,7 +606,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DowntimeScheduleMonitorIdentifier"]:
         '''monitor_identifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_identifier DowntimeSchedule#monitor_identifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_identifier DowntimeSchedule#monitor_identifier}
         '''
         result = self._values.get("monitor_identifier")
         return typing.cast(typing.Optional["DowntimeScheduleMonitorIdentifier"], result)
@@ -617,7 +617,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the first recovery notification during a downtime should be muted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#mute_first_recovery_notification DowntimeSchedule#mute_first_recovery_notification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#mute_first_recovery_notification DowntimeSchedule#mute_first_recovery_notification}
         '''
         result = self._values.get("mute_first_recovery_notification")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -626,7 +626,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notify_end_states(self) -> typing.Optional[typing.List[builtins.str]]:
         '''States that will trigger a monitor notification when the ``notify_end_types`` action occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#notify_end_states DowntimeSchedule#notify_end_states}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#notify_end_states DowntimeSchedule#notify_end_states}
         '''
         result = self._values.get("notify_end_states")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -635,7 +635,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notify_end_types(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Actions that will trigger a monitor notification if the downtime is in the ``notify_end_types`` state.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#notify_end_types DowntimeSchedule#notify_end_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#notify_end_types DowntimeSchedule#notify_end_types}
         '''
         result = self._values.get("notify_end_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -644,7 +644,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def one_time_schedule(self) -> typing.Optional["DowntimeScheduleOneTimeSchedule"]:
         '''one_time_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#one_time_schedule DowntimeSchedule#one_time_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#one_time_schedule DowntimeSchedule#one_time_schedule}
         '''
         result = self._values.get("one_time_schedule")
         return typing.cast(typing.Optional["DowntimeScheduleOneTimeSchedule"], result)
@@ -655,7 +655,7 @@ class DowntimeScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DowntimeScheduleRecurringSchedule"]:
         '''recurring_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#recurring_schedule DowntimeSchedule#recurring_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#recurring_schedule DowntimeSchedule#recurring_schedule}
         '''
         result = self._values.get("recurring_schedule")
         return typing.cast(typing.Optional["DowntimeScheduleRecurringSchedule"], result)
@@ -685,8 +685,8 @@ class DowntimeScheduleMonitorIdentifier:
         monitor_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param monitor_id: ID of the monitor to prevent notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_id DowntimeSchedule#monitor_id}
-        :param monitor_tags: A list of monitor tags. For example, tags that are applied directly to monitors, not tags that are used in monitor queries (which are filtered by the scope parameter), to which the downtime applies. The resulting downtime applies to monitors that match **all** provided monitor tags. Setting ``monitor_tags`` to ``[*]`` configures the downtime to mute all monitors for the given scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_tags DowntimeSchedule#monitor_tags}
+        :param monitor_id: ID of the monitor to prevent notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_id DowntimeSchedule#monitor_id}
+        :param monitor_tags: A list of monitor tags. For example, tags that are applied directly to monitors, not tags that are used in monitor queries (which are filtered by the scope parameter), to which the downtime applies. The resulting downtime applies to monitors that match **all** provided monitor tags. Setting ``monitor_tags`` to ``[*]`` configures the downtime to mute all monitors for the given scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_tags DowntimeSchedule#monitor_tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3dfa52cde1ae41461718af62317420cfd67c1d0ac0686a76c10926fd403f41e)
@@ -702,7 +702,7 @@ class DowntimeScheduleMonitorIdentifier:
     def monitor_id(self) -> typing.Optional[jsii.Number]:
         '''ID of the monitor to prevent notifications.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_id DowntimeSchedule#monitor_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_id DowntimeSchedule#monitor_id}
         '''
         result = self._values.get("monitor_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -713,7 +713,7 @@ class DowntimeScheduleMonitorIdentifier:
 
         For example, tags that are applied directly to monitors, not tags that are used in monitor queries (which are filtered by the scope parameter), to which the downtime applies. The resulting downtime applies to monitors that match **all** provided monitor tags. Setting ``monitor_tags`` to ``[*]`` configures the downtime to mute all monitors for the given scope.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#monitor_tags DowntimeSchedule#monitor_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#monitor_tags DowntimeSchedule#monitor_tags}
         '''
         result = self._values.get("monitor_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -823,8 +823,8 @@ class DowntimeScheduleOneTimeSchedule:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end: ISO-8601 Datetime to end the downtime. Must include a UTC offset of zero. If not provided, the downtime never ends. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#end DowntimeSchedule#end}
-        :param start: ISO-8601 Datetime to start the downtime. Must include a UTC offset of zero. If not provided, the downtime starts the moment it is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#start DowntimeSchedule#start}
+        :param end: ISO-8601 Datetime to end the downtime. Must include a UTC offset of zero. If not provided, the downtime never ends. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#end DowntimeSchedule#end}
+        :param start: ISO-8601 Datetime to start the downtime. Must include a UTC offset of zero. If not provided, the downtime starts the moment it is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#start DowntimeSchedule#start}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25a01102831bf752fdca0af8c31db42c1cf36a0c78b5e3ee0b2ffd62546cbc4c)
@@ -842,7 +842,7 @@ class DowntimeScheduleOneTimeSchedule:
 
         Must include a UTC offset of zero. If not provided, the downtime never ends.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#end DowntimeSchedule#end}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#end DowntimeSchedule#end}
         '''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -853,7 +853,7 @@ class DowntimeScheduleOneTimeSchedule:
 
         Must include a UTC offset of zero. If not provided, the downtime starts the moment it is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#start DowntimeSchedule#start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#start DowntimeSchedule#start}
         '''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -963,8 +963,8 @@ class DowntimeScheduleRecurringSchedule:
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#recurrence DowntimeSchedule#recurrence}
-        :param timezone: The timezone in which to schedule the downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#timezone DowntimeSchedule#timezone}
+        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#recurrence DowntimeSchedule#recurrence}
+        :param timezone: The timezone in which to schedule the downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#timezone DowntimeSchedule#timezone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4b671b1fa7ddcc524f32faa41f3665f18dcb2fa5aa363a646fcaac94cd83a52)
@@ -982,7 +982,7 @@ class DowntimeScheduleRecurringSchedule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DowntimeScheduleRecurringScheduleRecurrence"]]]:
         '''recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#recurrence DowntimeSchedule#recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#recurrence DowntimeSchedule#recurrence}
         '''
         result = self._values.get("recurrence")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DowntimeScheduleRecurringScheduleRecurrence"]]], result)
@@ -991,7 +991,7 @@ class DowntimeScheduleRecurringSchedule:
     def timezone(self) -> typing.Optional[builtins.str]:
         '''The timezone in which to schedule the downtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#timezone DowntimeSchedule#timezone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#timezone DowntimeSchedule#timezone}
         '''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1110,9 +1110,9 @@ class DowntimeScheduleRecurringScheduleRecurrence:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration: The length of the downtime. Must begin with an integer and end with one of 'm', 'h', d', or 'w'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#duration DowntimeSchedule#duration}
-        :param rrule: The ``RRULE`` standard for defining recurring events. For example, to have a recurring event on the first day of each month, set the type to ``rrule`` and set the ``FREQ`` to ``MONTHLY`` and ``BYMONTHDAY`` to ``1``. Most common ``rrule`` options from the `iCalendar Spec <https://tools.ietf.org/html/rfc5545>`_ are supported. **Note**: Attributes specifying the duration in ``RRULE`` are not supported (for example, ``DTSTART``, ``DTEND``, ``DURATION``). More examples available in this `downtime guide <https://docs.datadoghq.com/monitors/guide/suppress-alert-with-downtimes/?tab=api>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#rrule DowntimeSchedule#rrule}
-        :param start: ISO-8601 Datetime to start the downtime. Must not include a UTC offset. If not provided, the downtime starts the moment it is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#start DowntimeSchedule#start}
+        :param duration: The length of the downtime. Must begin with an integer and end with one of 'm', 'h', d', or 'w'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#duration DowntimeSchedule#duration}
+        :param rrule: The ``RRULE`` standard for defining recurring events. For example, to have a recurring event on the first day of each month, set the type to ``rrule`` and set the ``FREQ`` to ``MONTHLY`` and ``BYMONTHDAY`` to ``1``. Most common ``rrule`` options from the `iCalendar Spec <https://tools.ietf.org/html/rfc5545>`_ are supported. **Note**: Attributes specifying the duration in ``RRULE`` are not supported (for example, ``DTSTART``, ``DTEND``, ``DURATION``). More examples available in this `downtime guide <https://docs.datadoghq.com/monitors/guide/suppress-alert-with-downtimes/?tab=api>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#rrule DowntimeSchedule#rrule}
+        :param start: ISO-8601 Datetime to start the downtime. Must not include a UTC offset. If not provided, the downtime starts the moment it is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#start DowntimeSchedule#start}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13a3bc5af5cf602547d0bf2e72c7699aba53b9259e240adef401ec28fb684dd7)
@@ -1132,7 +1132,7 @@ class DowntimeScheduleRecurringScheduleRecurrence:
 
         Must begin with an integer and end with one of 'm', 'h', d', or 'w'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#duration DowntimeSchedule#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#duration DowntimeSchedule#duration}
         '''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
@@ -1144,7 +1144,7 @@ class DowntimeScheduleRecurringScheduleRecurrence:
 
         For example, to have a recurring event on the first day of each month, set the type to ``rrule`` and set the ``FREQ`` to ``MONTHLY`` and ``BYMONTHDAY`` to ``1``. Most common ``rrule`` options from the `iCalendar Spec <https://tools.ietf.org/html/rfc5545>`_ are supported.  **Note**: Attributes specifying the duration in ``RRULE`` are not supported (for example, ``DTSTART``, ``DTEND``, ``DURATION``). More examples available in this `downtime guide <https://docs.datadoghq.com/monitors/guide/suppress-alert-with-downtimes/?tab=api>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#rrule DowntimeSchedule#rrule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#rrule DowntimeSchedule#rrule}
         '''
         result = self._values.get("rrule")
         assert result is not None, "Required property 'rrule' is missing"
@@ -1156,7 +1156,7 @@ class DowntimeScheduleRecurringScheduleRecurrence:
 
         Must not include a UTC offset. If not provided, the downtime starts the moment it is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/downtime_schedule#start DowntimeSchedule#start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/downtime_schedule#start DowntimeSchedule#start}
         '''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)

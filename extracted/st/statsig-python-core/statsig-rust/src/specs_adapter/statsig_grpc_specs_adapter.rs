@@ -3,7 +3,7 @@ use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::observability::ErrorBoundaryEvent;
 use crate::{
     log_d, log_error_to_statsig_and_console, log_w, SpecAdapterConfig, SpecsAdapter, SpecsSource,
-    SpecsUpdate, SpecsUpdateListener, StatsigErr, StatsigRuntime,
+    SpecsUpdate, SpecsUpdateListener, StatsigErr, StatsigOptions, StatsigRuntime,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -104,8 +104,10 @@ impl SpecsAdapter for StatsigGrpcSpecsAdapter {
                 log_error_to_statsig_and_console!(
                     self.ops_stats,
                     TAG,
-                    "Failed to acquire write lock on listener: {}",
-                    e
+                    StatsigErr::LockFailure(format!(
+                        "Failed to acquire write lock on listener: {}",
+                        e
+                    ))
                 );
             }
         }
@@ -156,9 +158,12 @@ impl SpecsAdapter for StatsigGrpcSpecsAdapter {
 }
 
 impl StatsigGrpcSpecsAdapter {
-    pub fn new(sdk_key: &str, config: &SpecAdapterConfig, disable_network: Option<bool>) -> Self {
-        let fallback_adapter =
-            StatsigHttpSpecsAdapter::new(sdk_key, None, false, None, disable_network);
+    pub fn new(
+        sdk_key: &str,
+        config: &SpecAdapterConfig,
+        options: Option<&StatsigOptions>,
+    ) -> Self {
+        let fallback_adapter = StatsigHttpSpecsAdapter::new(sdk_key, options);
         let (init_tx, _) = broadcast::channel(1);
         Self {
             listener: RwLock::new(None),
@@ -219,15 +224,16 @@ impl StatsigGrpcSpecsAdapter {
                         log_error_to_statsig_and_console!(
                             &ops_stats,
                             TAG,
-                            "gRPC streaming thread failed: {}",
-                            e
+                            StatsigErr::GrpcError(format!("gRPC streaming thread failed: {}", e))
                         );
                     }
                 } else {
                     log_error_to_statsig_and_console!(
                         &ops_stats,
                         TAG,
-                        "Failed to upgrade weak reference to strong reference"
+                        StatsigErr::GrpcError(
+                            "Failed to upgrade weak reference to strong reference".to_string()
+                        )
                     );
                 }
             }),
@@ -241,7 +247,7 @@ impl StatsigGrpcSpecsAdapter {
                     if let Err(err) = result {
                         let attempt = self.retry_state.retry_attempts.fetch_add(1, Ordering::SeqCst);
                         if attempt > RETRY_LIMIT {
-                            log_error_to_statsig_and_console!(&self.ops_stats, TAG, "gRPC stream failure, exhaust retry limit: {:?}", err);
+                            log_error_to_statsig_and_console!(&self.ops_stats, TAG, StatsigErr::GrpcError(format!("gRPC stream failure, exhaust retry limit: {:?}", err)));
                            break;
                         }
                         if attempt == FALL_BACK_TO_POLLING_THREASHOLD {
@@ -342,7 +348,7 @@ impl StatsigGrpcSpecsAdapter {
 
         if let Some(listener) = listener.as_ref() {
             let update = SpecsUpdate {
-                data,
+                data: data.into_bytes(),
                 source: SpecsSource::Adapter("GRPC".to_string()),
                 received_at: Utc::now().timestamp_millis() as u64,
             };

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kubernetes_asyncio
-Version: 32.3.0
+Version: 32.3.2
 Summary: Kubernetes asynchronous python client
 Home-page: https://github.com/tomplus/kubernetes_asyncio
 Author: Kubernetes

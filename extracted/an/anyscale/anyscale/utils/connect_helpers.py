@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import inspect
+import sys
 from typing import (
     Any,
     Callable,
@@ -166,3 +167,36 @@ def search_entities(
         entities = entities[:max_to_return]
 
     return entities
+
+
+def paginate(
+    search_function: Callable[..., ListResponse[T]],
+    query_builder: Callable[[Optional[str], int], Dict],
+    page_size: int,
+    max_items: Optional[int] = None,
+    interactive: bool = True,
+):
+    max_items = max_items or sys.maxsize
+    queues = []
+    has_more, token = True, None
+
+    while has_more:
+        query_kwargs = query_builder(token, min(page_size, max_items))
+        resp = search_function(**query_kwargs)
+        token = resp.metadata.next_paging_token
+        batch, has_more = resp.results, token is not None
+        queues.extend(batch)
+        yield batch
+
+        if (
+            not has_more
+            or (not interactive and len(queues) >= max_items)
+            or (
+                interactive
+                and input("Press Enter to load more, or 'q' to quit: ").strip().lower()
+                == "q"
+            )
+        ):
+            break
+
+        max_items -= page_size

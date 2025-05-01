@@ -1,7 +1,7 @@
 r'''
 # `datadog_synthetics_concurrency_cap`
 
-Refer to the Terraform Registry for docs: [`datadog_synthetics_concurrency_cap`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_concurrency_cap).
+Refer to the Terraform Registry for docs: [`datadog_synthetics_concurrency_cap`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_concurrency_cap).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsConcurrencyCap(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.syntheticsConcurrencyCap.SyntheticsConcurrencyCap",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_concurrency_cap datadog_synthetics_concurrency_cap}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_concurrency_cap datadog_synthetics_concurrency_cap}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class SyntheticsConcurrencyCap(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_concurrency_cap datadog_synthetics_concurrency_cap} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_concurrency_cap datadog_synthetics_concurrency_cap} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param on_demand_concurrency_cap: Value of the on-demand concurrency cap, customizing the number of Synthetic tests run in parallel. Value must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_concurrency_cap#on_demand_concurrency_cap SyntheticsConcurrencyCap#on_demand_concurrency_cap}
+        :param on_demand_concurrency_cap: Value of the on-demand concurrency cap, customizing the number of Synthetic tests run in parallel. Value must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_concurrency_cap#on_demand_concurrency_cap SyntheticsConcurrencyCap#on_demand_concurrency_cap}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class SyntheticsConcurrencyCap(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsConcurrencyCap to import.
-        :param import_from_id: The id of the existing SyntheticsConcurrencyCap that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_concurrency_cap#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsConcurrencyCap that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_concurrency_cap#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsConcurrencyCap to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class SyntheticsConcurrencyCapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param on_demand_concurrency_cap: Value of the on-demand concurrency cap, customizing the number of Synthetic tests run in parallel. Value must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_concurrency_cap#on_demand_concurrency_cap SyntheticsConcurrencyCap#on_demand_concurrency_cap}
+        :param on_demand_concurrency_cap: Value of the on-demand concurrency cap, customizing the number of Synthetic tests run in parallel. Value must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_concurrency_cap#on_demand_concurrency_cap SyntheticsConcurrencyCap#on_demand_concurrency_cap}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -287,7 +287,7 @@ class SyntheticsConcurrencyCapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Value must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_concurrency_cap#on_demand_concurrency_cap SyntheticsConcurrencyCap#on_demand_concurrency_cap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_concurrency_cap#on_demand_concurrency_cap SyntheticsConcurrencyCap#on_demand_concurrency_cap}
         '''
         result = self._values.get("on_demand_concurrency_cap")
         assert result is not None, "Required property 'on_demand_concurrency_cap' is missing"

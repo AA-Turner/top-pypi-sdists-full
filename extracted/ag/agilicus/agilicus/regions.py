@@ -464,3 +464,8 @@ def routing_request(ctx, *args, ip_address=None, **kwargs):
         ip_addresses = list(ip_address)
     request = agilicus.RoutingRequest(ip_addresses=ip_addresses)
     return apiclient.regions_api.routing_request(request)
+
+
+def list_regional_locations(ctx, **kwargs):
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    return apiclient.regions_api.get_regional_locations(**kwargs)

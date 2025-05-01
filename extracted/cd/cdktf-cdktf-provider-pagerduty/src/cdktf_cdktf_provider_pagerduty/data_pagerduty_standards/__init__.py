@@ -1,7 +1,7 @@
 r'''
 # `data_pagerduty_standards`
 
-Refer to the Terraform Registry for docs: [`data_pagerduty_standards`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/standards).
+Refer to the Terraform Registry for docs: [`data_pagerduty_standards`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/standards).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPagerdutyStandards(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.dataPagerdutyStandards.DataPagerdutyStandards",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/standards pagerduty_standards}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/standards pagerduty_standards}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataPagerdutyStandards(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/standards pagerduty_standards} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/standards pagerduty_standards} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/standards#resource_type DataPagerdutyStandards#resource_type}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/standards#resource_type DataPagerdutyStandards#resource_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataPagerdutyStandards(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPagerdutyStandards to import.
-        :param import_from_id: The id of the existing DataPagerdutyStandards that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/standards#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPagerdutyStandards that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/standards#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPagerdutyStandards to import is found.
         '''
         if __debug__:
@@ -189,7 +189,7 @@ class DataPagerdutyStandardsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/standards#resource_type DataPagerdutyStandards#resource_type}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/standards#resource_type DataPagerdutyStandards#resource_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -287,7 +287,7 @@ class DataPagerdutyStandardsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/data-sources/standards#resource_type DataPagerdutyStandards#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/data-sources/standards#resource_type DataPagerdutyStandards#resource_type}.'''
         result = self._values.get("resource_type")
         return typing.cast(typing.Optional[builtins.str], result)
 

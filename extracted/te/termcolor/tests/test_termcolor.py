@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 
 import pytest
@@ -8,7 +9,7 @@ from termcolor import ATTRIBUTES, COLORS, HIGHLIGHTS, colored, cprint, termcolor
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Generator, Iterable
     from typing import Any
 
 
@@ -24,6 +25,17 @@ def setup_module() -> None:
             del os.environ[var]
         except KeyError:  # pragma: no cover
             pass
+
+
+@pytest.fixture(autouse=True)
+def clear_lru_cache() -> Generator[Any, None, None]:
+    """
+    Tests may override the underpinnings of the system-under-test,
+    clear the cache after each test to ensure a clean slate.
+    """
+    yield
+    # Clear the cache after each test
+    termcolor._can_do_colour.cache_clear()
 
 
 def test_basic(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -53,8 +65,8 @@ def assert_cprint(
     capsys: pytest.CaptureFixture[str],
     expected: str,
     text: str,
-    color: str | None = None,
-    on_color: str | None = None,
+    color: str | tuple[int, int, int] | None = None,
+    on_color: str | tuple[int, int, int] | None = None,
     attrs: Iterable[str] | None = None,
     **kwargs: Any,
 ) -> None:
@@ -79,12 +91,15 @@ def assert_cprint(
         ("light_grey", "\x1b[37mtext\x1b[0m"),
         ("dark_grey", "\x1b[90mtext\x1b[0m"),
         ("light_blue", "\x1b[94mtext\x1b[0m"),
+        ((1, 2, 3), "\x1b[38;2;1;2;3mtext\x1b[0m"),
+        ((100, 200, 150), "\x1b[38;2;100;200;150mtext\x1b[0m"),
+        (000, "text\x1b[0m"),  # invalid input type
     ],
 )
 def test_color(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
-    color: str,
+    color: str | tuple[int, int, int],
     expected: str,
 ) -> None:
     # Arrange
@@ -112,12 +127,15 @@ def test_color(
         ("on_light_grey", "\x1b[47mtext\x1b[0m"),
         ("on_dark_grey", "\x1b[100mtext\x1b[0m"),
         ("on_light_blue", "\x1b[104mtext\x1b[0m"),
+        ((1, 2, 3), "\x1b[48;2;1;2;3mtext\x1b[0m"),
+        ((100, 200, 150), "\x1b[48;2;100;200;150mtext\x1b[0m"),
+        (000, "text\x1b[0m"),  # invalid input type
     ],
 )
 def test_on_color(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
-    on_color: str,
+    on_color: str | tuple[int, int, int],
     expected: str,
 ) -> None:
     # Arrange
@@ -259,6 +277,35 @@ def test_environment_variables(
     )
 
 
+def test_cached_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Assert that the cached behavior is correct"""
+    # Arrange
+    monkeypatch.setattr(os, "isatty", lambda fd: True)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    monkeypatch.setattr("sys.stdout.fileno", lambda: 1)
+
+    # Act / Assert
+    assert colored("text") == "text\x1b[0m"
+    assert colored("text") == "text\x1b[0m"
+    assert termcolor._can_do_colour.cache_info().hits == 1
+    assert termcolor._can_do_colour.cache_info().misses == 1
+    assert termcolor._can_do_colour.cache_info().currsize == 1
+
+    # Different function signature passed to underlying function, adds to cache
+    assert colored("text", force_color=True) == "text\x1b[0m"
+    assert colored("text", no_color=True) == "text"
+    assert termcolor._can_do_colour.cache_info().hits == 1
+    assert termcolor._can_do_colour.cache_info().misses == 3
+    assert termcolor._can_do_colour.cache_info().currsize == 3
+
+    # Changing text or color should not add to cache
+    assert colored("text", color="red") == "\x1b[31mtext\x1b[0m"
+    assert colored("other", color="blue") == "\x1b[34mother\x1b[0m"
+    assert termcolor._can_do_colour.cache_info().hits == 3
+    assert termcolor._can_do_colour.cache_info().misses == 3
+    assert termcolor._can_do_colour.cache_info().currsize == 3
+
+
 @pytest.mark.parametrize(
     "test_isatty, expected",
     [
@@ -275,3 +322,66 @@ def test_tty(monkeypatch: pytest.MonkeyPatch, test_isatty: bool, expected: str) 
 
     # Act / Assert
     assert colored("text", color="cyan") == expected
+
+
+def test_no_sys_stdout_fileno(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Assert no color when sys.stdout has no file descriptor"""
+    # Arrange
+    monkeypatch.setattr("sys.stdout", object())
+
+    # Act / Assert
+    assert colored("text", color="cyan") == "text"
+
+
+@pytest.mark.parametrize(
+    "test_isatty, expected",
+    [
+        (True, "\x1b[36mtext\x1b[0m"),
+        (False, "text"),
+    ],
+)
+def test_unsupported_operation(
+    monkeypatch: pytest.MonkeyPatch, test_isatty: bool, expected: str
+) -> None:
+    """Assert no color when sys.stdout does not support the operation"""
+
+    # Arrange
+    class MockStdout:
+        def fileno(self) -> None:
+            raise io.UnsupportedOperation()
+
+        def isatty(self) -> bool:
+            return test_isatty
+
+    monkeypatch.setattr("sys.stdout", MockStdout())
+
+    # Act / Assert
+    assert colored("text", color="cyan") == expected
+
+
+@pytest.mark.parametrize(
+    "isatty_value, expected, kwargs",
+    [
+        # no_color when isatty
+        (True, "text", {"no_color": True}),
+        # force_color when not isatty
+        (False, "\x1b[36mtext\x1b[0m", {"force_color": True}),
+        # print kwargs pass through
+        (True, "\x1b[36mtext\x1b[0m!", {"end": "!\n"}),
+    ],
+)
+def test_cprint_kwargs(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    isatty_value: bool,
+    expected: str,
+    kwargs: dict[str, Any],
+) -> None:
+    """Test cprint with various parameter combinations"""
+    # Arrange
+    monkeypatch.setattr(os, "isatty", lambda fd: isatty_value)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: isatty_value)
+    monkeypatch.setattr("sys.stdout.fileno", lambda: 1)
+
+    # Act / Assert
+    assert_cprint(capsys, expected, "text", color="cyan", **kwargs)

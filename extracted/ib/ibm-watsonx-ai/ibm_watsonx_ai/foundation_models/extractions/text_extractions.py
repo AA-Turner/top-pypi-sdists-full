@@ -4,6 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
+from warnings import warn
 
 from ibm_watsonx_ai.wml_client_error import (
     InvalidMultipleArguments,
@@ -84,6 +85,12 @@ class TextExtractions(WMLResource):
 
         if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 5.0:
             raise WMLClientError(error_msg="Operation is unsupported for this release.")
+        elif self._client.CPD_version >= 5.2:
+            text_extractions_deprecation_warning = (
+                "`TextExtractions` class is deprecated. Instead, please use "
+                "`ibm_watsonx_ai.foundation_models.extractions.TextExtractionsV2`."
+            )
+            warn(text_extractions_deprecation_warning, category=DeprecationWarning)
 
         WMLResource.__init__(self, __name__, self._client)
 
@@ -175,7 +182,7 @@ class TextExtractions(WMLResource):
             )
 
         response = self._client.httpx_client.post(
-            url=self._client.service_instance._href_definitions.get_text_extraction_href(),
+            url=self._client.service_instance._href_definitions.get_text_extractions_href(),
             json=payload,
             params=self._client._params(skip_for_create=True, skip_userfs=True),
             headers=self._client._get_headers(),
@@ -244,8 +251,9 @@ class TextExtractions(WMLResource):
         TextExtractions._validate_type(extraction_id, "extraction_id", str, False)
         if extraction_id is not None:
             response = self._client.httpx_client.get(
-                url=self._client.service_instance._href_definitions.get_text_extraction_href()
-                + f"/{extraction_id}",
+                url=self._client.service_instance._href_definitions.get_text_extraction_href(
+                    extraction_id
+                ),
                 params=self._client._params(skip_userfs=True),
                 headers=self._client._get_headers(),
             )
@@ -262,7 +270,7 @@ class TextExtractions(WMLResource):
 
             # TODO: pagination is not yet implemented
             response = self._client.httpx_client.get(
-                url=self._client.service_instance._href_definitions.get_text_extraction_href(),
+                url=self._client.service_instance._href_definitions.get_text_extractions_href(),
                 params=(self._client._params(skip_userfs=True) | (_params or {})),
                 headers=self._client._get_headers(),
             )
@@ -287,8 +295,9 @@ class TextExtractions(WMLResource):
         params.update({"hard_delete": True})
 
         response = self._client.httpx_client.delete(
-            url=self._client.service_instance._href_definitions.get_text_extraction_href()
-            + f"/{extraction_id}",
+            url=self._client.service_instance._href_definitions.get_text_extraction_href(
+                extraction_id
+            ),
             params=params,
             headers=self._client._get_headers(),
         )
@@ -310,8 +319,9 @@ class TextExtractions(WMLResource):
         TextExtractions._validate_type(extraction_id, "extraction_id", str, True)
 
         response = self._client.httpx_client.delete(
-            url=self._client.service_instance._href_definitions.get_text_extraction_href()
-            + f"/{extraction_id}",
+            url=self._client.service_instance._href_definitions.get_text_extraction_href(
+                extraction_id
+            ),
             params=self._client._params(skip_userfs=True),
             headers=self._client._get_headers(),
         )

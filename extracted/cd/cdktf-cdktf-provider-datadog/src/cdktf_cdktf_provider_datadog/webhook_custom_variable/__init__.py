@@ -1,7 +1,7 @@
 r'''
 # `datadog_webhook_custom_variable`
 
-Refer to the Terraform Registry for docs: [`datadog_webhook_custom_variable`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable).
+Refer to the Terraform Registry for docs: [`datadog_webhook_custom_variable`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WebhookCustomVariable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.webhookCustomVariable.WebhookCustomVariable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable datadog_webhook_custom_variable}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable datadog_webhook_custom_variable}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class WebhookCustomVariable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable datadog_webhook_custom_variable} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable datadog_webhook_custom_variable} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param is_secret: Whether the custom variable is secret or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#is_secret WebhookCustomVariable#is_secret}
-        :param name: The name of the variable. It corresponds with ``<CUSTOM_VARIABLE_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#name WebhookCustomVariable#name}
-        :param value: The value of the custom variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#value WebhookCustomVariable#value}
+        :param is_secret: Whether the custom variable is secret or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#is_secret WebhookCustomVariable#is_secret}
+        :param name: The name of the variable. It corresponds with ``<CUSTOM_VARIABLE_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#name WebhookCustomVariable#name}
+        :param value: The value of the custom variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#value WebhookCustomVariable#value}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class WebhookCustomVariable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WebhookCustomVariable to import.
-        :param import_from_id: The id of the existing WebhookCustomVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WebhookCustomVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WebhookCustomVariable to import is found.
         '''
         if __debug__:
@@ -234,9 +234,9 @@ class WebhookCustomVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param is_secret: Whether the custom variable is secret or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#is_secret WebhookCustomVariable#is_secret}
-        :param name: The name of the variable. It corresponds with ``<CUSTOM_VARIABLE_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#name WebhookCustomVariable#name}
-        :param value: The value of the custom variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#value WebhookCustomVariable#value}
+        :param is_secret: Whether the custom variable is secret or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#is_secret WebhookCustomVariable#is_secret}
+        :param name: The name of the variable. It corresponds with ``<CUSTOM_VARIABLE_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#name WebhookCustomVariable#name}
+        :param value: The value of the custom variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#value WebhookCustomVariable#value}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,7 +340,7 @@ class WebhookCustomVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_secret(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the custom variable is secret or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#is_secret WebhookCustomVariable#is_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#is_secret WebhookCustomVariable#is_secret}
         '''
         result = self._values.get("is_secret")
         assert result is not None, "Required property 'is_secret' is missing"
@@ -350,7 +350,7 @@ class WebhookCustomVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the variable. It corresponds with ``<CUSTOM_VARIABLE_NAME>``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#name WebhookCustomVariable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#name WebhookCustomVariable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -360,7 +360,7 @@ class WebhookCustomVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> builtins.str:
         '''The value of the custom variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook_custom_variable#value WebhookCustomVariable#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook_custom_variable#value WebhookCustomVariable#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"

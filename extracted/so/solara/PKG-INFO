@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: solara
-Version: 1.46.0
+Version: 1.47.0
 Dynamic: Summary
 Project-URL: Home, https://www.github.com/widgetti/solara
 Project-URL: Documentation, https://solara.dev
@@ -28,8 +28,8 @@ License: The MIT License (MIT)
         THE SOFTWARE.
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.7
-Requires-Dist: solara-server[dev,starlette]==1.46.0
-Requires-Dist: solara-ui[all]==1.46.0
+Requires-Dist: solara-server[dev,starlette]==1.47.0
+Requires-Dist: solara-ui[all]==1.47.0
 Provides-Extra: all
 Requires-Dist: altair; extra == 'all'
 Requires-Dist: bqplot; extra == 'all'
@@ -54,13 +54,13 @@ Requires-Dist: polars; extra == 'all'
 Requires-Dist: pre-commit; extra == 'all'
 Requires-Dist: pytest; extra == 'all'
 Requires-Dist: pytest-cov; extra == 'all'
-Requires-Dist: pytest-ipywidgets[all]==1.46.0; extra == 'all'
+Requires-Dist: pytest-ipywidgets[all]==1.47.0; extra == 'all'
 Requires-Dist: pytest-mock; extra == 'all'
 Requires-Dist: pytest-playwright; extra == 'all'
 Requires-Dist: pytest-timeout; extra == 'all'
 Requires-Dist: python-dotenv; extra == 'all'
 Requires-Dist: ruff; extra == 'all'
-Requires-Dist: solara-assets==1.46.0; extra == 'all'
+Requires-Dist: solara-assets==1.47.0; extra == 'all'
 Requires-Dist: tiktoken; (python_version >= '3.9') and extra == 'all'
 Requires-Dist: types-markdown; extra == 'all'
 Requires-Dist: types-pyyaml; extra == 'all'
@@ -70,7 +70,7 @@ Requires-Dist: vaex-hdf5; (python_version < '3.11') and extra == 'all'
 Requires-Dist: vaex-jupyter; (python_version < '3.11') and extra == 'all'
 Requires-Dist: vega-datasets; extra == 'all'
 Provides-Extra: assets
-Requires-Dist: solara-assets==1.46.0; extra == 'assets'
+Requires-Dist: solara-assets==1.47.0; extra == 'assets'
 Provides-Extra: dev
 Requires-Dist: bqplot; extra == 'dev'
 Requires-Dist: bqplot-image-gl; extra == 'dev'
@@ -115,7 +115,7 @@ Requires-Dist: vaex-core; (python_version < '3.11') and extra == 'documentation'
 Requires-Dist: vaex-hdf5; (python_version < '3.11') and extra == 'documentation'
 Requires-Dist: vega-datasets; extra == 'documentation'
 Provides-Extra: pytest
-Requires-Dist: pytest-ipywidgets[all]==1.46.0; extra == 'pytest'
+Requires-Dist: pytest-ipywidgets[all]==1.47.0; extra == 'pytest'
 Description-Content-Type: text/markdown
 
 **A Pure Python, React-style Framework for Scaling Your Jupyter and Web Apps**

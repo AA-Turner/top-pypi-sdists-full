@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_automation_actions_action_service_association`
 
-Refer to the Terraform Registry for docs: [`pagerduty_automation_actions_action_service_association`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association).
+Refer to the Terraform Registry for docs: [`pagerduty_automation_actions_action_service_association`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AutomationActionsActionServiceAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.automationActionsActionServiceAssociation.AutomationActionsActionServiceAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association pagerduty_automation_actions_action_service_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association pagerduty_automation_actions_action_service_association}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class AutomationActionsActionServiceAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association pagerduty_automation_actions_action_service_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association pagerduty_automation_actions_action_service_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#action_id AutomationActionsActionServiceAssociation#action_id}.
-        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#service_id AutomationActionsActionServiceAssociation#service_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#id AutomationActionsActionServiceAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#action_id AutomationActionsActionServiceAssociation#action_id}.
+        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#service_id AutomationActionsActionServiceAssociation#service_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#id AutomationActionsActionServiceAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class AutomationActionsActionServiceAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AutomationActionsActionServiceAssociation to import.
-        :param import_from_id: The id of the existing AutomationActionsActionServiceAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AutomationActionsActionServiceAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AutomationActionsActionServiceAssociation to import is found.
         '''
         if __debug__:
@@ -230,9 +230,9 @@ class AutomationActionsActionServiceAssociationConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#action_id AutomationActionsActionServiceAssociation#action_id}.
-        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#service_id AutomationActionsActionServiceAssociation#service_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#id AutomationActionsActionServiceAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#action_id AutomationActionsActionServiceAssociation#action_id}.
+        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#service_id AutomationActionsActionServiceAssociation#service_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#id AutomationActionsActionServiceAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -335,21 +335,21 @@ class AutomationActionsActionServiceAssociationConfig(
 
     @builtins.property
     def action_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#action_id AutomationActionsActionServiceAssociation#action_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#action_id AutomationActionsActionServiceAssociation#action_id}.'''
         result = self._values.get("action_id")
         assert result is not None, "Required property 'action_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#service_id AutomationActionsActionServiceAssociation#service_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#service_id AutomationActionsActionServiceAssociation#service_id}.'''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/automation_actions_action_service_association#id AutomationActionsActionServiceAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/automation_actions_action_service_association#id AutomationActionsActionServiceAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

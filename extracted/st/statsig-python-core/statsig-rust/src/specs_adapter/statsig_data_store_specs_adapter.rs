@@ -9,7 +9,7 @@ use crate::data_store_interface::{
 };
 use crate::hashing::HashUtil;
 use crate::{log_d, log_e, log_w, SpecsAdapter, SpecsUpdateListener};
-use crate::{StatsigErr, StatsigRuntime};
+use crate::{StatsigErr, StatsigOptions, StatsigRuntime};
 use async_trait::async_trait;
 use chrono::Utc;
 use tokio::sync::Notify;
@@ -29,18 +29,23 @@ impl StatsigDataStoreSpecsAdapter {
         sdk_key: &str,
         data_adapter: Arc<dyn DataStoreTrait>,
         hashing: &HashUtil,
-        sync_interval: Option<u32>,
+        options: Option<&StatsigOptions>,
     ) -> Self {
         let cache_key = get_data_adapter_key(
             RequestPath::RulesetsV2,
             CompressFormat::PlainText,
-            &hashing.hash(&sdk_key.to_string(), &crate::HashAlgorithm::Sha256),
+            &hashing.hash(sdk_key, &crate::HashAlgorithm::Sha256),
         );
+        let default_options = StatsigOptions::default();
+        let options_ref = options.unwrap_or(&default_options);
+
         StatsigDataStoreSpecsAdapter {
             data_adapter,
             cache_key,
             sync_interval: Duration::from_millis(u64::from(
-                sync_interval.unwrap_or(DEFAULT_SYNC_INTERVAL_MS),
+                options_ref
+                    .specs_sync_interval_ms
+                    .unwrap_or(DEFAULT_SYNC_INTERVAL_MS),
             )),
             listener: RwLock::new(None),
             shutdown_notify: Arc::new(Notify::new()),
@@ -59,7 +64,7 @@ impl StatsigDataStoreSpecsAdapter {
                             match maybe_listener.as_ref() {
                                 Some(listener) => {
                                     match listener.did_receive_specs_update(SpecsUpdate {
-                                        data: update.result.unwrap_or_default(),
+                                        data: update.result.unwrap_or_default().into_bytes(),
                                         source: SpecsSource::Adapter("DataStore".to_string()),
                                         received_at: Utc::now().timestamp_millis() as u64,
                                 }) {
@@ -102,7 +107,7 @@ impl SpecsAdapter for StatsigDataStoreSpecsAdapter {
                 Ok(read_lock) => match read_lock.as_ref() {
                     Some(listener) => {
                         listener.did_receive_specs_update(SpecsUpdate {
-                            data,
+                            data: data.into_bytes(),
                             source: SpecsSource::Adapter("DataStore".to_string()),
                             received_at: Utc::now().timestamp_millis() as u64,
                         })?;

@@ -22,6 +22,7 @@ from anyscale.commands.experimental_integrations_commands import (
 )
 from anyscale.commands.image_commands import image_cli
 from anyscale.commands.job_commands import job_cli
+from anyscale.commands.job_queue_commands import job_queue_cli
 from anyscale.commands.list_commands import list_cli
 from anyscale.commands.llm.group import llm_cli
 from anyscale.commands.login_commands import anyscale_login, anyscale_logout
@@ -120,6 +121,7 @@ cli.add_command(version_cli)
 cli.add_command(list_cli)
 cli.add_command(cluster_env_cli)
 cli.add_command(job_cli)
+# cli.add_command(job_queue_cli) # TODO will be enabled later
 cli.add_command(schedule_cli)
 cli.add_command(service_cli)
 cli.add_command(cluster_cli)
@@ -153,6 +155,7 @@ ALIASES = {
     "h": anyscale_help,
     "schedules": schedule_cli,
     "jobs": job_cli,
+    "jq": job_queue_cli,
     "services": service_cli,
     "cluster-compute": compute_config_cli,
     "images": image_cli,

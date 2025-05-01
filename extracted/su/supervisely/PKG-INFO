@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: supervisely
-Version: 6.73.353
+Version: 6.73.354
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -34,7 +34,7 @@ Requires-Dist: bidict<1.0.0,>=0.21.2
 Requires-Dist: varname<1.0.0,>=0.8.1
 Requires-Dist: python-dotenv<=1.0.0,>=0.19.2
 Requires-Dist: pynrrd<1.0.0,>=0.4.2
-Requires-Dist: SimpleITK<3.0.0.0,>=2.1.1.2
+Requires-Dist: SimpleITK<=2.4.1.0,>=2.1.1.2
 Requires-Dist: pydicom<3.0.0,>=2.3.0
 Requires-Dist: stringcase<2.0.0,>=1.2.0
 Requires-Dist: python-magic<1.0.0,>=0.4.25

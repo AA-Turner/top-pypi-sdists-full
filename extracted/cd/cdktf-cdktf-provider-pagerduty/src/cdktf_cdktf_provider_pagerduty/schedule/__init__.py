@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_schedule`
 
-Refer to the Terraform Registry for docs: [`pagerduty_schedule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule).
+Refer to the Terraform Registry for docs: [`pagerduty_schedule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Schedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.schedule.Schedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule pagerduty_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule pagerduty_schedule}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class Schedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule pagerduty_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule pagerduty_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#layer Schedule#layer}
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#time_zone Schedule#time_zone}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#description Schedule#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#id Schedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#name Schedule#name}.
-        :param overflow: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#overflow Schedule#overflow}.
-        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#teams Schedule#teams}.
+        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#layer Schedule#layer}
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#time_zone Schedule#time_zone}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#description Schedule#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#id Schedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#name Schedule#name}.
+        :param overflow: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#overflow Schedule#overflow}.
+        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#teams Schedule#teams}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class Schedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Schedule to import.
-        :param import_from_id: The id of the existing Schedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Schedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Schedule to import is found.
         '''
         if __debug__:
@@ -350,13 +350,13 @@ class ScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#layer Schedule#layer}
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#time_zone Schedule#time_zone}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#description Schedule#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#id Schedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#name Schedule#name}.
-        :param overflow: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#overflow Schedule#overflow}.
-        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#teams Schedule#teams}.
+        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#layer Schedule#layer}
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#time_zone Schedule#time_zone}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#description Schedule#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#id Schedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#name Schedule#name}.
+        :param overflow: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#overflow Schedule#overflow}.
+        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#teams Schedule#teams}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -475,7 +475,7 @@ class ScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ScheduleLayer"]]:
         '''layer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#layer Schedule#layer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#layer Schedule#layer}
         '''
         result = self._values.get("layer")
         assert result is not None, "Required property 'layer' is missing"
@@ -483,20 +483,20 @@ class ScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def time_zone(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#time_zone Schedule#time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#time_zone Schedule#time_zone}.'''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#description Schedule#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#description Schedule#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#id Schedule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#id Schedule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -506,7 +506,7 @@ class ScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#name Schedule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#name Schedule#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -514,13 +514,13 @@ class ScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def overflow(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#overflow Schedule#overflow}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#overflow Schedule#overflow}.'''
         result = self._values.get("overflow")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def teams(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#teams Schedule#teams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#teams Schedule#teams}.'''
         result = self._values.get("teams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -705,13 +705,13 @@ class ScheduleLayer:
         restriction: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ScheduleLayerRestriction", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param rotation_turn_length_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#rotation_turn_length_seconds Schedule#rotation_turn_length_seconds}.
-        :param rotation_virtual_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#rotation_virtual_start Schedule#rotation_virtual_start}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#start Schedule#start}.
-        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#users Schedule#users}.
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#end Schedule#end}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#name Schedule#name}.
-        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#restriction Schedule#restriction}
+        :param rotation_turn_length_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#rotation_turn_length_seconds Schedule#rotation_turn_length_seconds}.
+        :param rotation_virtual_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#rotation_virtual_start Schedule#rotation_virtual_start}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#start Schedule#start}.
+        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#users Schedule#users}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#end Schedule#end}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#name Schedule#name}.
+        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#restriction Schedule#restriction}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c9bf06797e1759c1c1c0f955bfd9a4ffc32703ec28b11153ddaff5ba9be323f)
@@ -737,41 +737,41 @@ class ScheduleLayer:
 
     @builtins.property
     def rotation_turn_length_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#rotation_turn_length_seconds Schedule#rotation_turn_length_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#rotation_turn_length_seconds Schedule#rotation_turn_length_seconds}.'''
         result = self._values.get("rotation_turn_length_seconds")
         assert result is not None, "Required property 'rotation_turn_length_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def rotation_virtual_start(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#rotation_virtual_start Schedule#rotation_virtual_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#rotation_virtual_start Schedule#rotation_virtual_start}.'''
         result = self._values.get("rotation_virtual_start")
         assert result is not None, "Required property 'rotation_virtual_start' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#start Schedule#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#start Schedule#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def users(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#users Schedule#users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#users Schedule#users}.'''
         result = self._values.get("users")
         assert result is not None, "Required property 'users' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#end Schedule#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#end Schedule#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#name Schedule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#name Schedule#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -781,7 +781,7 @@ class ScheduleLayer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ScheduleLayerRestriction"]]]:
         '''restriction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#restriction Schedule#restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#restriction Schedule#restriction}
         '''
         result = self._values.get("restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ScheduleLayerRestriction"]]], result)
@@ -1101,10 +1101,10 @@ class ScheduleLayerRestriction:
         start_day_of_week: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param duration_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#duration_seconds Schedule#duration_seconds}.
-        :param start_time_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#start_time_of_day Schedule#start_time_of_day}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#type Schedule#type}.
-        :param start_day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#start_day_of_week Schedule#start_day_of_week}.
+        :param duration_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#duration_seconds Schedule#duration_seconds}.
+        :param start_time_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#start_time_of_day Schedule#start_time_of_day}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#type Schedule#type}.
+        :param start_day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#start_day_of_week Schedule#start_day_of_week}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80723a079b3396e320246c86b8cd31f423d81d0eb08ef17efb52747ce5747ead)
@@ -1122,28 +1122,28 @@ class ScheduleLayerRestriction:
 
     @builtins.property
     def duration_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#duration_seconds Schedule#duration_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#duration_seconds Schedule#duration_seconds}.'''
         result = self._values.get("duration_seconds")
         assert result is not None, "Required property 'duration_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def start_time_of_day(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#start_time_of_day Schedule#start_time_of_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#start_time_of_day Schedule#start_time_of_day}.'''
         result = self._values.get("start_time_of_day")
         assert result is not None, "Required property 'start_time_of_day' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#type Schedule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#type Schedule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start_day_of_week(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/schedule#start_day_of_week Schedule#start_day_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/schedule#start_day_of_week Schedule#start_day_of_week}.'''
         result = self._values.get("start_day_of_week")
         return typing.cast(typing.Optional[jsii.Number], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `datadog_workflow_automation`
 
-Refer to the Terraform Registry for docs: [`datadog_workflow_automation`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation).
+Refer to the Terraform Registry for docs: [`datadog_workflow_automation`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WorkflowAutomation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.workflowAutomation.WorkflowAutomation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation datadog_workflow_automation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation datadog_workflow_automation}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class WorkflowAutomation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation datadog_workflow_automation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation datadog_workflow_automation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: Description of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#description WorkflowAutomation#description}
-        :param name: Name of the workflow. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#name WorkflowAutomation#name}
-        :param published: Set the workflow to published or unpublished. Workflows in an unpublished state are only executable through manual runs. Automatic triggers such as Schedule do not execute the workflow until it is published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#published WorkflowAutomation#published}
-        :param spec_json: The spec defines what the workflow does. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#spec_json WorkflowAutomation#spec_json}
-        :param tags: Tags of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#tags WorkflowAutomation#tags}
-        :param webhook_secret: If a webhook trigger is defined on this workflow, a webhookSecret is required and should be provided here. String length must be at least 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#webhook_secret WorkflowAutomation#webhook_secret}
+        :param description: Description of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#description WorkflowAutomation#description}
+        :param name: Name of the workflow. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#name WorkflowAutomation#name}
+        :param published: Set the workflow to published or unpublished. Workflows in an unpublished state are only executable through manual runs. Automatic triggers such as Schedule do not execute the workflow until it is published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#published WorkflowAutomation#published}
+        :param spec_json: The spec defines what the workflow does. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#spec_json WorkflowAutomation#spec_json}
+        :param tags: Tags of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#tags WorkflowAutomation#tags}
+        :param webhook_secret: If a webhook trigger is defined on this workflow, a webhookSecret is required and should be provided here. String length must be at least 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#webhook_secret WorkflowAutomation#webhook_secret}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class WorkflowAutomation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WorkflowAutomation to import.
-        :param import_from_id: The id of the existing WorkflowAutomation that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WorkflowAutomation that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WorkflowAutomation to import is found.
         '''
         if __debug__:
@@ -304,12 +304,12 @@ class WorkflowAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: Description of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#description WorkflowAutomation#description}
-        :param name: Name of the workflow. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#name WorkflowAutomation#name}
-        :param published: Set the workflow to published or unpublished. Workflows in an unpublished state are only executable through manual runs. Automatic triggers such as Schedule do not execute the workflow until it is published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#published WorkflowAutomation#published}
-        :param spec_json: The spec defines what the workflow does. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#spec_json WorkflowAutomation#spec_json}
-        :param tags: Tags of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#tags WorkflowAutomation#tags}
-        :param webhook_secret: If a webhook trigger is defined on this workflow, a webhookSecret is required and should be provided here. String length must be at least 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#webhook_secret WorkflowAutomation#webhook_secret}
+        :param description: Description of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#description WorkflowAutomation#description}
+        :param name: Name of the workflow. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#name WorkflowAutomation#name}
+        :param published: Set the workflow to published or unpublished. Workflows in an unpublished state are only executable through manual runs. Automatic triggers such as Schedule do not execute the workflow until it is published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#published WorkflowAutomation#published}
+        :param spec_json: The spec defines what the workflow does. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#spec_json WorkflowAutomation#spec_json}
+        :param tags: Tags of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#tags WorkflowAutomation#tags}
+        :param webhook_secret: If a webhook trigger is defined on this workflow, a webhookSecret is required and should be provided here. String length must be at least 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#webhook_secret WorkflowAutomation#webhook_secret}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -420,7 +420,7 @@ class WorkflowAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''Description of the workflow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#description WorkflowAutomation#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#description WorkflowAutomation#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -430,7 +430,7 @@ class WorkflowAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the workflow. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#name WorkflowAutomation#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#name WorkflowAutomation#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -442,7 +442,7 @@ class WorkflowAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Workflows in an unpublished state are only executable through manual runs. Automatic triggers such as Schedule do not execute the workflow until it is published.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#published WorkflowAutomation#published}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#published WorkflowAutomation#published}
         '''
         result = self._values.get("published")
         assert result is not None, "Required property 'published' is missing"
@@ -452,7 +452,7 @@ class WorkflowAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec_json(self) -> builtins.str:
         '''The spec defines what the workflow does.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#spec_json WorkflowAutomation#spec_json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#spec_json WorkflowAutomation#spec_json}
         '''
         result = self._values.get("spec_json")
         assert result is not None, "Required property 'spec_json' is missing"
@@ -462,7 +462,7 @@ class WorkflowAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.List[builtins.str]:
         '''Tags of the workflow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#tags WorkflowAutomation#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#tags WorkflowAutomation#tags}
         '''
         result = self._values.get("tags")
         assert result is not None, "Required property 'tags' is missing"
@@ -474,7 +474,7 @@ class WorkflowAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         String length must be at least 16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/workflow_automation#webhook_secret WorkflowAutomation#webhook_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/workflow_automation#webhook_secret WorkflowAutomation#webhook_secret}
         '''
         result = self._values.get("webhook_secret")
         return typing.cast(typing.Optional[builtins.str], result)

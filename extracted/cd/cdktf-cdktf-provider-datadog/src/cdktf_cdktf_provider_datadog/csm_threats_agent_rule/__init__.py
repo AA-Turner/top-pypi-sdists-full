@@ -1,7 +1,7 @@
 r'''
 # `datadog_csm_threats_agent_rule`
 
-Refer to the Terraform Registry for docs: [`datadog_csm_threats_agent_rule`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule).
+Refer to the Terraform Registry for docs: [`datadog_csm_threats_agent_rule`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CsmThreatsAgentRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.csmThreatsAgentRule.CsmThreatsAgentRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class CsmThreatsAgentRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Indicates Whether the Agent rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
-        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
-        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
-        :param description: A description for the Agent rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
+        :param enabled: Indicates Whether the Agent rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
+        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
+        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        :param description: A description for the Agent rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class CsmThreatsAgentRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CsmThreatsAgentRule to import.
-        :param import_from_id: The id of the existing CsmThreatsAgentRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CsmThreatsAgentRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CsmThreatsAgentRule to import is found.
         '''
         if __debug__:
@@ -260,10 +260,10 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Indicates Whether the Agent rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
-        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
-        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
-        :param description: A description for the Agent rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
+        :param enabled: Indicates Whether the Agent rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
+        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
+        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        :param description: A description for the Agent rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,7 +370,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates Whether the Agent rule is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -380,7 +380,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def expression(self) -> builtins.str:
         '''The SECL expression of the Agent rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -390,7 +390,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Agent rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -400,7 +400,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description for the Agent rule. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)

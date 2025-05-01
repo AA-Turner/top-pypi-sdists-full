@@ -282,7 +282,7 @@ def test_grid_mode(make_napari_viewer):
         [255, 255, 0, 255],
         [0, 255, 255, 255],
     ]
-    for c, p in zip(color, pos):
+    for c, p in zip(color, pos, strict=False):
         coord = tuple(
             np.round(np.multiply(screenshot.shape[:2], p)).astype(int)
         )
@@ -303,7 +303,7 @@ def test_grid_mode(make_napari_viewer):
         [255, 255, 0, 255],
         [0, 0, 255, 255],
     ]
-    for c, p in zip(color, pos):
+    for c, p in zip(color, pos, strict=False):
         coord = tuple(
             np.round(np.multiply(screenshot.shape[:2], p)).astype(int)
         )
@@ -329,7 +329,7 @@ def test_grid_mode(make_napari_viewer):
 def test_changing_image_attenuation(make_napari_viewer):
     """Test changing attenuation value changes rendering."""
     data = np.zeros((100, 10, 10))
-    data[-1] = 1
+    data[0] = 1
 
     viewer = make_napari_viewer(show=True)
     viewer.dims.ndisplay = 3
@@ -554,6 +554,37 @@ def test_blending_modes_with_canvas(make_napari_viewer):
     img2_layer.blending = 'minimum'
     screenshot = viewer.screenshot(canvas_only=True, flash=False)
     np.testing.assert_array_equal(screenshot[:, :, 0], np.minimum(img1, img2))
+
+
+@skip_on_win_ci
+@skip_local_popups
+def test_shapes_with_holes(make_napari_viewer):
+    """Check that a shape with a hole in it is indeed rendered with a hole.
+
+    See https://github.com/napari/napari/issues/5673.
+    """
+    embedded = np.array(
+        [
+            [0, 0],  # outer triangle 0
+            [0, 100],  # outer triangle 1 (clockwise)
+            [100, 50],  # outer triangle 2
+            [50, 30],  # go to inner triangle 0
+            [50, 70],  # inner triangle 1
+            [20, 50],  # inner triangle 2  (counterclockwise)
+            [50, 30],  # back to inner triangle 0
+            [100, 50],
+        ]  # back to outer triangle 2
+    )  # final edge to outer triangle 0 implicit
+
+    # show must be True or the screenshot will be blank
+    viewer = make_napari_viewer(show=True)
+    viewer.add_shapes(embedded, shape_type='polygon', edge_width=0)
+    screenshot = viewer.screenshot(canvas_only=True, flash=False)
+    # center should have a hole
+    # use -1 because edge is exactly halfway down.
+    center = (screenshot.shape[0] // 2 - 1, screenshot.shape[1] // 2)
+    # ignore alpha channel
+    np.testing.assert_array_equal(screenshot[center][:3], 0)
 
 
 @skip_local_popups

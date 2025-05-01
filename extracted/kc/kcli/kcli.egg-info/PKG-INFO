@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kcli
-Version: 99.0.202504231102
+Version: 99.0.202504301614
 Summary: Provisioner/Manager for Libvirt/Vsphere/Aws/Gcp/Hcloud/Kubevirt/Ovirt/Openstack/IBM Cloud and containers
 Home-page: http://github.com/karmab/kcli
 Author: Karim Boumedhel

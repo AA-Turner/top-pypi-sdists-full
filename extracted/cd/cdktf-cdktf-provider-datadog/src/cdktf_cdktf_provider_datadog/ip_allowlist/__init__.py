@@ -1,7 +1,7 @@
 r'''
 # `datadog_ip_allowlist`
 
-Refer to the Terraform Registry for docs: [`datadog_ip_allowlist`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist).
+Refer to the Terraform Registry for docs: [`datadog_ip_allowlist`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IpAllowlist(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.ipAllowlist.IpAllowlist",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist datadog_ip_allowlist}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist datadog_ip_allowlist}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class IpAllowlist(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist datadog_ip_allowlist} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist datadog_ip_allowlist} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Whether the IP Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#enabled IpAllowlist#enabled}
-        :param entry: entry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#entry IpAllowlist#entry}
+        :param enabled: Whether the IP Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#enabled IpAllowlist#enabled}
+        :param entry: entry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#entry IpAllowlist#entry}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class IpAllowlist(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IpAllowlist to import.
-        :param import_from_id: The id of the existing IpAllowlist that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IpAllowlist that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IpAllowlist to import is found.
         '''
         if __debug__:
@@ -224,8 +224,8 @@ class IpAllowlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Whether the IP Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#enabled IpAllowlist#enabled}
-        :param entry: entry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#entry IpAllowlist#entry}
+        :param enabled: Whether the IP Allowlist is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#enabled IpAllowlist#enabled}
+        :param entry: entry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#entry IpAllowlist#entry}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -328,7 +328,7 @@ class IpAllowlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the IP Allowlist is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#enabled IpAllowlist#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#enabled IpAllowlist#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -340,7 +340,7 @@ class IpAllowlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IpAllowlistEntry"]]]:
         '''entry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#entry IpAllowlist#entry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#entry IpAllowlist#entry}
         '''
         result = self._values.get("entry")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IpAllowlistEntry"]]], result)
@@ -370,8 +370,8 @@ class IpAllowlistEntry:
         note: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cidr_block: IP address or range of addresses. String must be a valid CIDR block or IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#cidr_block IpAllowlist#cidr_block}
-        :param note: Note accompanying IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#note IpAllowlist#note}
+        :param cidr_block: IP address or range of addresses. String must be a valid CIDR block or IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#cidr_block IpAllowlist#cidr_block}
+        :param note: Note accompanying IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#note IpAllowlist#note}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed1775e3262bafba154f69db144d128952916a84fc430355f70e08430a2b267f)
@@ -387,7 +387,7 @@ class IpAllowlistEntry:
     def cidr_block(self) -> builtins.str:
         '''IP address or range of addresses. String must be a valid CIDR block or IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#cidr_block IpAllowlist#cidr_block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#cidr_block IpAllowlist#cidr_block}
         '''
         result = self._values.get("cidr_block")
         assert result is not None, "Required property 'cidr_block' is missing"
@@ -397,7 +397,7 @@ class IpAllowlistEntry:
     def note(self) -> typing.Optional[builtins.str]:
         '''Note accompanying IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/ip_allowlist#note IpAllowlist#note}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/ip_allowlist#note IpAllowlist#note}
         '''
         result = self._values.get("note")
         return typing.cast(typing.Optional[builtins.str], result)

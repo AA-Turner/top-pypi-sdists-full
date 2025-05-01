@@ -179,7 +179,7 @@ langchain_extra_require = [
     "langchain >= 0.3, < 0.4",
     "langchain-core >= 0.3, < 0.4",
     "langchain-google-vertexai >= 2, < 3",
-    "langgraph >= 0.2.45, < 0.3",
+    "langgraph >= 0.2.45, < 0.4",
     "openinference-instrumentation-langchain >= 0.1.19, < 0.2",
 ]
 
@@ -336,14 +336,13 @@ setuptools.setup(
         "llama_index": llama_index_extra_require,
         "llama_index_testing": llama_index_testing_extra_require,
     },
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

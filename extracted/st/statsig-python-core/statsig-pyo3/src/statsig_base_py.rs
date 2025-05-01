@@ -2,7 +2,7 @@ use crate::net_provider_py::NetworkProviderPy;
 use crate::pyo_utils::{map_to_py_dict, py_dict_to_json_value_map};
 use crate::statsig_options_py::{safe_convert_to_statsig_options, StatsigOptionsPy};
 use crate::statsig_persistent_storage_override_adapter_py::convert_dict_to_user_persisted_values;
-use crate::statsig_types_py::{DynamicConfigPy, LayerPy};
+use crate::statsig_types_py::{DynamicConfigPy, InitializeDetailsPy, LayerPy};
 use crate::{
     statsig_types_py::{
         DynamicConfigEvaluationOptionsPy, ExperimentEvaluationOptionsPy, ExperimentPy,
@@ -10,8 +10,7 @@ use crate::{
     },
     statsig_user_py::StatsigUserPy,
 };
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::{prelude::*, types::PyDict};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::networking::providers::NetworkProviderGlobal;
 use statsig_rust::networking::NetworkProvider;
@@ -98,6 +97,43 @@ impl StatsigBasePy {
         });
 
         Ok(completion_event)
+    }
+
+    pub fn initialize_with_details(&self, py: Python) -> PyResult<PyObject> {
+        let (future, future_clone) = create_python_future(py)?;
+
+        let inst = self.inner.clone();
+        self.inner.statsig_runtime.runtime_handle.spawn(async move {
+            let result = inst.initialize_with_details().await;
+
+            Python::with_gil(|py| {
+                let _ = match result {
+                    Ok(details) => {
+                        let py_details = InitializeDetailsPy::from(details);
+                        future_clone.call_method1(py, "set_result", (py_details,))
+                    }
+                    Err(e) => {
+                        let error_details = InitializeDetailsPy::from_error(
+                            "initialize_failed",
+                            Some(e.to_string()),
+                        );
+                        future_clone.call_method1(py, "set_result", (error_details,))
+                    }
+                };
+            });
+        });
+
+        Ok(future)
+    }
+
+    pub fn get_initialize_details(&self) -> PyResult<InitializeDetailsPy> {
+        let details = self.inner.get_initialize_details();
+        let py_details = InitializeDetailsPy::from(details);
+        Ok(py_details)
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        self.inner.is_initialized()
     }
 
     pub fn flush_events(&self, py: Python) -> PyResult<PyObject> {
@@ -357,43 +393,123 @@ impl StatsigBasePy {
             .get_client_init_response_with_options_as_string(&user.inner, &opts)
     }
 
-    #[pyo3(signature = (gate_name, value))]
-    pub fn override_gate(&self, gate_name: &str, value: bool) -> PyResult<()> {
-        self.inner.override_gate(gate_name, value, None);
+    #[pyo3(signature = (gate_name, value, id=None))]
+    pub fn override_gate(&self, gate_name: &str, value: bool, id: Option<&str>) -> PyResult<()> {
+        self.inner.override_gate(gate_name, value, id);
         Ok(())
     }
 
-    #[pyo3(signature = (config_name, value))]
-    pub fn override_dynamic_config(&self, config_name: &str, value: Bound<PyDict>) -> PyResult<()> {
+    #[pyo3(signature = (config_name, value, id=None))]
+    pub fn override_dynamic_config(
+        &self,
+        config_name: &str,
+        value: Bound<PyDict>,
+        id: Option<&str>,
+    ) -> PyResult<()> {
         let value_inner = py_dict_to_json_value_map(&value);
         self.inner
-            .override_dynamic_config(config_name, value_inner, None);
+            .override_dynamic_config(config_name, value_inner, id);
         Ok(())
     }
 
-    #[pyo3(signature = (experiment_name, value))]
-    pub fn override_experiment(&self, experiment_name: &str, value: Bound<PyDict>) -> PyResult<()> {
+    #[pyo3(signature = (experiment_name, value, id=None))]
+    pub fn override_experiment(
+        &self,
+        experiment_name: &str,
+        value: Bound<PyDict>,
+        id: Option<&str>,
+    ) -> PyResult<()> {
         let value_inner = py_dict_to_json_value_map(&value);
         self.inner
-            .override_experiment(experiment_name, value_inner, None);
+            .override_experiment(experiment_name, value_inner, id);
         Ok(())
     }
 
-    #[pyo3(signature = (layer_name, value))]
-    pub fn override_layer(&self, layer_name: &str, value: Bound<PyDict>) -> PyResult<()> {
+    #[pyo3(signature = (layer_name, value, id=None))]
+    pub fn override_layer(
+        &self,
+        layer_name: &str,
+        value: Bound<PyDict>,
+        id: Option<&str>,
+    ) -> PyResult<()> {
         let value_inner = py_dict_to_json_value_map(&value);
-        self.inner.override_layer(layer_name, value_inner, None);
+        self.inner.override_layer(layer_name, value_inner, id);
         Ok(())
     }
 
-    #[pyo3(signature = (experiment_name, group_name))]
+    #[pyo3(signature = (experiment_name, group_name, id=None))]
     pub fn override_experiment_by_group_name(
         &self,
         experiment_name: &str,
         group_name: &str,
+        id: Option<&str>,
     ) -> PyResult<()> {
         self.inner
-            .override_experiment_by_group_name(experiment_name, group_name, None);
+            .override_experiment_by_group_name(experiment_name, group_name, id);
+        Ok(())
+    }
+
+    #[pyo3(signature = (gate_name, id=None))]
+    pub fn remove_gate_override(&self, gate_name: &str, id: Option<&str>) -> PyResult<()> {
+        self.inner.remove_gate_override(gate_name, id);
+        Ok(())
+    }
+
+    #[pyo3(signature = (config_name, id=None))]
+    pub fn remove_dynamic_config_override(
+        &self,
+        config_name: &str,
+        id: Option<&str>,
+    ) -> PyResult<()> {
+        self.inner.remove_dynamic_config_override(config_name, id);
+        Ok(())
+    }
+
+    #[pyo3(signature = (experiment_name, id=None))]
+    pub fn remove_experiment_override(
+        &self,
+        experiment_name: &str,
+        id: Option<&str>,
+    ) -> PyResult<()> {
+        self.inner.remove_experiment_override(experiment_name, id);
+        Ok(())
+    }
+
+    #[pyo3(signature = (layer_name, id=None))]
+    pub fn remove_layer_override(&self, layer_name: &str, id: Option<&str>) -> PyResult<()> {
+        self.inner.remove_layer_override(layer_name, id);
+        Ok(())
+    }
+
+    #[pyo3(signature = ())]
+    pub fn remove_all_overrides(&self) -> PyResult<()> {
+        self.inner.remove_all_overrides();
+        Ok(())
+    }
+
+    #[pyo3(name = "get_feature_gate_list")]
+    pub fn get_feature_gate_list(&self) -> Vec<String> {
+        self.inner.get_feature_gate_list()
+    }
+
+    #[pyo3(name = "get_dynamic_config_list")]
+    pub fn get_dynamic_config_list(&self) -> Vec<String> {
+        self.inner.get_dynamic_config_list()
+    }
+
+    #[pyo3(name = "get_experiment_list")]
+    pub fn get_experiment_list(&self) -> Vec<String> {
+        self.inner.get_experiment_list()
+    }
+
+    #[pyo3(name = "get_parameter_store_list")]
+    pub fn get_parameter_store_list(&self) -> Vec<String> {
+        self.inner.get_parameter_store_list()
+    }
+
+    #[pyo3(signature = (user))]
+    pub fn identify(&self, user: &StatsigUserPy) -> PyResult<()> {
+        self.inner.identify(&user.inner);
         Ok(())
     }
 }
@@ -404,6 +520,14 @@ fn get_completion_event(py: Python) -> PyResult<(PyObject, PyObject)> {
     let event_clone: PyObject = event.clone().into();
 
     Ok((event.into(), event_clone))
+}
+
+fn create_python_future(py: Python) -> PyResult<(PyObject, PyObject)> {
+    let concurrent = PyModule::import(py, "concurrent.futures")?;
+    let future = concurrent.getattr("Future")?.call0()?;
+    let future_clone: PyObject = future.clone().into();
+
+    Ok((future.into(), future_clone))
 }
 
 fn convert_to_number(value: Option<&Bound<PyAny>>) -> Option<f64> {

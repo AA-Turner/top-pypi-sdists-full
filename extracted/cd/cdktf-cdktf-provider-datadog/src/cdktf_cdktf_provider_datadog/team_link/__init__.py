@@ -1,7 +1,7 @@
 r'''
 # `datadog_team_link`
 
-Refer to the Terraform Registry for docs: [`datadog_team_link`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link).
+Refer to the Terraform Registry for docs: [`datadog_team_link`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TeamLink(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.teamLink.TeamLink",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link datadog_team_link}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link datadog_team_link}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class TeamLink(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link datadog_team_link} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link datadog_team_link} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param label: The link's label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#label TeamLink#label}
-        :param team_id: ID of the team the link is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#team_id TeamLink#team_id}
-        :param url: The URL for the link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#url TeamLink#url}
-        :param position: The link's position, used to sort links for the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#position TeamLink#position}
+        :param label: The link's label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#label TeamLink#label}
+        :param team_id: ID of the team the link is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#team_id TeamLink#team_id}
+        :param url: The URL for the link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#url TeamLink#url}
+        :param position: The link's position, used to sort links for the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#position TeamLink#position}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class TeamLink(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TeamLink to import.
-        :param import_from_id: The id of the existing TeamLink that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TeamLink that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TeamLink to import is found.
         '''
         if __debug__:
@@ -255,10 +255,10 @@ class TeamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param label: The link's label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#label TeamLink#label}
-        :param team_id: ID of the team the link is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#team_id TeamLink#team_id}
-        :param url: The URL for the link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#url TeamLink#url}
-        :param position: The link's position, used to sort links for the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#position TeamLink#position}
+        :param label: The link's label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#label TeamLink#label}
+        :param team_id: ID of the team the link is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#team_id TeamLink#team_id}
+        :param url: The URL for the link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#url TeamLink#url}
+        :param position: The link's position, used to sort links for the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#position TeamLink#position}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -365,7 +365,7 @@ class TeamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def label(self) -> builtins.str:
         '''The link's label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#label TeamLink#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#label TeamLink#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -375,7 +375,7 @@ class TeamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_id(self) -> builtins.str:
         '''ID of the team the link is associated with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#team_id TeamLink#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#team_id TeamLink#team_id}
         '''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
@@ -385,7 +385,7 @@ class TeamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def url(self) -> builtins.str:
         '''The URL for the link.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#url TeamLink#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#url TeamLink#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -395,7 +395,7 @@ class TeamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def position(self) -> typing.Optional[jsii.Number]:
         '''The link's position, used to sort links for the team.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_link#position TeamLink#position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_link#position TeamLink#position}
         '''
         result = self._values.get("position")
         return typing.cast(typing.Optional[jsii.Number], result)

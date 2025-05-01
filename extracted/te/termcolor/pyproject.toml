@@ -40,6 +40,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Terminals",
+  "Typing :: Typed",
 ]
 dynamic = [ "version" ]
 optional-dependencies.tests = [
@@ -97,3 +98,23 @@ max_supported_python = "3.14"
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
+
+[tool.coverage.run]
+branch = true
+disable_warnings = [
+  "no-sysmon",
+]
+omit = [
+  "*/termcolor/__main__.py",
+]
+
+[tool.coverage.html]
+show_contexts = true
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+  # Don't complain if non-runnable code isn't run:
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

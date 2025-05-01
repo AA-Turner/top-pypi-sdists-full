@@ -396,14 +396,14 @@ and override the entrypoint with `python main.py`.
     help=f"Filter jobs by state. Accepts one or more states. Allowed states: {', '.join(HaJobStates.allowable_values)}",
     callback=validate_list_jobs_state_filter,
 )
-def list(  # noqa: A001
+def list(  # noqa: A001 PLR0913
     name: Optional[str],
     id: Optional[str],  # noqa: A002
     project_id: Optional[str],
     include_all_users: bool,
     include_archived: bool,
     max_items: int,
-    states: List[str],
+    states: List[HaJobStates],
 ) -> None:
     job_controller = JobController()
     job_controller.list(

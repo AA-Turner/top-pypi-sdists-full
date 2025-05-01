@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datadog-checks-base
-Version: 37.10.0
+Version: 37.10.1
 Summary: The Datadog Check Toolkit
 Project-URL: Source, https://github.com/DataDog/integrations-core
 Author-email: Datadog <packages@datadoghq.com>

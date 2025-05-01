@@ -740,9 +740,12 @@ class FunctionSession:
         BigQuery managed function.
 
         .. note::
-            The udf must be self-contained, i.e. it must not contain any
+            This feature is in preview. The code in the udf must be
+            (1) self-contained, i.e. it must not contain any
             references to an import or variable defined outside the function
-            body.
+            body, and
+            (2) Python 3.11 compatible, as that is the environment
+            in which the code is executed in the cloud.
 
         .. note::
             Please have following IAM roles enabled for you:
@@ -801,7 +804,7 @@ class FunctionSession:
                 https://pip.pypa.io/en/stable/reference/requirements-file-format/.
         """
 
-        warnings.warn("udf is in preview.", category=bfe.PreviewWarning)
+        warnings.warn("udf is in preview.", category=bfe.PreviewWarning, stacklevel=5)
 
         # Some defaults may be used from the session if not provided otherwise.
         session = self._resolve_session(session)
@@ -835,9 +838,18 @@ class FunctionSession:
                     TypeError, f"func must be a callable, got {func}"
                 )
 
-            # Managed function supports version >= 3.11.
-            signature_kwargs: Mapping[str, Any] = {"eval_str": True}
-            signature = inspect.signature(func, **signature_kwargs)
+            if sys.version_info >= (3, 10):
+                # Add `eval_str = True` so that deferred annotations are turned into their
+                # corresponding type objects. Need Python 3.10 for eval_str parameter.
+                # https://docs.python.org/3/library/inspect.html#inspect.signature
+                signature_kwargs: Mapping[str, Any] = {"eval_str": True}
+            else:
+                signature_kwargs = {}  # type: ignore
+
+            signature = inspect.signature(
+                func,
+                **signature_kwargs,
+            )
 
             # Try to get input types via type annotations.
             if input_types is None:

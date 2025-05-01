@@ -14,13 +14,14 @@ except ImportError:
 
 import scipy.integrate as si
 import scipy.optimize as so
+from scipy.special import lambertw
 import xarray as xr
 
 from .exceptions import InvalidSoundingError
 from .tools import (_greater_or_close, _less_or_close, _remove_nans, find_bounding_indices,
                     find_intersections, first_derivative, get_layer)
 from .. import _warnings, constants as mpconsts
-from ..cbook import broadcast_indices
+from ..cbook import broadcast_indices, validate_choice
 from ..interpolate.one_dimension import interpolate_1d
 from ..package_tools import Exporter
 from ..units import check_units, concatenate, process_units, units
@@ -30,9 +31,256 @@ exporter = Exporter(globals())
 
 
 @exporter.export
+@preprocess_and_wrap(wrap_like='specific_humidity')
+@process_units(input_dimensionalities={'specific_humidity': 'dimensionless'},
+               output_dimensionalities='[specific_heat_capacity]',
+               output_to='J K**-1 kg**-1 ')
+def moist_air_gas_constant(specific_humidity):
+    r"""Calculate R_m, the specific gas constant for a parcel of moist air.
+
+    Parameters
+    ----------
+    specific_humidity : `pint.Quantity`
+
+    Returns
+    -------
+    `pint.Quantity`
+        Specific gas constant
+
+    Examples
+    --------
+    >>> from metpy.calc import moist_air_gas_constant
+    >>> from metpy.units import units
+    >>> moist_air_gas_constant(11 * units('g/kg'))
+    <Quantity(288.966723, 'joule / kelvin / kilogram')>
+
+    See Also
+    --------
+    moist_air_specific_heat_pressure, moist_air_poisson_exponent
+
+    Notes
+    -----
+    Adapted from
+
+    .. math:: R_m = (1 - q_v) R_a + q_v R_v
+
+    Eq 16, [Romps2017]_ using MetPy-defined constants in place of cited values.
+
+    """
+    return mpconsts.nounit.Rd + specific_humidity * (mpconsts.nounit.Rv - mpconsts.nounit.Rd)
+
+
+@exporter.export
+@preprocess_and_wrap(wrap_like='specific_humidity')
+@process_units(input_dimensionalities={'specific_humidity': 'dimensionless'},
+               output_dimensionalities='[specific_heat_capacity]',
+               output_to='J K**-1 kg**-1 ')
+def moist_air_specific_heat_pressure(specific_humidity):
+    r"""Calculate C_pm, the specific heat at constant pressure for a moist air parcel.
+
+    Parameters
+    ----------
+    specific_humidity : `pint.Quantity`
+
+    Returns
+    -------
+    `pint.Quantity`
+        Specific heat capacity of air at constant pressure
+
+    Examples
+    --------
+    >>> from metpy.calc import moist_air_specific_heat_pressure
+    >>> from metpy.units import units
+    >>> moist_air_specific_heat_pressure(11 * units('g/kg'))
+    <Quantity(1014.07575, 'joule / kelvin / kilogram')>
+
+    See Also
+    --------
+    moist_air_gas_constant, moist_air_poisson_exponent
+
+    Notes
+    -----
+    Adapted from
+
+    .. math:: c_{pm} = (1 - q_v) c_{pa} + q_v c_{pv}
+
+    Eq 17, [Romps2017]_ using MetPy-defined constants in place of cited values.
+
+    """
+    return (mpconsts.nounit.Cp_d
+            + specific_humidity * (mpconsts.nounit.Cp_v - mpconsts.nounit.Cp_d))
+
+
+@exporter.export
+@preprocess_and_wrap(wrap_like='specific_humidity')
+@process_units(
+    input_dimensionalities={'specific_humidity': 'dimensionless'},
+    output_dimensionalities='[dimensionless]'
+)
+def moist_air_poisson_exponent(specific_humidity):
+    r"""Calculate kappa_m, the Poisson exponent for a moist air parcel.
+
+    Parameters
+    ----------
+    specific_humidity : `pint.Quantity`
+
+    Returns
+    -------
+    `pint.Quantity`
+        Poisson exponent of moist air parcel
+
+    Examples
+    --------
+    >>> from metpy.calc import moist_air_poisson_exponent
+    >>> from metpy.units import units
+    >>> moist_air_poisson_exponent(11 * units('g/kg'))
+    <Quantity(0.284955757, 'dimensionless')>
+
+    See Also
+    --------
+    moist_air_gas_constant, moist_air_specific_heat_pressure
+
+    """
+    return (moist_air_gas_constant._nounit(specific_humidity)
+            / moist_air_specific_heat_pressure._nounit(specific_humidity))
+
+
+@exporter.export
+@preprocess_and_wrap(wrap_like='temperature')
+@process_units(input_dimensionalities={'temperature': '[temperature]'},
+               output_dimensionalities='[specific_enthalpy]',
+               output_to='J kg**-1')
+def water_latent_heat_vaporization(temperature):
+    r"""Calculate the latent heat of vaporization for water.
+
+    Accounts for variations in latent heat across valid temperature range.
+
+    Parameters
+    ----------
+    temperature : `pint.Quantity`
+
+    Returns
+    -------
+    `pint.Quantity`
+        Latent heat of vaporization
+
+    Examples
+    --------
+    >>> from metpy.calc import water_latent_heat_vaporization
+    >>> from metpy.units import units
+    >>> water_latent_heat_vaporization(20 * units.degC)
+    <Quantity(2453677.15, 'joule / kilogram')>
+
+    See Also
+    --------
+    water_latent_heat_sublimation, water_latent_heat_melting
+
+    Notes
+    -----
+    Assumption of constant :math:`C_{pv}` limits validity to :math:`0` -- :math:`100^{\circ} C`
+    range.
+
+    .. math:: L = L_0 - (c_{pl} - c_{pv}) (T - T_0)
+
+    Eq 15, [Ambaum2020]_, using MetPy-defined constants in place of cited values.
+
+    """
+    return (mpconsts.nounit.Lv
+            - (mpconsts.nounit.Cp_l - mpconsts.nounit.Cp_v)
+            * (temperature - mpconsts.nounit.T0))
+
+
+@exporter.export
+@preprocess_and_wrap(wrap_like='temperature')
+@process_units(input_dimensionalities={'temperature': '[temperature]'},
+               output_dimensionalities='[specific_enthalpy]',
+               output_to='J kg**-1')
+def water_latent_heat_sublimation(temperature):
+    r"""Calculate the latent heat of sublimation for water.
+
+    Accounts for variations in latent heat across valid temperature range.
+
+    Parameters
+    ----------
+    temperature : `pint.Quantity`
+
+    Returns
+    -------
+    `pint.Quantity`
+        Latent heat of vaporization
+
+    Examples
+    --------
+    >>> from metpy.calc import water_latent_heat_sublimation
+    >>> from metpy.units import units
+    >>> water_latent_heat_sublimation(-15 * units.degC)
+    <Quantity(2837991.13, 'joule / kilogram')>
+
+    See Also
+    --------
+    water_latent_heat_vaporization, water_latent_heat_melting
+
+    Notes
+    -----
+    .. math:: L_s = L_{s0} - (c_{pl} - c_{pv}) (T - T_0)
+
+    Eq 18, [Ambaum2020]_, using MetPy-defined constants in place of cited values.
+
+    """
+    return (mpconsts.nounit.Ls
+            - (mpconsts.nounit.Cp_i - mpconsts.nounit.Cp_v)
+            * (temperature - mpconsts.nounit.T0))
+
+
+@exporter.export
+@preprocess_and_wrap(wrap_like='temperature')
+@process_units(input_dimensionalities={'temperature': '[temperature]'},
+               output_dimensionalities='[specific_enthalpy]',
+               output_to='J kg**-1')
+def water_latent_heat_melting(temperature):
+    r"""Calculate the latent heat of melting for water.
+
+    Accounts for variations in latent heat across valid temperature range.
+
+    Parameters
+    ----------
+    temperature : `pint.Quantity`
+
+    Returns
+    -------
+    `pint.Quantity`
+        Latent heat of vaporization
+
+    Examples
+    --------
+    >>> from metpy.calc import water_latent_heat_melting
+    >>> from metpy.units import units
+    >>> water_latent_heat_melting(-15 * units.degC)
+    <Quantity(365662.294, 'joule / kilogram')>
+
+    See Also
+    --------
+    water_latent_heat_vaporization, water_latent_heat_sublimation
+
+    Notes
+    -----
+    .. math:: L_m = L_{m0} + (c_{pl} - c_{pi}) (T - T_0)
+
+    Body text below Eq 20, [Ambaum2020]_, derived from Eq 15, Eq 18.
+    Uses MetPy-defined constants in place of cited values.
+
+    """
+    return (mpconsts.nounit.Lf
+            - (mpconsts.nounit.Cp_l - mpconsts.nounit.Cp_i)
+            * (temperature - mpconsts.nounit.T0))
+
+
+@exporter.export
 @preprocess_and_wrap(wrap_like='temperature', broadcast=('temperature', 'dewpoint'))
-@check_units('[temperature]', '[temperature]')
-def relative_humidity_from_dewpoint(temperature, dewpoint):
+@process_units(input_dimensionalities={'temperature': '[temperature]',
+                                       'dewpoint': '[temperature]'},
+               output_dimensionalities='[dimensionless]')
+def relative_humidity_from_dewpoint(temperature, dewpoint, *, phase='liquid'):
     r"""Calculate the relative humidity.
 
     Uses temperature and dewpoint to calculate relative humidity as the ratio of vapor
@@ -46,6 +294,11 @@ def relative_humidity_from_dewpoint(temperature, dewpoint):
     dewpoint : `pint.Quantity`
         Dewpoint temperature
 
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
+
     Returns
     -------
     `pint.Quantity`
@@ -56,7 +309,7 @@ def relative_humidity_from_dewpoint(temperature, dewpoint):
     >>> from metpy.calc import relative_humidity_from_dewpoint
     >>> from metpy.units import units
     >>> relative_humidity_from_dewpoint(25 * units.degC, 12 * units.degC).to('percent')
-    <Quantity(44.2484765, 'percent')>
+    <Quantity(44.2998365, 'percent')>
 
     See Also
     --------
@@ -70,8 +323,9 @@ def relative_humidity_from_dewpoint(temperature, dewpoint):
        Renamed ``dewpt`` parameter to ``dewpoint``
 
     """
-    e = saturation_vapor_pressure(dewpoint)
-    e_s = saturation_vapor_pressure(temperature)
+    validate_choice({'liquid', 'solid', 'auto'}, phase=phase)
+    e = saturation_vapor_pressure._nounit(dewpoint, phase=phase)
+    e_s = saturation_vapor_pressure._nounit(temperature, phase=phase)
     return e / e_s
 
 
@@ -305,8 +559,8 @@ def moist_lapse(pressure, temperature, reference_pressure=None):
     >>> from metpy.units import units
     >>> plevs = [925, 850, 700, 500, 300, 200] * units.hPa
     >>> moist_lapse(plevs, 5 * units.degC).to('degC')
-    <Quantity([  5.           0.99716773  -8.88545598 -28.37637988 -60.11086751
-    -83.33806983], 'degree_Celsius')>
+    <Quantity([  5.           0.99635104  -8.88958079 -28.38862857 -60.12003999
+    -83.34321585], 'degree_Celsius')>
 
     See Also
     --------
@@ -406,7 +660,7 @@ def moist_lapse(pressure, temperature, reference_pressure=None):
     {'pressure': '[pressure]', 'temperature': '[temperature]', 'dewpoint': '[temperature]'},
     ('[pressure]', '[temperature]')
 )
-def lcl(pressure, temperature, dewpoint, max_iters=50, eps=1e-5):
+def lcl(pressure, temperature, dewpoint, max_iters=None, eps=None):
     r"""Calculate the lifted condensation level (LCL) from the starting point.
 
     The starting state for the parcel is defined by `temperature`, `dewpoint`,
@@ -432,20 +686,12 @@ def lcl(pressure, temperature, dewpoint, max_iters=50, eps=1e-5):
     `pint.Quantity`
         LCL temperature
 
-    Other Parameters
-    ----------------
-    max_iters : int, optional
-        The maximum number of iterations to use in calculation, defaults to 50.
-
-    eps : float, optional
-        The desired relative error in the calculated value, defaults to 1e-5.
-
     Examples
     --------
     >>> from metpy.calc import lcl
     >>> from metpy.units import units
     >>> lcl(943 * units.hPa, 33 * units.degC, 28 * units.degC)
-    (<Quantity(877.563323, 'hectopascal')>, <Quantity(26.7734921, 'degree_Celsius')>)
+    (<Quantity(877.033549, 'hectopascal')>, <Quantity(26.7591908, 'degree_Celsius')>)
 
     See Also
     --------
@@ -453,39 +699,44 @@ def lcl(pressure, temperature, dewpoint, max_iters=50, eps=1e-5):
 
     Notes
     -----
-    This function is implemented using an iterative approach to solve for the
-    LCL. The basic algorithm is:
+    From [Romps2017]_, this directly solves for the temperature at the LCL, Eq 22a,
 
-    1. Find the dewpoint from the LCL pressure and starting mixing ratio
-    2. Find the LCL pressure from the starting temperature and dewpoint
-    3. Iterate until convergence
+    .. math:: T_{LCL} = c [W_{-1}(RH_l^{1/a} c \exp{c})]^{-1} T
 
-    The function is guaranteed to finish by virtue of the `max_iters` counter.
+    and the pressure at the LCL, Eq 22b,
+
+    .. math:: p_{LCL} = p \left( \frac{T_{LCL}}{T} \right)^{c_{pm} / R_m}
+
+    where :math:`a` (Eq 22d), :math:`b` (Eq 22e), and :math:`c` (Eq 22f) are derived constants,
+    and :math:`W_{-1}` is the :math:`k=-1` branch of the Lambert :math:`W` function.
 
     .. versionchanged:: 1.0
        Renamed ``dewpt`` parameter to ``dewpoint``
 
     """
-    def _lcl_iter(p, p0, w, t):
-        nonlocal nan_mask
-        td = globals()['dewpoint']._nounit(vapor_pressure._nounit(p, w))
-        p_new = (p0 * (td / t) ** (1. / mpconsts.nounit.kappa))
-        nan_mask = nan_mask | np.isnan(p_new)
-        return np.where(np.isnan(p_new), p, p_new)
+    if max_iters or eps:
+        _warnings.warn(
+            'max_iters, eps arguments unused and will be deprecated in a future version.',
+            PendingDeprecationWarning)
 
-    # Handle nans by creating a mask that gets set by our _lcl_iter function if it
-    # ever encounters a nan, at which point pressure is set to p, stopping iteration.
-    nan_mask = False
-    w = mixing_ratio._nounit(saturation_vapor_pressure._nounit(dewpoint), pressure)
-    lcl_p = so.fixed_point(_lcl_iter, pressure, args=(pressure, w, temperature),
-                           xtol=eps, maxiter=max_iters)
-    lcl_p = np.where(nan_mask, np.nan, lcl_p)
+    q = specific_humidity_from_dewpoint._nounit(pressure, dewpoint, phase='liquid')
+    moist_heat_ratio = (moist_air_specific_heat_pressure._nounit(q)
+                        / moist_air_gas_constant._nounit(q))
+    spec_heat_diff = mpconsts.nounit.Cp_l - mpconsts.nounit.Cp_v
 
-    # np.isclose needed if surface is LCL due to precision error with np.log in dewpoint.
-    # Causes issues with parcel_profile_with_lcl if removed. Issue #1187
-    lcl_p = np.where(np.isclose(lcl_p, pressure), pressure, lcl_p)
+    a = moist_heat_ratio + spec_heat_diff / mpconsts.nounit.Rv
+    b = (-(mpconsts.nounit.Lv + spec_heat_diff * mpconsts.nounit.T0)
+         / (mpconsts.nounit.Rv * temperature))
+    c = b / a
 
-    return lcl_p, globals()['dewpoint']._nounit(vapor_pressure._nounit(lcl_p, w))
+    w_minus1 = lambertw(
+        (relative_humidity_from_dewpoint._nounit(temperature, dewpoint, phase='liquid')
+         ** (1 / a) * c * np.exp(c)), k=-1).real
+
+    t_lcl = c / w_minus1 * temperature
+    p_lcl = pressure * (t_lcl / temperature) ** moist_heat_ratio
+
+    return p_lcl, t_lcl
 
 
 @exporter.export
@@ -554,7 +805,7 @@ def ccl(pressure, temperature, dewpoint, height=None, mixed_layer_depth=None, wh
     >>> dewpoint = [19.6, 18.7, 17.8, 16.3, 12.4, -0.4, -3.8, -6, -13.2, -11] * units.degC
     >>> ccl_p, ccl_t, t_c = mpcalc.ccl(pressure, temperature, dewpoint)
     >>> ccl_p, t_c
-    (<Quantity(758.348093, 'millibar')>, <Quantity(38.4336274, 'degree_Celsius')>)
+    (<Quantity(758.137299, 'millibar')>, <Quantity(38.4385502, 'degree_Celsius')>)
     """
     pressure, temperature, dewpoint = _remove_nans(pressure, temperature, dewpoint)
     _check_pressure_error(pressure)
@@ -661,7 +912,7 @@ def lfc(pressure, temperature, dewpoint, parcel_temperature_profile=None, dewpoi
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> # calculate LFC
     >>> lfc(p, T, Td)
-    (<Quantity(968.171757, 'hectopascal')>, <Quantity(25.8362857, 'degree_Celsius')>)
+    (<Quantity(967.309996, 'hectopascal')>, <Quantity(25.778387, 'degree_Celsius')>)
 
     See Also
     --------
@@ -728,10 +979,12 @@ def lfc(pressure, temperature, dewpoint, parcel_temperature_profile=None, dewpoi
             el_pressure, _ = find_intersections(pressure[1:], parcel_temperature_profile[1:],
                                                 temperature[1:], direction='decreasing',
                                                 log_x=True)
-            if np.min(el_pressure) > this_lcl[0]:
+            if el_pressure.size and np.min(el_pressure) > this_lcl[0]:
+                # EL exists and it is below the LCL
                 x = units.Quantity(np.nan, pressure.units)
                 y = units.Quantity(np.nan, temperature.units)
             else:
+                # EL exists and it is above the LCL or the EL does not exist
                 x, y = this_lcl
             return x, y
         # Otherwise, find all LFCs that exist above the LCL
@@ -781,7 +1034,7 @@ def _wide_option(intersect_type, p_list, t_list, pressure, parcel_temperature_pr
         lfc_p_list, _ = find_intersections(pressure, parcel_temperature_profile,
                                            temperature, direction='increasing',
                                            log_x=True)
-    diff = [lfc_p.m - el_p.m for lfc_p, el_p in zip(lfc_p_list, el_p_list)]
+    diff = [lfc_p.m - el_p.m for lfc_p, el_p in zip(lfc_p_list, el_p_list, strict=False)]
     return (p_list[np.where(diff == np.max(diff))][0],
             t_list[np.where(diff == np.max(diff))][0])
 
@@ -875,7 +1128,7 @@ def el(pressure, temperature, dewpoint, parcel_temperature_profile=None, which='
     >>> prof = parcel_profile(p, T[0], Td[0]).to('degC')
     >>> # calculate EL
     >>> el(p, T, Td, prof)
-    (<Quantity(111.739463, 'hectopascal')>, <Quantity(-76.3112792, 'degree_Celsius')>)
+    (<Quantity(112.252054, 'hectopascal')>, <Quantity(-76.2210312, 'degree_Celsius')>)
 
     See Also
     --------
@@ -970,12 +1223,12 @@ def parcel_profile(pressure, temperature, dewpoint):
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> # computer parcel temperature
     >>> parcel_profile(p, T[0], Td[0]).to('degC')
-    <Quantity([  29.3          28.61221952   25.22214738   23.46097684   21.5835928
-    19.57260398   17.40636185   15.05748615   12.49064866    9.6592539
-        6.50023491    2.92560365   -1.19172846   -6.04257884  -11.92497517
-    -19.3176536   -28.97672464  -41.94444385  -50.01173076  -59.30936248
-    -70.02760604  -82.53084923  -94.2966713  -100.99074331 -108.40829933
-    -116.77024489 -126.42910222 -138.00649584 -144.86615886 -152.78967029], 'degree_Celsius')>
+    <Quantity([  29.3          28.61221952   25.17408111   23.41044641   21.53049669
+    19.51679547   17.34763012   14.99552875   12.4250297     9.58933992
+        6.4250951     2.84385238   -1.28217807   -6.14487817  -12.0437512
+    -19.45887455  -29.14459155  -42.13147376  -50.19971377  -59.49169312
+    -70.19973455  -82.69068969  -94.44583924 -101.13413664 -108.54542355
+    -116.90037584 -126.55118719 -138.11894611 -144.97290122 -152.88981956], 'degree_Celsius')>
 
     See Also
     --------
@@ -1282,13 +1535,18 @@ def vapor_pressure(pressure, mixing_ratio):
 @exporter.export
 @preprocess_and_wrap(wrap_like='temperature')
 @process_units({'temperature': '[temperature]'}, '[pressure]')
-def saturation_vapor_pressure(temperature):
-    r"""Calculate the saturation water vapor (partial) pressure.
+def saturation_vapor_pressure(temperature, *, phase='liquid'):
+    r"""Calculate the saturation (equilibrium) water vapor (partial) pressure.
 
     Parameters
     ----------
     temperature : `pint.Quantity`
         Air temperature
+
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
 
     Returns
     -------
@@ -1299,8 +1557,8 @@ def saturation_vapor_pressure(temperature):
     --------
     >>> from metpy.calc import saturation_vapor_pressure
     >>> from metpy.units import units
-    >>> saturation_vapor_pressure(25 * units.degC).to('hPa')
-    <Quantity(31.6742944, 'hectopascal')>
+    >>> saturation_vapor_pressure(25 * units.degC, phase='liquid').to('hPa')
+    <Quantity(31.623456, 'hectopascal')>
 
     See Also
     --------
@@ -1311,14 +1569,106 @@ def saturation_vapor_pressure(temperature):
     Instead of temperature, dewpoint may be used in order to calculate
     the actual (ambient) water vapor (partial) pressure.
 
-    The formula used is that from [Bolton1980]_ for T in degrees Celsius:
+    Implements separate solutions from [Ambaum2020]_ for
 
-    .. math:: 6.112 e^\frac{17.67T}{T + 243.5}
+    ``phase='liquid'``, Eq. 13,
 
+    .. math::
+        e = e_{s0} \frac{T_0}{T}^{(c_{pl} - c_{pv}) / R_v} \exp \left(
+        \frac{L_0}{R_v T_0} - \frac{L}{R_v T} \right)
+
+    and ``phase='solid'``, Eq. 17,
+
+    .. math::
+        e_i = e_{i0} \frac{T_0}{T}^{(c_{pi} - c_{pv}) / R_v} \exp \left(
+        \frac{L_{s0}}{R_v T_0} - \frac{L_s}{R_v T} \right)
     """
-    # Converted from original in terms of C to use kelvin.
-    return mpconsts.nounit.sat_pressure_0c * np.exp(
-        17.67 * (temperature - 273.15) / (temperature - 29.65)
+    match phase:
+        case 'liquid':
+            return _saturation_vapor_pressure_liquid._nounit(temperature)
+        case 'solid':
+            return _saturation_vapor_pressure_solid._nounit(temperature)
+        case 'auto':
+            return np.where(temperature > mpconsts.nounit.T0,
+                            _saturation_vapor_pressure_liquid._nounit(temperature),
+                            _saturation_vapor_pressure_solid._nounit(temperature))
+        case _:
+            raise ValueError(
+                f'{phase!r} is not a valid option for phase. '
+                f"Valid options are {'liquid', 'solid', 'auto'}.")
+
+
+@preprocess_and_wrap(wrap_like='temperature')
+@process_units({'temperature': '[temperature]'}, '[pressure]')
+def _saturation_vapor_pressure_liquid(temperature):
+    r"""Calculate saturation (equilibrium) water vapor (partial) pressure over liquid water.
+
+    Parameters
+    ----------
+    temperature : `pint.Quantity`
+        Air temperature
+
+    Returns
+    -------
+    `pint.Quantity`
+        Saturation water vapor (partial) pressure over liquid water
+
+    See Also
+    --------
+    saturation_vapor_pressure, vapor_pressure
+
+    Notes
+    -----
+    Implemented solution from [Ambaum2020]_, Eq. 13,
+    .. math:: e = e_{s0} \frac{T_0}{T}^{(c_{pl} - c_{pv}) / R_v} \exp{
+    \frac{L_0}{R_v T_0} - \frac{L}{R_v T}}
+    """
+    latent_heat = water_latent_heat_vaporization._nounit(temperature)
+    heat_power = (mpconsts.nounit.Cp_l - mpconsts.nounit.Cp_v) / mpconsts.nounit.Rv
+    exp_term = ((mpconsts.nounit.Lv / mpconsts.nounit.T0 - latent_heat / temperature)
+                / mpconsts.nounit.Rv)
+
+    return (
+        mpconsts.nounit.sat_pressure_0c
+        * (mpconsts.nounit.T0 / temperature) ** heat_power
+        * np.exp(exp_term)
+    )
+
+
+@preprocess_and_wrap(wrap_like='temperature')
+@process_units({'temperature': '[temperature]'}, '[pressure]')
+def _saturation_vapor_pressure_solid(temperature):
+    r"""Calculate the saturation water vapor (partial) pressure over solid water (ice).
+
+    Parameters
+    ----------
+    temperature : `pint.Quantity`
+        Air temperature
+
+    Returns
+    -------
+    `pint.Quantity`
+        Saturation water vapor (partial) pressure over solid water (ice)
+
+    See Also
+    --------
+    saturation_vapor_pressure, vapor_pressure
+
+    Notes
+    -----
+    Implemented solution from [Ambaum2020]_, Eq. 17,
+    .. math:: e_i = e_{i0} \frac{T_0}{T}^{(c_{pi} - c_{pv}) / R_v} \exp{
+    \frac{L_{s0}}{R_v T_0} - \frac{L_s}{R_v T}}
+    """
+    latent_heat = water_latent_heat_sublimation._nounit(temperature)
+    heat_power = (mpconsts.nounit.Cp_i - mpconsts.nounit.Cp_v) / mpconsts.nounit.Rv
+    exp_term = ((mpconsts.nounit.Ls / mpconsts.nounit.T0 - latent_heat / temperature)
+                / mpconsts.nounit.Rv)
+
+    return (
+        mpconsts.nounit.sat_pressure_0c
+        * (mpconsts.nounit.T0 / temperature) ** heat_power
+        * np.exp(exp_term)
     )
 
 
@@ -1346,7 +1696,7 @@ def dewpoint_from_relative_humidity(temperature, relative_humidity):
     >>> from metpy.calc import dewpoint_from_relative_humidity
     >>> from metpy.units import units
     >>> dewpoint_from_relative_humidity(10 * units.degC, 50 * units.percent)
-    <Quantity(0.0536760815, 'degree_Celsius')>
+    <Quantity(0.047900916, 'degree_Celsius')>
 
     .. versionchanged:: 1.0
        Renamed ``rh`` parameter to ``relative_humidity``
@@ -1471,7 +1821,7 @@ def mixing_ratio(partial_press, total_press, molecular_weight_ratio=mpconsts.nou
     {'total_press': '[pressure]', 'temperature': '[temperature]'},
     '[dimensionless]'
 )
-def saturation_mixing_ratio(total_press, temperature):
+def saturation_mixing_ratio(total_press, temperature, *, phase='liquid'):
     r"""Calculate the saturation mixing ratio of water vapor.
 
     This calculation is given total atmospheric pressure and air temperature.
@@ -1484,6 +1834,11 @@ def saturation_mixing_ratio(total_press, temperature):
     temperature: `pint.Quantity`
         Air temperature
 
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
+
     Returns
     -------
     `pint.Quantity`
@@ -1494,7 +1849,7 @@ def saturation_mixing_ratio(total_press, temperature):
     >>> from metpy.calc import saturation_mixing_ratio
     >>> from metpy.units import units
     >>> saturation_mixing_ratio(983 * units.hPa, 25 * units.degC).to('g/kg')
-    <Quantity(20.7079932, 'gram / kilogram')>
+    <Quantity(20.6736514, 'gram / kilogram')>
 
     Notes
     -----
@@ -1503,11 +1858,25 @@ def saturation_mixing_ratio(total_press, temperature):
 
     .. math:: r_s = \epsilon \frac{e_s}{p - e_s}
 
+    By definition, this value is only defined for conditions where the saturation vapor
+    pressure (:math:`e_s`) for the given temperature is less than the given total pressure
+    (:math:`p`). Otherwise, liquid phase water cannot exist in equilibrium and there is only
+    water vapor present. For any value pairs that fall under this condition, the function will
+    warn and return NaN.
+
     .. versionchanged:: 1.0
        Renamed ``tot_press`` parameter to ``total_press``
 
     """
-    return mixing_ratio._nounit(saturation_vapor_pressure._nounit(temperature), total_press)
+    validate_choice({'liquid', 'solid', 'auto'}, phase=phase)
+    e_s = saturation_vapor_pressure._nounit(temperature, phase=phase)
+    undefined = e_s >= total_press
+    if np.any(undefined):
+        _warnings.warn('Saturation mixing ratio is undefined for some requested pressure/'
+                       'temperature combinations. Total pressure must be greater than the '
+                       'water vapor saturation pressure for liquid water to be in '
+                       'equilibrium.')
+    return np.where(undefined, np.nan, mixing_ratio._nounit(e_s, total_press))
 
 
 @exporter.export
@@ -1557,7 +1926,7 @@ def equivalent_potential_temperature(pressure, temperature, dewpoint):
     >>> from metpy.calc import equivalent_potential_temperature
     >>> from metpy.units import units
     >>> equivalent_potential_temperature(850*units.hPa, 20*units.degC, 18*units.degC)
-    <Quantity(353.937994, 'kelvin')>
+    <Quantity(353.898874, 'kelvin')>
 
     Notes
     -----
@@ -1631,7 +2000,7 @@ def saturation_equivalent_potential_temperature(pressure, temperature):
     >>> from metpy.calc import saturation_equivalent_potential_temperature
     >>> from metpy.units import units
     >>> saturation_equivalent_potential_temperature(500 * units.hPa, -20 * units.degC)
-    <Quantity(313.804174, 'kelvin')>
+    <Quantity(313.793845, 'kelvin')>
 
     Notes
     -----
@@ -1764,7 +2133,12 @@ def virtual_temperature(
                                                          'dewpoint'))
 @check_units('[pressure]', '[temperature]', '[temperature]')
 def virtual_temperature_from_dewpoint(
-    pressure, temperature, dewpoint, molecular_weight_ratio=mpconsts.nounit.epsilon
+        pressure,
+        temperature,
+        dewpoint,
+        molecular_weight_ratio=mpconsts.nounit.epsilon,
+        *,
+        phase='liquid'
 ):
     r"""Calculate virtual temperature.
 
@@ -1787,6 +2161,11 @@ def virtual_temperature_from_dewpoint(
         for air. Defaults to the ratio for water vapor to dry air.
         (:math:`\epsilon\approx0.622`)
 
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
+
     Returns
     -------
     `pint.Quantity`
@@ -1797,7 +2176,7 @@ def virtual_temperature_from_dewpoint(
     >>> from metpy.calc import virtual_temperature_from_dewpoint
     >>> from metpy.units import units
     >>> virtual_temperature_from_dewpoint(1000 * units.hPa, 30 * units.degC, 25 * units.degC)
-    <Quantity(33.6739865, 'degree_Celsius')>
+    <Quantity(33.6680183, 'degree_Celsius')>
 
     Notes
     -----
@@ -1807,8 +2186,10 @@ def virtual_temperature_from_dewpoint(
        Renamed ``mixing`` parameter to ``mixing_ratio``
 
     """
+    validate_choice({'liquid', 'solid', 'auto'}, phase=phase)
+
     # Convert dewpoint to mixing ratio
-    mixing_ratio = saturation_mixing_ratio(pressure, dewpoint)
+    mixing_ratio = saturation_mixing_ratio(pressure, dewpoint, phase=phase)
 
     # Calculate virtual temperature with given parameters
     return virtual_temperature(temperature, mixing_ratio, molecular_weight_ratio)
@@ -1954,7 +2335,7 @@ def relative_humidity_wet_psychrometric(pressure, dry_bulb_temperature, wet_bulb
     >>> from metpy.units import units
     >>> relative_humidity_wet_psychrometric(1000 * units.hPa, 19 * units.degC,
     ...                                     10 * units.degC).to('percent')
-    <Quantity(30.4311332, 'percent')>
+    <Quantity(30.4333697, 'percent')>
 
     See Also
     --------
@@ -2017,10 +2398,10 @@ def psychrometric_vapor_pressure_wet(pressure, dry_bulb_temperature, wet_bulb_te
     >>> vp = psychrometric_vapor_pressure_wet(958 * units.hPa, 25 * units.degC,
     ...                                       12 * units.degC)
     >>> print(f'Vapor Pressure: {vp:.2f}')
-    Vapor Pressure: 628.15 pascal
+    Vapor Pressure: 627.52 pascal
     >>> rh = (vp / saturation_vapor_pressure(25 * units.degC)).to('percent')
     >>> print(f'RH: {rh:.2f}')
-    RH: 19.83 percent
+    RH: 19.84 percent
 
     See Also
     --------
@@ -2058,7 +2439,8 @@ def psychrometric_vapor_pressure_wet(pressure, dry_bulb_temperature, wet_bulb_te
     broadcast=('pressure', 'temperature', 'relative_humidity')
 )
 @check_units('[pressure]', '[temperature]', '[dimensionless]')
-def mixing_ratio_from_relative_humidity(pressure, temperature, relative_humidity):
+def mixing_ratio_from_relative_humidity(
+        pressure, temperature, relative_humidity, *, phase='liquid'):
     r"""Calculate the mixing ratio from relative humidity, temperature, and pressure.
 
     Parameters
@@ -2073,6 +2455,11 @@ def mixing_ratio_from_relative_humidity(pressure, temperature, relative_humidity
         The relative humidity expressed as a unitless ratio in the range [0, 1]. Can also pass
         a percentage if proper units are attached.
 
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
+
     Returns
     -------
     `pint.Quantity`
@@ -2086,7 +2473,7 @@ def mixing_ratio_from_relative_humidity(pressure, temperature, relative_humidity
     >>> T = 28.1 * units.degC
     >>> rh = .65
     >>> mixing_ratio_from_relative_humidity(p, T, rh).to('g/kg')
-    <Quantity(15.7646969, 'gram / kilogram')>
+    <Quantity(15.7296568, 'gram / kilogram')>
 
     See Also
     --------
@@ -2110,7 +2497,8 @@ def mixing_ratio_from_relative_humidity(pressure, temperature, relative_humidity
        Changed signature from ``(relative_humidity, temperature, pressure)``
 
     """
-    w_s = saturation_mixing_ratio(pressure, temperature)
+    validate_choice({'liquid', 'solid', 'auto'}, phase=phase)
+    w_s = saturation_mixing_ratio(pressure, temperature, phase=phase)
     return (mpconsts.nounit.epsilon * w_s * relative_humidity
             / (mpconsts.nounit.epsilon + w_s * (1 - relative_humidity))).to('dimensionless')
 
@@ -2121,7 +2509,8 @@ def mixing_ratio_from_relative_humidity(pressure, temperature, relative_humidity
     broadcast=('pressure', 'temperature', 'mixing_ratio')
 )
 @check_units('[pressure]', '[temperature]', '[dimensionless]')
-def relative_humidity_from_mixing_ratio(pressure, temperature, mixing_ratio):
+def relative_humidity_from_mixing_ratio(
+        pressure, temperature, mixing_ratio, *, phase='liquid'):
     r"""Calculate the relative humidity from mixing ratio, temperature, and pressure.
 
     Parameters
@@ -2135,6 +2524,11 @@ def relative_humidity_from_mixing_ratio(pressure, temperature, mixing_ratio):
     mixing_ratio: `pint.Quantity`
         Dimensionless mass mixing ratio
 
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
+
     Returns
     -------
     `pint.Quantity`
@@ -2146,7 +2540,7 @@ def relative_humidity_from_mixing_ratio(pressure, temperature, mixing_ratio):
     >>> from metpy.units import units
     >>> relative_humidity_from_mixing_ratio(1013.25 * units.hPa,
     ...                                     30 * units.degC, 18/1000).to('percent')
-    <Quantity(67.1277085, 'percent')>
+    <Quantity(67.3008484, 'percent')>
 
     See Also
     --------
@@ -2168,7 +2562,8 @@ def relative_humidity_from_mixing_ratio(pressure, temperature, mixing_ratio):
        Changed signature from ``(mixing_ratio, temperature, pressure)``
 
     """
-    w_s = saturation_mixing_ratio(pressure, temperature)
+    validate_choice({'liquid', 'solid', 'auto'}, phase=phase)
+    w_s = saturation_mixing_ratio(pressure, temperature, phase=phase)
     return (mixing_ratio / (mpconsts.nounit.epsilon + mixing_ratio)
             * (mpconsts.nounit.epsilon + w_s) / w_s)
 
@@ -2261,7 +2656,8 @@ def specific_humidity_from_mixing_ratio(mixing_ratio):
     broadcast=('pressure', 'temperature', 'specific_humidity')
 )
 @check_units('[pressure]', '[temperature]', '[dimensionless]')
-def relative_humidity_from_specific_humidity(pressure, temperature, specific_humidity):
+def relative_humidity_from_specific_humidity(
+        pressure, temperature, specific_humidity, *, phase='liquid'):
     r"""Calculate the relative humidity from specific humidity, temperature, and pressure.
 
     Parameters
@@ -2275,6 +2671,11 @@ def relative_humidity_from_specific_humidity(pressure, temperature, specific_hum
     specific_humidity: `pint.Quantity`
         Specific humidity of air
 
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
+
     Returns
     -------
     `pint.Quantity`
@@ -2286,7 +2687,7 @@ def relative_humidity_from_specific_humidity(pressure, temperature, specific_hum
     >>> from metpy.units import units
     >>> relative_humidity_from_specific_humidity(1013.25 * units.hPa,
     ...                                          30 * units.degC, 18/1000).to('percent')
-    <Quantity(68.3229304, 'percent')>
+    <Quantity(68.4991531, 'percent')>
 
     See Also
     --------
@@ -2312,7 +2713,10 @@ def relative_humidity_from_specific_humidity(pressure, temperature, specific_hum
 
     """
     return relative_humidity_from_mixing_ratio(
-        pressure, temperature, mixing_ratio_from_specific_humidity(specific_humidity))
+        pressure,
+        temperature,
+        mixing_ratio_from_specific_humidity(specific_humidity),
+        phase=phase)
 
 
 @exporter.export
@@ -2382,7 +2786,7 @@ def cape_cin(pressure, temperature, dewpoint, parcel_profile, which_lfc='bottom'
     >>> prof = parcel_profile(p, T[0], Td[0]).to('degC')
     >>> # calculate surface based CAPE/CIN
     >>> cape_cin(p, T, Td, prof)
-    (<Quantity(4703.77308, 'joule / kilogram')>, <Quantity(0, 'joule / kilogram')>)
+    (<Quantity(4830.74608, 'joule / kilogram')>, <Quantity(0, 'joule / kilogram')>)
 
     See Also
     --------
@@ -2426,8 +2830,11 @@ def cape_cin(pressure, temperature, dewpoint, parcel_profile, which_lfc='bottom'
 
     # The mixing ratio of the parcel comes from the dewpoint below the LCL, is saturated
     # based on the temperature above the LCL
-    parcel_mixing_ratio = np.where(below_lcl, saturation_mixing_ratio(pressure, dewpoint),
-                                   saturation_mixing_ratio(pressure, temperature))
+    parcel_mixing_ratio = np.where(
+        below_lcl,
+        saturation_mixing_ratio(pressure[0], dewpoint[0]),
+        saturation_mixing_ratio(pressure, parcel_profile)
+    )
 
     # Convert the temperature/parcel profile to virtual temperature
     temperature = virtual_temperature_from_dewpoint(pressure, temperature, dewpoint)
@@ -2588,7 +2995,7 @@ def most_unstable_parcel(pressure, temperature, dewpoint, height=None, bottom=No
     >>> # find most unstable parcel of depth 50 hPa
     >>> most_unstable_parcel(p, T, Td, depth=50*units.hPa)
     (<Quantity(1008.0, 'hectopascal')>, <Quantity(29.3, 'degree_Celsius')>,
-    <Quantity(26.5176931, 'degree_Celsius')>, np.int64(0))
+    <Quantity(26.4766738, 'degree_Celsius')>, np.int64(0))
 
     See Also
     --------
@@ -3020,7 +3427,7 @@ def most_unstable_cape_cin(pressure, temperature, dewpoint, **kwargs):
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> # calculate most unstbale CAPE/CIN
     >>> most_unstable_cape_cin(p, T, Td)
-    (<Quantity(4703.77308, 'joule / kilogram')>, <Quantity(0, 'joule / kilogram')>)
+    (<Quantity(4830.74608, 'joule / kilogram')>, <Quantity(0, 'joule / kilogram')>)
 
     See Also
     --------
@@ -3096,7 +3503,7 @@ def mixed_layer_cape_cin(pressure, temperature, dewpoint, **kwargs):
     >>> # calculate dewpoint
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> mixed_layer_cape_cin(p, T, Td, depth=50 * units.hPa)
-    (<Quantity(711.239032, 'joule / kilogram')>, <Quantity(-5.48053989, 'joule / kilogram')>)
+    (<Quantity(678.967843, 'joule / kilogram')>, <Quantity(0, 'joule / kilogram')>)
 
     See Also
     --------
@@ -3179,10 +3586,10 @@ def downdraft_cape(pressure, temperature, dewpoint):
     >>> # calculate dewpoint
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> downdraft_cape(p, T, Td)
-    (<Quantity(1222.67967, 'joule / kilogram')>, <Quantity([1008. 1000.  950.
-    900.  850.  800.  750.  700.  650.  600.], 'hectopascal')>, <Quantity([17.50959548
-    17.20643425 15.237249 13.12607097 10.85045704 8.38243809 5.68671014 2.71808368
-    -0.58203825 -4.29053485], 'degree_Celsius')>)
+    (<Quantity(1220.67097, 'joule / kilogram')>, <Quantity([1008. 1000.  950.
+    900.  850.  800.  750.  700.  650.  600.], 'hectopascal')>, <Quantity([17.52017969
+    17.21699119 15.24769167 13.13648889 10.86092343  8.39299889 5.69736825  2.72877681
+    -0.57146657 -4.28036902], 'degree_Celsius')>)
 
     See Also
     --------
@@ -3323,7 +3730,7 @@ def mixed_parcel(pressure, temperature, dewpoint, parcel_start_pressure=None,
     >>> # find the mixed parcel of depth 50 hPa
     >>> mixed_parcel(p, T, Td, depth=50 * units.hPa)
     (<Quantity(1008.0, 'hectopascal')>, <Quantity(28.750033, 'degree_Celsius')>,
-    <Quantity(18.1998736, 'degree_Celsius')>)
+    <Quantity(18.1504239, 'degree_Celsius')>)
 
     Notes
     -----
@@ -3424,7 +3831,7 @@ def mixed_layer(pressure, *args, height=None, bottom=None, depth=None, interpola
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> # find mixed layer T and Td of depth 50 hPa
     >>> mixed_layer(p, T, Td, depth=50 * units.hPa)
-    [<Quantity(26.5798571, 'degree_Celsius')>, <Quantity(16.675935, 'degree_Celsius')>]
+    [<Quantity(26.5798571, 'degree_Celsius')>, <Quantity(16.6455209, 'degree_Celsius')>]
 
     Notes
     -----
@@ -3770,7 +4177,7 @@ def thickness_hydrostatic_from_relative_humidity(pressure, temperature, relative
     >>> thickness_hydrostatic_from_relative_humidity(p[ip1000_500],
     ...                                              T[ip1000_500],
     ...                                              rh[ip1000_500])
-    <Quantity(5781.16001, 'meter')>
+    <Quantity(5781.13913, 'meter')>
 
     See Also
     --------
@@ -3980,7 +4387,7 @@ def wet_bulb_temperature(pressure, temperature, dewpoint):
     >>> from metpy.calc import wet_bulb_temperature
     >>> from metpy.units import units
     >>> wet_bulb_temperature(993 * units.hPa, 32 * units.degC, 15 * units.degC)
-    <Quantity(20.3770228, 'degree_Celsius')>
+    <Quantity(20.3937601, 'degree_Celsius')>
 
     See Also
     --------
@@ -4304,7 +4711,7 @@ def vertical_velocity(omega, pressure, temperature, mixing_ratio=0):
 @exporter.export
 @preprocess_and_wrap(wrap_like='dewpoint', broadcast=('dewpoint', 'pressure'))
 @process_units({'pressure': '[pressure]', 'dewpoint': '[temperature]'}, '[dimensionless]')
-def specific_humidity_from_dewpoint(pressure, dewpoint):
+def specific_humidity_from_dewpoint(pressure, dewpoint, *, phase='liquid'):
     r"""Calculate the specific humidity from the dewpoint temperature and pressure.
 
     Parameters
@@ -4314,6 +4721,11 @@ def specific_humidity_from_dewpoint(pressure, dewpoint):
 
     dewpoint: `pint.Quantity`
         Dewpoint temperature
+
+    phase : {'liquid', 'solid', 'auto'}
+        Where applicable, adjust assumptions and constants to make calculation valid in
+        ``'liquid'`` water (default) or ``'solid'`` ice regimes. ``'auto'`` will change regime
+        based on determination of phase boundaries, eg `temperature` relative to freezing.
 
     Returns
     -------
@@ -4325,7 +4737,7 @@ def specific_humidity_from_dewpoint(pressure, dewpoint):
     >>> from metpy.calc import specific_humidity_from_dewpoint
     >>> from metpy.units import units
     >>> specific_humidity_from_dewpoint(988 * units.hPa, 15 * units.degC).to('g/kg')
-    <Quantity(10.7975828, 'gram / kilogram')>
+    <Quantity(10.791541, 'gram / kilogram')>
 
     .. versionchanged:: 1.0
        Changed signature from ``(dewpoint, pressure)``
@@ -4335,7 +4747,9 @@ def specific_humidity_from_dewpoint(pressure, dewpoint):
     mixing_ratio, saturation_mixing_ratio
 
     """
-    mixing_ratio = saturation_mixing_ratio._nounit(pressure, dewpoint)
+    validate_choice({'liquid', 'solid', 'auto'}, phase=phase)
+
+    mixing_ratio = saturation_mixing_ratio._nounit(pressure, dewpoint, phase=phase)
     return specific_humidity_from_mixing_ratio._nounit(mixing_ratio)
 
 
@@ -4410,7 +4824,7 @@ def lifted_index(pressure, temperature, parcel_profile, vertical_dim=0):
     >>>
     >>> # Calculate lifted index using our mixed profile
     >>> lifted_index(press, temp, mixed_prof)
-    <Quantity([2.4930656], 'delta_degree_Celsius')>
+    <Quantity([2.54198585], 'delta_degree_Celsius')>
 
     See Also
     --------
@@ -4489,7 +4903,7 @@ def k_index(pressure, temperature, dewpoint, vertical_dim=0):
     >>> # calculate dewpoint
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> k_index(p, T, Td)
-    <Quantity(35.9395759, 'degree_Celsius')>
+    <Quantity(35.9211365, 'degree_Celsius')>
 
     """
     # Find temperature and dewpoint at 850, 700, and 500 hPa
@@ -4588,7 +5002,7 @@ def galvez_davison_index(pressure, temperature, mixing_ratio, surface_pressure,
     >>> # calculate mixing ratio
     >>> mixrat = mixing_ratio_from_relative_humidity(p, T, rh)
     >>> galvez_davison_index(p, T, mixrat, p[0])
-    <Quantity(-8.78797532, 'dimensionless')>
+    <Quantity(-8.84827883, 'dimensionless')>
     """
     if np.any(np.max(pressure, axis=vertical_dim) < 950 * units.hectopascal):
         raise ValueError(
@@ -4813,7 +5227,7 @@ def showalter_index(pressure, temperature, dewpoint):
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> # compute the showalter index
     >>> showalter_index(p, T, Td)
-    <Quantity([0.48421285], 'delta_degree_Celsius')>
+    <Quantity([0.51436699], 'delta_degree_Celsius')>
 
     """
     # find the measured temperature and dew point temperature at 850 hPa.
@@ -4892,7 +5306,7 @@ def total_totals_index(pressure, temperature, dewpoint, vertical_dim=0):
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> # compute the TT index
     >>> total_totals_index(p, T, Td)
-    <Quantity(42.6741081, 'delta_degree_Celsius')>
+    <Quantity(42.6618283, 'delta_degree_Celsius')>
 
     """
     # Find temperature and dewpoint at 850 and 500 hPa.
@@ -5028,7 +5442,7 @@ def cross_totals(pressure, temperature, dewpoint, vertical_dim=0):
     >>> Td = dewpoint_from_relative_humidity(T, rh)
     >>> # compute the cross totals index
     >>> cross_totals(p, T, Td)
-    <Quantity(19.7741081, 'delta_degree_Celsius')>
+    <Quantity(19.7618283, 'delta_degree_Celsius')>
 
     """
     # Find temperature and dewpoint at 850 and 500 hPa

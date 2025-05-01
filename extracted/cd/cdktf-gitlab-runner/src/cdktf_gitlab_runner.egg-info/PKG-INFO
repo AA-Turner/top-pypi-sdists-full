@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdktf-gitlab-runner
-Version: 0.0.1250
+Version: 0.0.1251
 Summary: The CDK for Terraform Construct for Gitlab Runner on GCP
 Home-page: https://github.com/neilkuan/cdktf-gitlab-runner.git
 Author: Neil Kuan<guan840912@gmail.com>

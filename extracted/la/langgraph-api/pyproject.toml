@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langgraph-api"
-version = "0.1.22"
+version = "0.2.1"
 description = ""
 authors = [
     "Nuno Campos <nuno@langchain.dev>",
@@ -48,7 +48,7 @@ jsonschema-rs = ">=0.20.0,<0.30"
 structlog = ">=24.1.0,<26"
 pyjwt = "^2.9.0"
 cryptography = ">=42.0.0,<45.0"
-langgraph-sdk = { version = "^0.1.63", python = "<4.0" }
+langgraph-sdk = { version = "^0.1.66", python = "<4.0" }
 cloudpickle = "^3.0.0"
 langgraph-runtime-inmem = ">=0.0.7"
 

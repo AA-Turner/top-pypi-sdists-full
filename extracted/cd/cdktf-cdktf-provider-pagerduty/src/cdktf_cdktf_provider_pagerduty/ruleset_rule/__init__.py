@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_ruleset_rule`
 
-Refer to the Terraform Registry for docs: [`pagerduty_ruleset_rule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule).
+Refer to the Terraform Registry for docs: [`pagerduty_ruleset_rule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RulesetRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.rulesetRule.RulesetRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule pagerduty_ruleset_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule pagerduty_ruleset_rule}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class RulesetRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule pagerduty_ruleset_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule pagerduty_ruleset_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param ruleset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#ruleset RulesetRule#ruleset}.
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#actions RulesetRule#actions}
-        :param catch_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#catch_all RulesetRule#catch_all}.
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#conditions RulesetRule#conditions}
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#disabled RulesetRule#disabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#id RulesetRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#position RulesetRule#position}.
-        :param time_frame: time_frame block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#time_frame RulesetRule#time_frame}
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#variable RulesetRule#variable}
+        :param ruleset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#ruleset RulesetRule#ruleset}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#actions RulesetRule#actions}
+        :param catch_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#catch_all RulesetRule#catch_all}.
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#conditions RulesetRule#conditions}
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#disabled RulesetRule#disabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#id RulesetRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#position RulesetRule#position}.
+        :param time_frame: time_frame block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#time_frame RulesetRule#time_frame}
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#variable RulesetRule#variable}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class RulesetRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RulesetRule to import.
-        :param import_from_id: The id of the existing RulesetRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RulesetRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RulesetRule to import is found.
         '''
         if __debug__:
@@ -152,14 +152,14 @@ class RulesetRule(
         suspend: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RulesetRuleActionsSuspend", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param annotate: annotate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#annotate RulesetRule#annotate}
-        :param event_action: event_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#event_action RulesetRule#event_action}
-        :param extractions: extractions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#extractions RulesetRule#extractions}
-        :param priority: priority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#priority RulesetRule#priority}
-        :param route: route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#route RulesetRule#route}
-        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#severity RulesetRule#severity}
-        :param suppress: suppress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#suppress RulesetRule#suppress}
-        :param suspend: suspend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#suspend RulesetRule#suspend}
+        :param annotate: annotate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#annotate RulesetRule#annotate}
+        :param event_action: event_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#event_action RulesetRule#event_action}
+        :param extractions: extractions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#extractions RulesetRule#extractions}
+        :param priority: priority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#priority RulesetRule#priority}
+        :param route: route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#route RulesetRule#route}
+        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#severity RulesetRule#severity}
+        :param suppress: suppress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#suppress RulesetRule#suppress}
+        :param suspend: suspend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#suspend RulesetRule#suspend}
         '''
         value = RulesetRuleActions(
             annotate=annotate,
@@ -182,8 +182,8 @@ class RulesetRule(
         subconditions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RulesetRuleConditionsSubconditions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#operator RulesetRule#operator}.
-        :param subconditions: subconditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#subconditions RulesetRule#subconditions}
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#operator RulesetRule#operator}.
+        :param subconditions: subconditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#subconditions RulesetRule#subconditions}
         '''
         value = RulesetRuleConditions(operator=operator, subconditions=subconditions)
 
@@ -197,8 +197,8 @@ class RulesetRule(
         scheduled_weekly: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RulesetRuleTimeFrameScheduledWeekly", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param active_between: active_between block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#active_between RulesetRule#active_between}
-        :param scheduled_weekly: scheduled_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#scheduled_weekly RulesetRule#scheduled_weekly}
+        :param active_between: active_between block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#active_between RulesetRule#active_between}
+        :param scheduled_weekly: scheduled_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#scheduled_weekly RulesetRule#scheduled_weekly}
         '''
         value = RulesetRuleTimeFrame(
             active_between=active_between, scheduled_weekly=scheduled_weekly
@@ -430,14 +430,14 @@ class RulesetRuleActions:
         suspend: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RulesetRuleActionsSuspend", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param annotate: annotate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#annotate RulesetRule#annotate}
-        :param event_action: event_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#event_action RulesetRule#event_action}
-        :param extractions: extractions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#extractions RulesetRule#extractions}
-        :param priority: priority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#priority RulesetRule#priority}
-        :param route: route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#route RulesetRule#route}
-        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#severity RulesetRule#severity}
-        :param suppress: suppress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#suppress RulesetRule#suppress}
-        :param suspend: suspend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#suspend RulesetRule#suspend}
+        :param annotate: annotate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#annotate RulesetRule#annotate}
+        :param event_action: event_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#event_action RulesetRule#event_action}
+        :param extractions: extractions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#extractions RulesetRule#extractions}
+        :param priority: priority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#priority RulesetRule#priority}
+        :param route: route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#route RulesetRule#route}
+        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#severity RulesetRule#severity}
+        :param suppress: suppress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#suppress RulesetRule#suppress}
+        :param suspend: suspend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#suspend RulesetRule#suspend}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfe3dca542f68574a85d81894a4906d7ec690b9108a051f23b7e4893fa9c6a21)
@@ -473,7 +473,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsAnnotate"]]]:
         '''annotate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#annotate RulesetRule#annotate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#annotate RulesetRule#annotate}
         '''
         result = self._values.get("annotate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsAnnotate"]]], result)
@@ -484,7 +484,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsEventAction"]]]:
         '''event_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#event_action RulesetRule#event_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#event_action RulesetRule#event_action}
         '''
         result = self._values.get("event_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsEventAction"]]], result)
@@ -495,7 +495,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsExtractions"]]]:
         '''extractions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#extractions RulesetRule#extractions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#extractions RulesetRule#extractions}
         '''
         result = self._values.get("extractions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsExtractions"]]], result)
@@ -506,7 +506,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsPriority"]]]:
         '''priority block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#priority RulesetRule#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#priority RulesetRule#priority}
         '''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsPriority"]]], result)
@@ -517,7 +517,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsRoute"]]]:
         '''route block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#route RulesetRule#route}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#route RulesetRule#route}
         '''
         result = self._values.get("route")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsRoute"]]], result)
@@ -528,7 +528,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsSeverity"]]]:
         '''severity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#severity RulesetRule#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#severity RulesetRule#severity}
         '''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsSeverity"]]], result)
@@ -539,7 +539,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsSuppress"]]]:
         '''suppress block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#suppress RulesetRule#suppress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#suppress RulesetRule#suppress}
         '''
         result = self._values.get("suppress")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsSuppress"]]], result)
@@ -550,7 +550,7 @@ class RulesetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsSuspend"]]]:
         '''suspend block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#suspend RulesetRule#suspend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#suspend RulesetRule#suspend}
         '''
         result = self._values.get("suspend")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleActionsSuspend"]]], result)
@@ -575,7 +575,7 @@ class RulesetRuleActions:
 class RulesetRuleActionsAnnotate:
     def __init__(self, *, value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00e0465b35f16bea50380b2dc13e0150958e917590704c961eb0970c99a0726f)
@@ -586,7 +586,7 @@ class RulesetRuleActionsAnnotate:
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -765,7 +765,7 @@ class RulesetRuleActionsAnnotateOutputReference(
 class RulesetRuleActionsEventAction:
     def __init__(self, *, value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83da07c82981b6df3b78be0d41f9b2f5e26da2a1f5b425080d03b72c43058dae)
@@ -776,7 +776,7 @@ class RulesetRuleActionsEventAction:
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -967,10 +967,10 @@ class RulesetRuleActionsExtractions:
         template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#regex RulesetRule#regex}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#source RulesetRule#source}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#target RulesetRule#target}.
-        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#template RulesetRule#template}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#regex RulesetRule#regex}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#source RulesetRule#source}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#target RulesetRule#target}.
+        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#template RulesetRule#template}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de7bd602a9ba80fb07faf0387c900a960c4d57a047b1a34ce3e6a6c5d43c7975)
@@ -990,25 +990,25 @@ class RulesetRuleActionsExtractions:
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#regex RulesetRule#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#regex RulesetRule#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#source RulesetRule#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#source RulesetRule#source}.'''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#target RulesetRule#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#target RulesetRule#target}.'''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#template RulesetRule#template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#template RulesetRule#template}.'''
         result = self._values.get("template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1515,7 +1515,7 @@ class RulesetRuleActionsOutputReference(
 class RulesetRuleActionsPriority:
     def __init__(self, *, value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a9402221f24986fc7d4e87405dce6f6f84632ae97fa5c85c7664142ef9a7c94)
@@ -1526,7 +1526,7 @@ class RulesetRuleActionsPriority:
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1705,7 +1705,7 @@ class RulesetRuleActionsPriorityOutputReference(
 class RulesetRuleActionsRoute:
     def __init__(self, *, value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ca0f0a715db91fafe9493f0140b920af7df8e60a33e61f3c8a8ff2fd59cb63c)
@@ -1716,7 +1716,7 @@ class RulesetRuleActionsRoute:
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1895,7 +1895,7 @@ class RulesetRuleActionsRouteOutputReference(
 class RulesetRuleActionsSeverity:
     def __init__(self, *, value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6bcb88a687006a3334a7d569c5ed5cc8db6fce4285e943c5aaca73d99f3035c)
@@ -1906,7 +1906,7 @@ class RulesetRuleActionsSeverity:
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2097,10 +2097,10 @@ class RulesetRuleActionsSuppress:
         value: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param threshold_time_amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#threshold_time_amount RulesetRule#threshold_time_amount}.
-        :param threshold_time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#threshold_time_unit RulesetRule#threshold_time_unit}.
-        :param threshold_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#threshold_value RulesetRule#threshold_value}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param threshold_time_amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#threshold_time_amount RulesetRule#threshold_time_amount}.
+        :param threshold_time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#threshold_time_unit RulesetRule#threshold_time_unit}.
+        :param threshold_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#threshold_value RulesetRule#threshold_value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d18597a0c1fa5133d7e6ec95bbcb4465e932c1e889e03daee0663ec139105f7)
@@ -2120,19 +2120,19 @@ class RulesetRuleActionsSuppress:
 
     @builtins.property
     def threshold_time_amount(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#threshold_time_amount RulesetRule#threshold_time_amount}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#threshold_time_amount RulesetRule#threshold_time_amount}.'''
         result = self._values.get("threshold_time_amount")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def threshold_time_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#threshold_time_unit RulesetRule#threshold_time_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#threshold_time_unit RulesetRule#threshold_time_unit}.'''
         result = self._values.get("threshold_time_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def threshold_value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#threshold_value RulesetRule#threshold_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#threshold_value RulesetRule#threshold_value}.'''
         result = self._values.get("threshold_value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2140,7 +2140,7 @@ class RulesetRuleActionsSuppress:
     def value(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2387,7 +2387,7 @@ class RulesetRuleActionsSuppressOutputReference(
 class RulesetRuleActionsSuspend:
     def __init__(self, *, value: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__029a78a41489ceb774cd65795328e818277b7f45b9f0ef8e8476711346f7a9ec)
@@ -2398,7 +2398,7 @@ class RulesetRuleActionsSuspend:
 
     @builtins.property
     def value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2582,8 +2582,8 @@ class RulesetRuleConditions:
         subconditions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RulesetRuleConditionsSubconditions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#operator RulesetRule#operator}.
-        :param subconditions: subconditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#subconditions RulesetRule#subconditions}
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#operator RulesetRule#operator}.
+        :param subconditions: subconditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#subconditions RulesetRule#subconditions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4869ecfe45325ad4f5dd00be0cba315ac019612adfdaa47eb6402994eee897ad)
@@ -2597,7 +2597,7 @@ class RulesetRuleConditions:
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#operator RulesetRule#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#operator RulesetRule#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2607,7 +2607,7 @@ class RulesetRuleConditions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleConditionsSubconditions"]]]:
         '''subconditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#subconditions RulesetRule#subconditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#subconditions RulesetRule#subconditions}
         '''
         result = self._values.get("subconditions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleConditionsSubconditions"]]], result)
@@ -2720,8 +2720,8 @@ class RulesetRuleConditionsSubconditions:
         parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RulesetRuleConditionsSubconditionsParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#operator RulesetRule#operator}.
-        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#parameter RulesetRule#parameter}
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#operator RulesetRule#operator}.
+        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#parameter RulesetRule#parameter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b6e420c00e32be13f5d4de5ad374e0c596c13229109bbc0d5839a3a578d6979)
@@ -2735,7 +2735,7 @@ class RulesetRuleConditionsSubconditions:
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#operator RulesetRule#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#operator RulesetRule#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2745,7 +2745,7 @@ class RulesetRuleConditionsSubconditions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleConditionsSubconditionsParameter"]]]:
         '''parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#parameter RulesetRule#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#parameter RulesetRule#parameter}
         '''
         result = self._values.get("parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleConditionsSubconditionsParameter"]]], result)
@@ -2962,8 +2962,8 @@ class RulesetRuleConditionsSubconditionsParameter:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#path RulesetRule#path}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#path RulesetRule#path}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f45a9d4e12f85223e1e0454d63d95084b7798607af423bc1e5fe02cfdbd1a102)
@@ -2977,13 +2977,13 @@ class RulesetRuleConditionsSubconditionsParameter:
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#path RulesetRule#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#path RulesetRule#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3229,15 +3229,15 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param ruleset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#ruleset RulesetRule#ruleset}.
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#actions RulesetRule#actions}
-        :param catch_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#catch_all RulesetRule#catch_all}.
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#conditions RulesetRule#conditions}
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#disabled RulesetRule#disabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#id RulesetRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#position RulesetRule#position}.
-        :param time_frame: time_frame block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#time_frame RulesetRule#time_frame}
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#variable RulesetRule#variable}
+        :param ruleset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#ruleset RulesetRule#ruleset}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#actions RulesetRule#actions}
+        :param catch_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#catch_all RulesetRule#catch_all}.
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#conditions RulesetRule#conditions}
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#disabled RulesetRule#disabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#id RulesetRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#position RulesetRule#position}.
+        :param time_frame: time_frame block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#time_frame RulesetRule#time_frame}
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#variable RulesetRule#variable}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3365,7 +3365,7 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ruleset(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#ruleset RulesetRule#ruleset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#ruleset RulesetRule#ruleset}.'''
         result = self._values.get("ruleset")
         assert result is not None, "Required property 'ruleset' is missing"
         return typing.cast(builtins.str, result)
@@ -3374,7 +3374,7 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def actions(self) -> typing.Optional[RulesetRuleActions]:
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#actions RulesetRule#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#actions RulesetRule#actions}
         '''
         result = self._values.get("actions")
         return typing.cast(typing.Optional[RulesetRuleActions], result)
@@ -3383,7 +3383,7 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def catch_all(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#catch_all RulesetRule#catch_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#catch_all RulesetRule#catch_all}.'''
         result = self._values.get("catch_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3391,7 +3391,7 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def conditions(self) -> typing.Optional[RulesetRuleConditions]:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#conditions RulesetRule#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#conditions RulesetRule#conditions}
         '''
         result = self._values.get("conditions")
         return typing.cast(typing.Optional[RulesetRuleConditions], result)
@@ -3400,13 +3400,13 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#disabled RulesetRule#disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#disabled RulesetRule#disabled}.'''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#id RulesetRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#id RulesetRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3416,7 +3416,7 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def position(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#position RulesetRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#position RulesetRule#position}.'''
         result = self._values.get("position")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3424,7 +3424,7 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def time_frame(self) -> typing.Optional["RulesetRuleTimeFrame"]:
         '''time_frame block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#time_frame RulesetRule#time_frame}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#time_frame RulesetRule#time_frame}
         '''
         result = self._values.get("time_frame")
         return typing.cast(typing.Optional["RulesetRuleTimeFrame"], result)
@@ -3435,7 +3435,7 @@ class RulesetRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleVariable"]]]:
         '''variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#variable RulesetRule#variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#variable RulesetRule#variable}
         '''
         result = self._values.get("variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleVariable"]]], result)
@@ -3468,8 +3468,8 @@ class RulesetRuleTimeFrame:
         scheduled_weekly: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RulesetRuleTimeFrameScheduledWeekly", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param active_between: active_between block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#active_between RulesetRule#active_between}
-        :param scheduled_weekly: scheduled_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#scheduled_weekly RulesetRule#scheduled_weekly}
+        :param active_between: active_between block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#active_between RulesetRule#active_between}
+        :param scheduled_weekly: scheduled_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#scheduled_weekly RulesetRule#scheduled_weekly}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1fe321ed962ee55d9955b85c8100708accbcd1b0c2d0918d42e9c44ced324e0)
@@ -3487,7 +3487,7 @@ class RulesetRuleTimeFrame:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleTimeFrameActiveBetween"]]]:
         '''active_between block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#active_between RulesetRule#active_between}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#active_between RulesetRule#active_between}
         '''
         result = self._values.get("active_between")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleTimeFrameActiveBetween"]]], result)
@@ -3498,7 +3498,7 @@ class RulesetRuleTimeFrame:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleTimeFrameScheduledWeekly"]]]:
         '''scheduled_weekly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#scheduled_weekly RulesetRule#scheduled_weekly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#scheduled_weekly RulesetRule#scheduled_weekly}
         '''
         result = self._values.get("scheduled_weekly")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleTimeFrameScheduledWeekly"]]], result)
@@ -3528,8 +3528,8 @@ class RulesetRuleTimeFrameActiveBetween:
         start_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#end_time RulesetRule#end_time}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#end_time RulesetRule#end_time}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5973c60020f0d857bccd20ef33e296eb367457e93bd071793f2c206894ed755b)
@@ -3543,13 +3543,13 @@ class RulesetRuleTimeFrameActiveBetween:
 
     @builtins.property
     def end_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#end_time RulesetRule#end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#end_time RulesetRule#end_time}.'''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3855,10 +3855,10 @@ class RulesetRuleTimeFrameScheduledWeekly:
         weekdays: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#duration RulesetRule#duration}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#timezone RulesetRule#timezone}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#weekdays RulesetRule#weekdays}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#duration RulesetRule#duration}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#timezone RulesetRule#timezone}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#weekdays RulesetRule#weekdays}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a395229417c5ee7d4d80750873d2a4205a33b3c652b40f3639cc183838c9825f)
@@ -3878,25 +3878,25 @@ class RulesetRuleTimeFrameScheduledWeekly:
 
     @builtins.property
     def duration(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#duration RulesetRule#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#duration RulesetRule#duration}.'''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#start_time RulesetRule#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#timezone RulesetRule#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#timezone RulesetRule#timezone}.'''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weekdays(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#weekdays RulesetRule#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#weekdays RulesetRule#weekdays}.'''
         result = self._values.get("weekdays")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -4147,9 +4147,9 @@ class RulesetRuleVariable:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#name RulesetRule#name}.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#parameters RulesetRule#parameters}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#type RulesetRule#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#name RulesetRule#name}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#parameters RulesetRule#parameters}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#type RulesetRule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d21a61c9c24eeeb889074e736821382f924272c7c41539cbcfc91a81566c44a5)
@@ -4166,7 +4166,7 @@ class RulesetRuleVariable:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#name RulesetRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#name RulesetRule#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4176,14 +4176,14 @@ class RulesetRuleVariable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleVariableParameters"]]]:
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#parameters RulesetRule#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#parameters RulesetRule#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RulesetRuleVariableParameters"]]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#type RulesetRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#type RulesetRule#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4417,8 +4417,8 @@ class RulesetRuleVariableParameters:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#path RulesetRule#path}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#path RulesetRule#path}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a01a31d8a5e77e304f063c99df56b62d002b55bb50f63811f8fd72716ff23f0)
@@ -4432,13 +4432,13 @@ class RulesetRuleVariableParameters:
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#path RulesetRule#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#path RulesetRule#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/ruleset_rule#value RulesetRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/ruleset_rule#value RulesetRule#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -106,7 +106,9 @@ def st_area(
 def st_difference(
     series: Union[bigframes.series.Series, bigframes.geopandas.GeoSeries],
     other: Union[
-        bigframes.series.Series, bigframes.geopandas.GeoSeries, shapely.Geometry
+        bigframes.series.Series,
+        bigframes.geopandas.GeoSeries,
+        shapely.geometry.base.BaseGeometry,
     ],
 ) -> bigframes.series.Series:
     """
@@ -207,7 +209,9 @@ def st_difference(
 def st_distance(
     series: Union[bigframes.series.Series, bigframes.geopandas.GeoSeries],
     other: Union[
-        bigframes.series.Series, bigframes.geopandas.GeoSeries, shapely.Geometry
+        bigframes.series.Series,
+        bigframes.geopandas.GeoSeries,
+        shapely.geometry.base.BaseGeometry,
     ],
     *,
     use_spheroid: bool = False,
@@ -260,7 +264,7 @@ def st_distance(
             A series containing geography objects.
         other (bigframes.pandas.Series | bigframes.geopandas.GeoSeries | shapely.Geometry):
             The series or geometric object to calculate the distance in meters
-            to from the geography objects in ``series``.
+            to form the geography objects in ``series``.
         use_spheroid (optional, default ``False``):
             Determines how this function measures distance. If ``use_spheroid``
             is False, the function measures distance on the surface of a perfect
@@ -282,7 +286,9 @@ def st_distance(
 def st_intersection(
     series: Union[bigframes.series.Series, bigframes.geopandas.GeoSeries],
     other: Union[
-        bigframes.series.Series, bigframes.geopandas.GeoSeries, shapely.Geometry
+        bigframes.series.Series,
+        bigframes.geopandas.GeoSeries,
+        shapely.geometry.base.BaseGeometry,
     ],
 ) -> bigframes.series.Series:
     """

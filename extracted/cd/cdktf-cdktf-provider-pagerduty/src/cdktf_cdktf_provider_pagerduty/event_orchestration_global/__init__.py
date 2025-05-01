@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_event_orchestration_global`
 
-Refer to the Terraform Registry for docs: [`pagerduty_event_orchestration_global`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global).
+Refer to the Terraform Registry for docs: [`pagerduty_event_orchestration_global`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EventOrchestrationGlobal(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.eventOrchestrationGlobal.EventOrchestrationGlobal",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global pagerduty_event_orchestration_global}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global pagerduty_event_orchestration_global}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class EventOrchestrationGlobal(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global pagerduty_event_orchestration_global} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global pagerduty_event_orchestration_global} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param catch_all: catch_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#catch_all EventOrchestrationGlobal#catch_all}
-        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_orchestration EventOrchestrationGlobal#event_orchestration}.
-        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#set EventOrchestrationGlobal#set}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param catch_all: catch_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#catch_all EventOrchestrationGlobal#catch_all}
+        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_orchestration EventOrchestrationGlobal#event_orchestration}.
+        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#set EventOrchestrationGlobal#set}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class EventOrchestrationGlobal(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EventOrchestrationGlobal to import.
-        :param import_from_id: The id of the existing EventOrchestrationGlobal that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EventOrchestrationGlobal that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EventOrchestrationGlobal to import is found.
         '''
         if __debug__:
@@ -130,7 +130,7 @@ class EventOrchestrationGlobal(
         actions: typing.Union["EventOrchestrationGlobalCatchAllActions", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
         '''
         value = EventOrchestrationGlobalCatchAll(actions=actions)
 
@@ -235,7 +235,7 @@ class EventOrchestrationGlobalCatchAll:
         actions: typing.Union["EventOrchestrationGlobalCatchAllActions", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
         '''
         if isinstance(actions, dict):
             actions = EventOrchestrationGlobalCatchAllActions(**actions)
@@ -250,7 +250,7 @@ class EventOrchestrationGlobalCatchAll:
     def actions(self) -> "EventOrchestrationGlobalCatchAllActions":
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -306,19 +306,19 @@ class EventOrchestrationGlobalCatchAllActions:
         variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EventOrchestrationGlobalCatchAllActionsVariable", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
-        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
-        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
-        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
-        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
-        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
-        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
-        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
-        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
-        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
+        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
+        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
+        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
+        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
+        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
+        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
+        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
+        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
+        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
+        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
         '''
         if isinstance(automation_action, dict):
             automation_action = EventOrchestrationGlobalCatchAllActionsAutomationAction(**automation_action)
@@ -367,7 +367,7 @@ class EventOrchestrationGlobalCatchAllActions:
 
     @builtins.property
     def annotate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.'''
         result = self._values.get("annotate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -377,7 +377,7 @@ class EventOrchestrationGlobalCatchAllActions:
     ) -> typing.Optional["EventOrchestrationGlobalCatchAllActionsAutomationAction"]:
         '''automation_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
         '''
         result = self._values.get("automation_action")
         return typing.cast(typing.Optional["EventOrchestrationGlobalCatchAllActionsAutomationAction"], result)
@@ -386,19 +386,19 @@ class EventOrchestrationGlobalCatchAllActions:
     def drop_event(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.'''
         result = self._values.get("drop_event")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def escalation_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.'''
         result = self._values.get("escalation_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.'''
         result = self._values.get("event_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -408,7 +408,7 @@ class EventOrchestrationGlobalCatchAllActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsExtraction"]]]:
         '''extraction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
         '''
         result = self._values.get("extraction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsExtraction"]]], result)
@@ -419,26 +419,26 @@ class EventOrchestrationGlobalCatchAllActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsIncidentCustomFieldUpdate"]]]:
         '''incident_custom_field_update block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
         '''
         result = self._values.get("incident_custom_field_update")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsIncidentCustomFieldUpdate"]]], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def route_to(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.'''
         result = self._values.get("route_to")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def severity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.'''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -446,13 +446,13 @@ class EventOrchestrationGlobalCatchAllActions:
     def suppress(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.'''
         result = self._values.get("suppress")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def suspend(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.'''
         result = self._values.get("suspend")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -462,7 +462,7 @@ class EventOrchestrationGlobalCatchAllActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsVariable"]]]:
         '''variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
         '''
         result = self._values.get("variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsVariable"]]], result)
@@ -503,12 +503,12 @@ class EventOrchestrationGlobalCatchAllActionsAutomationAction:
         trigger_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
-        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
-        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
-        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
+        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
+        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
+        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3aa7554157c3709e9796076b823722a932d57649b3cd18925319019ab07058f4)
@@ -533,14 +533,14 @@ class EventOrchestrationGlobalCatchAllActionsAutomationAction:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
@@ -549,7 +549,7 @@ class EventOrchestrationGlobalCatchAllActionsAutomationAction:
     def auto_send(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.'''
         result = self._values.get("auto_send")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -559,7 +559,7 @@ class EventOrchestrationGlobalCatchAllActionsAutomationAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsAutomationActionHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsAutomationActionHeader"]]], result)
@@ -570,14 +570,14 @@ class EventOrchestrationGlobalCatchAllActionsAutomationAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsAutomationActionParameter"]]]:
         '''parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
         '''
         result = self._values.get("parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalCatchAllActionsAutomationActionParameter"]]], result)
 
     @builtins.property
     def trigger_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.'''
         result = self._values.get("trigger_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -601,8 +601,8 @@ class EventOrchestrationGlobalCatchAllActionsAutomationAction:
 class EventOrchestrationGlobalCatchAllActionsAutomationActionHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25d6263f7f939f16ce5239b58a28df658272be7a72592fe257cae14ddceb0570)
@@ -615,14 +615,14 @@ class EventOrchestrationGlobalCatchAllActionsAutomationActionHeader:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -999,8 +999,8 @@ class EventOrchestrationGlobalCatchAllActionsAutomationActionOutputReference(
 class EventOrchestrationGlobalCatchAllActionsAutomationActionParameter:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8bf5cff7ab8d977bde6247d8b87a97cacc34598a770f783a035182d2b9a6bdf)
@@ -1013,14 +1013,14 @@ class EventOrchestrationGlobalCatchAllActionsAutomationActionParameter:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1228,10 +1228,10 @@ class EventOrchestrationGlobalCatchAllActionsExtraction:
         template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.
-        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.
+        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c13c1c34aa2f8009fb969c1c9b9b3e863409eea556e7a2290eb65cdfb019a16)
@@ -1251,26 +1251,26 @@ class EventOrchestrationGlobalCatchAllActionsExtraction:
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.'''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.'''
         result = self._values.get("template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1511,8 +1511,8 @@ class EventOrchestrationGlobalCatchAllActionsExtractionOutputReference(
 class EventOrchestrationGlobalCatchAllActionsIncidentCustomFieldUpdate:
     def __init__(self, *, id: builtins.str, value: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b375c4b1d808a3f460f31e3cf8a8afd1bf9ad8635ace71d2f46d2ab4d18a3978)
@@ -1525,7 +1525,7 @@ class EventOrchestrationGlobalCatchAllActionsIncidentCustomFieldUpdate:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1536,7 +1536,7 @@ class EventOrchestrationGlobalCatchAllActionsIncidentCustomFieldUpdate:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1756,12 +1756,12 @@ class EventOrchestrationGlobalCatchAllActionsOutputReference(
         trigger_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
-        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
-        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
-        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
+        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
+        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
+        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
         '''
         value = EventOrchestrationGlobalCatchAllActionsAutomationAction(
             name=name,
@@ -2113,10 +2113,10 @@ class EventOrchestrationGlobalCatchAllActionsVariable:
         value: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d0aeb509773364475895da1136016fd834150cbcd65e6a3c334ee82dbaf2482)
@@ -2133,28 +2133,28 @@ class EventOrchestrationGlobalCatchAllActionsVariable:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2415,19 +2415,19 @@ class EventOrchestrationGlobalCatchAllOutputReference(
         variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EventOrchestrationGlobalCatchAllActionsVariable, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
-        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
-        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
-        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
-        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
-        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
-        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
-        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
-        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
-        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
+        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
+        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
+        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
+        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
+        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
+        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
+        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
+        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
+        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
+        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
         '''
         value = EventOrchestrationGlobalCatchAllActions(
             annotate=annotate,
@@ -2514,10 +2514,10 @@ class EventOrchestrationGlobalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param catch_all: catch_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#catch_all EventOrchestrationGlobal#catch_all}
-        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_orchestration EventOrchestrationGlobal#event_orchestration}.
-        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#set EventOrchestrationGlobal#set}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param catch_all: catch_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#catch_all EventOrchestrationGlobal#catch_all}
+        :param event_orchestration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_orchestration EventOrchestrationGlobal#event_orchestration}.
+        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#set EventOrchestrationGlobal#set}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2626,7 +2626,7 @@ class EventOrchestrationGlobalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def catch_all(self) -> EventOrchestrationGlobalCatchAll:
         '''catch_all block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#catch_all EventOrchestrationGlobal#catch_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#catch_all EventOrchestrationGlobal#catch_all}
         '''
         result = self._values.get("catch_all")
         assert result is not None, "Required property 'catch_all' is missing"
@@ -2634,7 +2634,7 @@ class EventOrchestrationGlobalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def event_orchestration(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_orchestration EventOrchestrationGlobal#event_orchestration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_orchestration EventOrchestrationGlobal#event_orchestration}.'''
         result = self._values.get("event_orchestration")
         assert result is not None, "Required property 'event_orchestration' is missing"
         return typing.cast(builtins.str, result)
@@ -2645,7 +2645,7 @@ class EventOrchestrationGlobalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSet"]]:
         '''set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#set EventOrchestrationGlobal#set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#set EventOrchestrationGlobal#set}
         '''
         result = self._values.get("set")
         assert result is not None, "Required property 'set' is missing"
@@ -2653,7 +2653,7 @@ class EventOrchestrationGlobalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2686,8 +2686,8 @@ class EventOrchestrationGlobalSet:
         rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EventOrchestrationGlobalSetRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#rule EventOrchestrationGlobal#rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#rule EventOrchestrationGlobal#rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__305a6830506cb32487336526cc8631fb7f7318d68a61dabd395b65df1c2d7f56)
@@ -2701,7 +2701,7 @@ class EventOrchestrationGlobalSet:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2716,7 +2716,7 @@ class EventOrchestrationGlobalSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#rule EventOrchestrationGlobal#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#rule EventOrchestrationGlobal#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRule"]]], result)
@@ -2933,10 +2933,10 @@ class EventOrchestrationGlobalSetRule:
         label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#condition EventOrchestrationGlobal#condition}
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#disabled EventOrchestrationGlobal#disabled}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#label EventOrchestrationGlobal#label}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#condition EventOrchestrationGlobal#condition}
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#disabled EventOrchestrationGlobal#disabled}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#label EventOrchestrationGlobal#label}.
         '''
         if isinstance(actions, dict):
             actions = EventOrchestrationGlobalSetRuleActions(**actions)
@@ -2960,7 +2960,7 @@ class EventOrchestrationGlobalSetRule:
     def actions(self) -> "EventOrchestrationGlobalSetRuleActions":
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#actions EventOrchestrationGlobal#actions}
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -2972,7 +2972,7 @@ class EventOrchestrationGlobalSetRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleCondition"]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#condition EventOrchestrationGlobal#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#condition EventOrchestrationGlobal#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleCondition"]]], result)
@@ -2981,13 +2981,13 @@ class EventOrchestrationGlobalSetRule:
     def disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#disabled EventOrchestrationGlobal#disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#disabled EventOrchestrationGlobal#disabled}.'''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#label EventOrchestrationGlobal#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#label EventOrchestrationGlobal#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3041,19 +3041,19 @@ class EventOrchestrationGlobalSetRuleActions:
         variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EventOrchestrationGlobalSetRuleActionsVariable", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
-        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
-        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
-        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
-        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
-        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
-        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
-        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
-        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
-        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
+        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
+        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
+        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
+        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
+        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
+        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
+        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
+        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
+        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
+        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
         '''
         if isinstance(automation_action, dict):
             automation_action = EventOrchestrationGlobalSetRuleActionsAutomationAction(**automation_action)
@@ -3102,7 +3102,7 @@ class EventOrchestrationGlobalSetRuleActions:
 
     @builtins.property
     def annotate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.'''
         result = self._values.get("annotate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3112,7 +3112,7 @@ class EventOrchestrationGlobalSetRuleActions:
     ) -> typing.Optional["EventOrchestrationGlobalSetRuleActionsAutomationAction"]:
         '''automation_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
         '''
         result = self._values.get("automation_action")
         return typing.cast(typing.Optional["EventOrchestrationGlobalSetRuleActionsAutomationAction"], result)
@@ -3121,19 +3121,19 @@ class EventOrchestrationGlobalSetRuleActions:
     def drop_event(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.'''
         result = self._values.get("drop_event")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def escalation_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.'''
         result = self._values.get("escalation_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.'''
         result = self._values.get("event_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3143,7 +3143,7 @@ class EventOrchestrationGlobalSetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsExtraction"]]]:
         '''extraction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
         '''
         result = self._values.get("extraction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsExtraction"]]], result)
@@ -3154,26 +3154,26 @@ class EventOrchestrationGlobalSetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsIncidentCustomFieldUpdate"]]]:
         '''incident_custom_field_update block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
         '''
         result = self._values.get("incident_custom_field_update")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsIncidentCustomFieldUpdate"]]], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def route_to(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.'''
         result = self._values.get("route_to")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def severity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.'''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3181,13 +3181,13 @@ class EventOrchestrationGlobalSetRuleActions:
     def suppress(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.'''
         result = self._values.get("suppress")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def suspend(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.'''
         result = self._values.get("suspend")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3197,7 +3197,7 @@ class EventOrchestrationGlobalSetRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsVariable"]]]:
         '''variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
         '''
         result = self._values.get("variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsVariable"]]], result)
@@ -3238,12 +3238,12 @@ class EventOrchestrationGlobalSetRuleActionsAutomationAction:
         trigger_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
-        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
-        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
-        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
+        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
+        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
+        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__723d2a0275861d95017a3481ff6564df72221d81439af26b87052de7905dd603)
@@ -3268,14 +3268,14 @@ class EventOrchestrationGlobalSetRuleActionsAutomationAction:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
@@ -3284,7 +3284,7 @@ class EventOrchestrationGlobalSetRuleActionsAutomationAction:
     def auto_send(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.'''
         result = self._values.get("auto_send")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3294,7 +3294,7 @@ class EventOrchestrationGlobalSetRuleActionsAutomationAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsAutomationActionHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsAutomationActionHeader"]]], result)
@@ -3305,14 +3305,14 @@ class EventOrchestrationGlobalSetRuleActionsAutomationAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsAutomationActionParameter"]]]:
         '''parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
         '''
         result = self._values.get("parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventOrchestrationGlobalSetRuleActionsAutomationActionParameter"]]], result)
 
     @builtins.property
     def trigger_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.'''
         result = self._values.get("trigger_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3336,8 +3336,8 @@ class EventOrchestrationGlobalSetRuleActionsAutomationAction:
 class EventOrchestrationGlobalSetRuleActionsAutomationActionHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__541694733fc98eb5135d9d17e596b4cab74578defc3bdbfef6a43a56159f1877)
@@ -3350,14 +3350,14 @@ class EventOrchestrationGlobalSetRuleActionsAutomationActionHeader:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3734,8 +3734,8 @@ class EventOrchestrationGlobalSetRuleActionsAutomationActionOutputReference(
 class EventOrchestrationGlobalSetRuleActionsAutomationActionParameter:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__441d5eb0cfb56ea15348461de8ab1eeeb7ba29435b112be08856224068edc133)
@@ -3748,14 +3748,14 @@ class EventOrchestrationGlobalSetRuleActionsAutomationActionParameter:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#key EventOrchestrationGlobal#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3963,10 +3963,10 @@ class EventOrchestrationGlobalSetRuleActionsExtraction:
         template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.
-        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.
+        :param template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b92aecb9ded69cbe0d91dde0c5680d12062c234b53c0fd848e59d4dba288176)
@@ -3986,26 +3986,26 @@ class EventOrchestrationGlobalSetRuleActionsExtraction:
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#target EventOrchestrationGlobal#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#regex EventOrchestrationGlobal#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#source EventOrchestrationGlobal#source}.'''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#template EventOrchestrationGlobal#template}.'''
         result = self._values.get("template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4246,8 +4246,8 @@ class EventOrchestrationGlobalSetRuleActionsExtractionOutputReference(
 class EventOrchestrationGlobalSetRuleActionsIncidentCustomFieldUpdate:
     def __init__(self, *, id: builtins.str, value: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e428808da2e632206477fcba5c539e87b77ccf79dd1d8e26b1d7140d8295e18c)
@@ -4260,7 +4260,7 @@ class EventOrchestrationGlobalSetRuleActionsIncidentCustomFieldUpdate:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#id EventOrchestrationGlobal#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4271,7 +4271,7 @@ class EventOrchestrationGlobalSetRuleActionsIncidentCustomFieldUpdate:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4491,12 +4491,12 @@ class EventOrchestrationGlobalSetRuleActionsOutputReference(
         trigger_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
-        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
-        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
-        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#url EventOrchestrationGlobal#url}.
+        :param auto_send: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#auto_send EventOrchestrationGlobal#auto_send}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#header EventOrchestrationGlobal#header}
+        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#parameter EventOrchestrationGlobal#parameter}
+        :param trigger_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#trigger_types EventOrchestrationGlobal#trigger_types}.
         '''
         value = EventOrchestrationGlobalSetRuleActionsAutomationAction(
             name=name,
@@ -4846,10 +4846,10 @@ class EventOrchestrationGlobalSetRuleActionsVariable:
         value: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9975e599b66082aa161a92a72e86a6da50b9cbaa7b3cedfc9ff7f3bf8156c974)
@@ -4866,28 +4866,28 @@ class EventOrchestrationGlobalSetRuleActionsVariable:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#name EventOrchestrationGlobal#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#path EventOrchestrationGlobal#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#type EventOrchestrationGlobal#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#value EventOrchestrationGlobal#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5117,7 +5117,7 @@ class EventOrchestrationGlobalSetRuleActionsVariableOutputReference(
 class EventOrchestrationGlobalSetRuleCondition:
     def __init__(self, *, expression: builtins.str) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#expression EventOrchestrationGlobal#expression}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#expression EventOrchestrationGlobal#expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__195af8a9d56ef9e383b66a3a3513a01f6bfdedfa0d4b13150d22558077655b02)
@@ -5128,7 +5128,7 @@ class EventOrchestrationGlobalSetRuleCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#expression EventOrchestrationGlobal#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#expression EventOrchestrationGlobal#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
@@ -5437,19 +5437,19 @@ class EventOrchestrationGlobalSetRuleOutputReference(
         variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EventOrchestrationGlobalSetRuleActionsVariable, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
-        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
-        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
-        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
-        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
-        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
-        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
-        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
-        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
-        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
+        :param annotate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#annotate EventOrchestrationGlobal#annotate}.
+        :param automation_action: automation_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#automation_action EventOrchestrationGlobal#automation_action}
+        :param drop_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#drop_event EventOrchestrationGlobal#drop_event}.
+        :param escalation_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#escalation_policy EventOrchestrationGlobal#escalation_policy}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#event_action EventOrchestrationGlobal#event_action}.
+        :param extraction: extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#extraction EventOrchestrationGlobal#extraction}
+        :param incident_custom_field_update: incident_custom_field_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#incident_custom_field_update EventOrchestrationGlobal#incident_custom_field_update}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#priority EventOrchestrationGlobal#priority}.
+        :param route_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#route_to EventOrchestrationGlobal#route_to}.
+        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#severity EventOrchestrationGlobal#severity}.
+        :param suppress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suppress EventOrchestrationGlobal#suppress}.
+        :param suspend: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#suspend EventOrchestrationGlobal#suspend}.
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/event_orchestration_global#variable EventOrchestrationGlobal#variable}
         '''
         value = EventOrchestrationGlobalSetRuleActions(
             annotate=annotate,

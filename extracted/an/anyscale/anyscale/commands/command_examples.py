@@ -77,6 +77,64 @@ NAME    ID                                    COST  PROJECT NAME    CLUSTER NAME
 my-job  prodjob_s9x4uzc5jnkt5z53g4tujb3y2e       0  default         cluster_for_prodjob_s9x4uzc5jnkt5z53g4tujb3y2e  SUCCESS                 doc@anyscale.com  python main.py
 """
 
+JOB_QUEUE_LIST = """\
+$ anyscale job-queue list
+Output
+JOB QUEUES:
+             ID                 NAME              CLUSTER ID                      CREATOR ID             MAX CONCURRENCY    IDLE TIMEOUT SEC    CURRENT CLUSTER STATE
+jq_h8fcze2qkr8wttuuvapi1hvyuc  queue_3  ses_cjr7uaf1yh2ue5uzvd11p24p4u  usr_we8x7d7u8hq8mj2488ed9x47n6          3                 5000               Terminated
+jq_v5bx9z1sd4pbxasxhdms37j4gi  queue_2  ses_k86raeu6k1t6z1bvyejn3vblad  usr_we8x7d7u8hq8mj2488ed9x47n6         10                 5000               Terminated
+jq_ni6hk66nt3194msr7hzzj9daun  queue_1  ses_uhb8a9gamtarz68kcurpjh86sa  usr_we8x7d7u8hq8mj2488ed9x47n6         10                 5000               Terminated
+"""
+
+JOB_QUEUE_INFO = """\
+$ anyscale job-queue info --id jq_h8fcze2qkr8wttuuvapi1hvyuc
+Output
+ID                            : jq_h8fcze2qkr8wttuuvapi1hvyuc
+USER PROVIDED ID              : queue_3
+NAME                          : queue_3
+CURRENT JOB QUEUE STATE       : ACTIVE
+EXECUTION MODE                : PRIORITY
+MAX CONCURRENCY               : 3
+IDLE TIMEOUT SEC              : 5000
+CREATED AT                    : 2025-04-15 20:40:44
+CREATOR ID                    : usr_we8x7d7u8hq8mj2488ed9x47n6
+CREATOR EMAIL                 : test@anyscale.com
+COMPUTE CONFIG ID             : cpt_8hzsv1t4jvb6kwjhfqbfjw5i6b
+CURRENT CLUSTER STATE         : Terminated
+CLUSTER ID                    : ses_cjr7uaf1yh2ue5uzvd11p24p4u
+PROJECT ID                    : prj_7FWKGPGPaD3Q5mvk9zK2viBD
+CLOUD ID                      : cld_kvedZWag2qA8i5BjxUevf5i7
+TOTAL JOBS                    : 6
+SUCCESSFUL JOBS               : 6
+FAILED JOBS                   : 0
+ACTIVE JOBS                   : 0
+"""
+
+JOB_QUEUE_UPDATE = """\
+$ anyscale job-queue update --id jq_h8fcze2qkr8wttuuvapi1hvyuc --max-concurrency 5
+Output
+ID                            : jq_h8fcze2qkr8wttuuvapi1hvyuc
+USER PROVIDED ID              : queue_3
+NAME                          : queue_3
+CURRENT JOB QUEUE STATE       : ACTIVE
+EXECUTION MODE                : PRIORITY
+MAX CONCURRENCY               : 5
+IDLE TIMEOUT SEC              : 5000
+CREATED AT                    : 2025-04-15 20:40:44
+CREATOR ID                    : usr_we8x7d7u8hq8mj2488ed9x47n6
+CREATOR EMAIL                 : test@anyscale.com
+COMPUTE CONFIG ID             : cpt_8hzsv1t4jvb6kwjhfqbfjw5i6b
+CURRENT CLUSTER STATE         : Terminated
+CLUSTER ID                    : ses_cjr7uaf1yh2ue5uzvd11p24p4u
+PROJECT ID                    : prj_7FWKGPGPaD3Q5mvk9zK2viBD
+CLOUD ID                      : cld_kvedZWag2qA8i5BjxUevf5i7
+TOTAL JOBS                    : 6
+SUCCESSFUL JOBS               : 6
+FAILED JOBS                   : 0
+ACTIVE JOBS                   : 0
+"""
+
 SCHEDULE_APPLY_EXAMPLE = """\
 $ anyscale schedule apply -n my-schedule -f my-schedule.yaml
 (anyscale +0.5s) Applying schedule with config ScheduleConfig(job_config=JobConfig(name='my-schedule', image_uri=None, compute_config=None, env_vars=None, py_modules=None, cloud=None, project=None, ray_version=None, job_queue_config=None), cron_expression='0 0 * * * *', timezone='UTC').

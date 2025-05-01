@@ -543,6 +543,23 @@ def uc_open_with_cdp_mode(driver, url=None, **kwargs):
     if url_protocol not in ["about", "data", "chrome"]:
         safe_url = False
 
+    if (
+        hasattr(driver, "_is_using_cdp")
+        and driver._is_using_cdp
+        and hasattr(driver, "cdp")
+        and driver.cdp
+        and hasattr(driver.cdp, "loop")
+    ):
+        # CDP Mode was already initialized
+        driver.cdp.open(url, **kwargs)
+        if not safe_url:
+            time.sleep(constants.UC.CDP_MODE_OPEN_WAIT)
+            if IS_WINDOWS:
+                time.sleep(constants.UC.EXTRA_WINDOWS_WAIT)
+        else:
+            time.sleep(0.012)
+        return
+
     headless = False
     headed = None
     xvfb = None

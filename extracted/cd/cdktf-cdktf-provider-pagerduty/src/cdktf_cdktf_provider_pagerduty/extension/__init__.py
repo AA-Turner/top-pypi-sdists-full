@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_extension`
 
-Refer to the Terraform Registry for docs: [`pagerduty_extension`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension).
+Refer to the Terraform Registry for docs: [`pagerduty_extension`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Extension(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.extension.Extension",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension pagerduty_extension}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension pagerduty_extension}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class Extension(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension pagerduty_extension} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension pagerduty_extension} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param extension_objects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#extension_objects Extension#extension_objects}.
-        :param extension_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#extension_schema Extension#extension_schema}.
-        :param config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#config Extension#config}.
-        :param endpoint_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#endpoint_url Extension#endpoint_url}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#name Extension#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#type Extension#type}.
+        :param extension_objects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#extension_objects Extension#extension_objects}.
+        :param extension_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#extension_schema Extension#extension_schema}.
+        :param config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#config Extension#config}.
+        :param endpoint_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#endpoint_url Extension#endpoint_url}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#name Extension#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#type Extension#type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class Extension(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Extension to import.
-        :param import_from_id: The id of the existing Extension that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Extension that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Extension to import is found.
         '''
         if __debug__:
@@ -321,12 +321,12 @@ class ExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param extension_objects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#extension_objects Extension#extension_objects}.
-        :param extension_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#extension_schema Extension#extension_schema}.
-        :param config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#config Extension#config}.
-        :param endpoint_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#endpoint_url Extension#endpoint_url}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#name Extension#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#type Extension#type}.
+        :param extension_objects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#extension_objects Extension#extension_objects}.
+        :param extension_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#extension_schema Extension#extension_schema}.
+        :param config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#config Extension#config}.
+        :param endpoint_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#endpoint_url Extension#endpoint_url}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#name Extension#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#type Extension#type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -438,39 +438,39 @@ class ExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def extension_objects(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#extension_objects Extension#extension_objects}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#extension_objects Extension#extension_objects}.'''
         result = self._values.get("extension_objects")
         assert result is not None, "Required property 'extension_objects' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def extension_schema(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#extension_schema Extension#extension_schema}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#extension_schema Extension#extension_schema}.'''
         result = self._values.get("extension_schema")
         assert result is not None, "Required property 'extension_schema' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def config(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#config Extension#config}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#config Extension#config}.'''
         result = self._values.get("config")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def endpoint_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#endpoint_url Extension#endpoint_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#endpoint_url Extension#endpoint_url}.'''
         result = self._values.get("endpoint_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#name Extension#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#name Extension#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/extension#type Extension#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/extension#type Extension#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 

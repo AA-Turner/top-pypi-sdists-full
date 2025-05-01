@@ -161,6 +161,7 @@ PACKAGE_EXTENSION = "{}/v2/package_extensions/{}"
 PACKAGE_EXTENSIONS = "{}/v2/package_extensions"
 PARAMETER_SET = "{}/v2/parameter_sets/{}"
 PARAMETER_SETS = "{}/v2/parameter_sets"
+JOBS_RUNS = "{}/v2/jobs/{}/runs/{}"
 
 V4GA_CLOUD_MIGRATION = "{}/ml/v4/repository"
 V4GA_CLOUD_MIGRATION_ID = "{}/ml/v4/repository/{}"
@@ -201,7 +202,8 @@ PROMPTS = "{}/wx/v1-beta/prompts"
 GA_PROMPTS = "{}/wx/v1/prompts"
 PROMPTS_GET_ALL = "{}/v2/asset_types/wx_prompt/search"
 
-TEXT_EXTRACTION = "{}/ml/v1/text/extractions"
+TEXT_EXTRACTIONS = "{}/ml/v1/text/extractions"
+TEXT_EXTRACTION = "{}/ml/v1/text/extractions/{}"
 
 RERANK = "{}/ml/v1/text/rerank"
 
@@ -816,8 +818,11 @@ class HrefDefinitions:
             self._get_platform_url_if_exists()
         )
 
-    def get_text_extraction_href(self, ga_api: bool = True) -> str:
-        return TEXT_EXTRACTION.format(self._credentials.url)
+    def get_text_extractions_href(self, ga_api: bool = True) -> str:
+        return TEXT_EXTRACTIONS.format(self._credentials.url)
+
+    def get_text_extraction_href(self, text_extraction_id: str) -> str:
+        return TEXT_EXTRACTION.format(self._credentials.url, text_extraction_id)
 
     def get_rerank_href(self) -> str:
         return RERANK.format(self._credentials.url)
@@ -877,3 +882,6 @@ class HrefDefinitions:
 
     def get_utility_agent_tools_run_href(self):
         return UTILITY_AGENT_TOOLS_RUN_BETA.format(self._get_platform_url_if_exists())
+
+    def get_jobs_runs_href(self, job_id: str, run_id: str):
+        return JOBS_RUNS.format(self._get_platform_url_if_exists(), job_id, run_id)

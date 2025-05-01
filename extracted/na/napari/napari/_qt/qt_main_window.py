@@ -59,6 +59,7 @@ from napari._qt.dialogs.confirm_close_dialog import ConfirmCloseDialog
 from napari._qt.dialogs.preferences_dialog import PreferencesDialog
 from napari._qt.dialogs.qt_activity_dialog import QtActivityDialog
 from napari._qt.dialogs.qt_notification import NapariQtNotification
+from napari._qt.dialogs.shimmed_plugin_dialog import ShimmedPluginDialog
 from napari._qt.qt_event_loop import (
     NAPARI_ICON_PATH,
     get_qapp,
@@ -68,6 +69,7 @@ from napari._qt.qt_resources import get_stylesheet
 from napari._qt.qt_viewer import QtViewer
 from napari._qt.threads.status_checker import StatusChecker
 from napari._qt.utils import QImg2array, qbytearray_to_str, str_to_qbytearray
+from napari._qt.widgets.qt_command_palette import QCommandPalette
 from napari._qt.widgets.qt_viewer_dock_widget import (
     _SHORTCUT_DEPRECATION_STRING,
     QtViewerDockWidget,
@@ -213,6 +215,8 @@ class _QtMainWindow(QMainWindow):
             self._toggle_status_thread
         )
 
+        self._command_palette = QCommandPalette(self)
+
     def _toggle_status_thread(self, event: Event):
         if event.value:
             self.status_thread.start()
@@ -247,7 +251,7 @@ class _QtMainWindow(QMainWindow):
         super().hideEvent(event)
 
     def set_status_and_tooltip(
-        self, status_and_tooltip: Optional[tuple[Union[str, dict], str]]
+        self, status_and_tooltip: tuple[str | dict, str] | None
     ):
         if status_and_tooltip is None:
             return
@@ -456,6 +460,31 @@ class _QtMainWindow(QMainWindow):
         if settings.application.save_window_state:
             settings.application.window_state = window_state
 
+    def _warn_on_shimmed_plugins(self) -> None:
+        """Warn about shimmed plugins if needed.
+
+        In 0.6.0, a plugin using the deprecated plugin engine will be automatically
+        converted so it can be used with npe2. By default, a dialog is displayed
+        with each startup listing all shimmed plugins. The user can change this setting
+        to only be warned about newly installed shimmed plugins.
+
+        """
+        from npe2 import plugin_manager as pm
+
+        settings = get_settings()
+        shimmed_plugins = set(pm.get_shimmed_plugins())
+        if settings.plugins.only_new_shimmed_plugins_warning:
+            new_plugins = (
+                shimmed_plugins
+                - settings.plugins.already_warned_shimmed_plugins
+            )
+        else:
+            new_plugins = shimmed_plugins
+
+        if new_plugins:
+            dialog = ShimmedPluginDialog(self, new_plugins)
+            dialog.exec_()
+
     def close(self, quit_app=False, confirm_need=False):
         """Override to handle closing app or just the window."""
         if not quit_app and not self._qt_viewer.viewer.layers:
@@ -467,7 +496,8 @@ class _QtMainWindow(QMainWindow):
         if (
             not confirm_need_local
             or not get_settings().application.confirm_close_window
-            or ConfirmCloseDialog(self, quit_app).exec_() == QDialog.Accepted
+            or ConfirmCloseDialog(self, quit_app).exec_()
+            == QDialog.DialogCode.Accepted
         ):
             self._quit_app = quit_app
             self._is_close_dialog[quit_app] = True
@@ -582,7 +612,7 @@ class _QtMainWindow(QMainWindow):
             event.ignore()
             return
 
-        self.status_thread.terminate()
+        self.status_thread.close_terminate()
         self.status_thread.wait()
 
         if self._ev and self._ev.isRunning():
@@ -733,6 +763,8 @@ class Window:
                 [self._qt_viewer.dockLayerControls.minimumHeight(), 10000],
                 Qt.Orientation.Vertical,
             )
+            # TODO: where to put this?
+            self._qt_window._warn_on_shimmed_plugins()
 
     def _setup_existing_themes(self, connect: bool = True):
         """This function is only executed once at the startup of napari
@@ -817,7 +849,7 @@ class Window:
         warnings.warn(
             trans._(
                 'Public access to Window.qt_viewer is deprecated and will be removed in\n'
-                'v0.6.0. It is considered an "implementation detail" of the napari\napplication, '
+                'v0.7.0. It is considered an "implementation detail" of the napari\napplication, '
                 'not part of the napari viewer model. If your use case\n'
                 'requires access to qt_viewer, please open an issue to discuss.',
                 deferred=True,
@@ -993,6 +1025,15 @@ class Window:
         toggle_menubar_visibility = self._qt_window.toggle_menubar_visibility()
         self._main_menu_shortcut.setEnabled(toggle_menubar_visibility)
 
+    def _toggle_command_palette(self):
+        """Toggle the visibility of the command palette."""
+        palette = self._qt_window._command_palette
+        if palette.isVisible():
+            palette.hide()
+        else:
+            palette.update_context(self._qt_window)
+            palette.show()
+
     def _toggle_fullscreen(self):
         """Toggle fullscreen mode."""
         if self._qt_window.isFullScreen():
@@ -1011,7 +1052,7 @@ class Window:
     def add_plugin_dock_widget(
         self,
         plugin_name: str,
-        widget_name: Optional[str] = None,
+        widget_name: str | None = None,
         tabify: bool = False,
     ) -> tuple[QtViewerDockWidget, Any]:
         """Add plugin dock widget if not already added.
@@ -1098,12 +1139,12 @@ class Window:
         widget: Union[QWidget, 'Widget'],
         *,
         name: str = '',
-        area: Optional[str] = None,
-        allowed_areas: Optional[Sequence[str]] = None,
+        area: str | None = None,
+        allowed_areas: Sequence[str] | None = None,
         shortcut=_sentinel,
         add_vertical_stretch=True,
         tabify: bool = False,
-        menu: Optional[QMenu] = None,
+        menu: QMenu | None = None,
     ):
         """Convenience method to add a QDockWidget to the main window.
 
@@ -1206,7 +1247,7 @@ class Window:
         self,
         dock_widget: QtViewerDockWidget,
         tabify: bool = False,
-        menu: Optional[QMenu] = None,
+        menu: QMenu | None = None,
     ):
         """Add a QtViewerDockWidget to the main window
 
@@ -1551,6 +1592,8 @@ class Window:
         event : napari.utils.event.Event
             The napari event that triggered this method.
         """
+        if not hasattr(self, '_qt_window'):
+            return
         if isinstance(event.value, str):
             self._status_bar.setStatusText(event.value)
         else:
@@ -1570,7 +1613,8 @@ class Window:
         event : napari.utils.event.Event
             The napari event that triggered this method.
         """
-        self._qt_window.setWindowTitle(event.value)
+        if hasattr(self, '_qt_window'):
+            self._qt_window.setWindowTitle(event.value)
 
     def _help_changed(self, event):
         """Update help message on status bar.
@@ -1580,16 +1624,18 @@ class Window:
         event : napari.utils.event.Event
             The napari event that triggered this method.
         """
-        self._status_bar.setHelpText(event.value)
+        if hasattr(self, '_qt_window'):
+            self._status_bar.setHelpText(event.value)
 
     def _restart(self):
         """Restart the napari application."""
-        self._qt_window.restart()
+        if hasattr(self, '_qt_window'):
+            self._qt_window.restart()
 
     def _screenshot(
         self,
-        size: Optional[tuple[int, int]] = None,
-        scale: Optional[float] = None,
+        size: tuple[int, int] | None = None,
+        scale: float | None = None,
         flash: bool = True,
         canvas_only: bool = False,
         fit_to_data_extent: bool = False,
@@ -1642,13 +1688,6 @@ class Window:
                     deferred=True,
                 )
             )
-        if fit_to_data_extent and ndisplay > 2:
-            raise NotImplementedError(
-                trans._(
-                    'fit_to_data_extent is not yet implemented for 3D view.',
-                    deferred=True,
-                )
-            )
         if size is not None and len(size) != 2:
             raise ValueError(
                 trans._(
@@ -1660,17 +1699,29 @@ class Window:
 
         # Part 2: compute canvas size and view based on parameters
         if fit_to_data_extent:
-            extent_world = self._qt_viewer.viewer.layers.extent.world[1][
-                -ndisplay:
-            ]
-            extent_step = min(
+            # Use the same scene parameter calculations as in viewer_model.fit_to_view
+            extent, _, _, total_size = (
+                self._qt_viewer.viewer._get_scene_parameters()
+            )
+            extent_scale = min(
                 self._qt_viewer.viewer.layers.extent.step[-ndisplay:]
             )
-            size = extent_world / extent_step + 1
+
+            if ndisplay == 3:
+                total_size = self._qt_viewer.viewer._calculate_bounding_box(
+                    extent=extent,
+                    view_direction=self._qt_viewer.viewer.camera.view_direction,
+                    up_direction=self._qt_viewer.viewer.camera.up_direction,
+                )
+
+            # adjust size by the scale, to return the size in real pixels
+            size = np.ceil(total_size / extent_scale).astype(int)
+
         if size is not None:
             size = np.asarray(size) / self._qt_window.devicePixelRatio()
         else:
             size = np.asarray(prev_size)
+
         if scale is not None:
             # multiply canvas dimensions by the scale factor to get new size
             size *= scale
@@ -1680,7 +1731,7 @@ class Window:
             canvas.size = tuple(size.astype(int))
             if fit_to_data_extent:
                 # tight view around data
-                self._qt_viewer.viewer.reset_view(margin=0)
+                self._qt_viewer.viewer.fit_to_view(margin=0)
             try:
                 img = canvas.screenshot()
                 if flash:
@@ -1698,7 +1749,7 @@ class Window:
 
     def export_figure(
         self,
-        path: Optional[str] = None,
+        path: str | None = None,
         scale: float = 1,
         flash=True,
     ) -> np.ndarray:
@@ -1707,8 +1758,7 @@ class Window:
         This function finds a tight boundary around the data, resets the view
         around that boundary (and, when scale=1, such that 1 captured pixel is
         equivalent to one data pixel), takes a screenshot, then restores the
-        previous zoom and canvas sizes. Currently, only works when 2 dimensions
-        are displayed.
+        previous zoom and canvas sizes.
 
         Parameters
         ----------
@@ -1728,7 +1778,7 @@ class Window:
             Numpy array of type ubyte and shape (h, w, 4). Index [0, 0] is the
             upper-left corner of the rendered region.
         """
-        if not isinstance(scale, (float, int)):
+        if not isinstance(scale, float | int):
             raise TypeError(
                 trans._(
                     'Scale must be a float or an int.',
@@ -1750,8 +1800,8 @@ class Window:
     def export_rois(
         self,
         rois: list[np.ndarray],
-        paths: Optional[Union[str, Path, list[Union[str, Path]]]] = None,
-        scale: Optional[float] = None,
+        paths: str | Path | list[str | Path] | None = None,
+        scale: float | None = None,
     ):
         """Export the given rectangular rois to specified file paths.
 
@@ -1797,7 +1847,7 @@ class Window:
                 )
             )
 
-        if isinstance(paths, (str, Path)):
+        if isinstance(paths, str | Path):
             storage_dir = Path(paths).expanduser()
             storage_dir.mkdir(parents=True, exist_ok=True)
             paths = [storage_dir / f'roi_{n}.png' for n in range(len(rois))]

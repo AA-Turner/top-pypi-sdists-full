@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_confluent_resource`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_confluent_resource`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource).
+Refer to the Terraform Registry for docs: [`datadog_integration_confluent_resource`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationConfluentResource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationConfluentResource.IntegrationConfluentResource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource datadog_integration_confluent_resource}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource datadog_integration_confluent_resource}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class IntegrationConfluentResource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource datadog_integration_confluent_resource} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource datadog_integration_confluent_resource} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: Confluent Account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#account_id IntegrationConfluentResource#account_id}
-        :param resource_id: The ID associated with a Confluent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#resource_id IntegrationConfluentResource#resource_id}
-        :param enable_custom_metrics: Enable the ``custom.consumer_lag_offset`` metric, which contains extra metric tags. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#enable_custom_metrics IntegrationConfluentResource#enable_custom_metrics}
-        :param resource_type: The resource type of the Resource. Can be ``kafka``, ``connector``, ``ksql``, or ``schema_registry``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#resource_type IntegrationConfluentResource#resource_type}
-        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#tags IntegrationConfluentResource#tags}
+        :param account_id: Confluent Account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#account_id IntegrationConfluentResource#account_id}
+        :param resource_id: The ID associated with a Confluent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#resource_id IntegrationConfluentResource#resource_id}
+        :param enable_custom_metrics: Enable the ``custom.consumer_lag_offset`` metric, which contains extra metric tags. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#enable_custom_metrics IntegrationConfluentResource#enable_custom_metrics}
+        :param resource_type: The resource type of the Resource. Can be ``kafka``, ``connector``, ``ksql``, or ``schema_registry``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#resource_type IntegrationConfluentResource#resource_type}
+        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#tags IntegrationConfluentResource#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class IntegrationConfluentResource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationConfluentResource to import.
-        :param import_from_id: The id of the existing IntegrationConfluentResource that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationConfluentResource that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationConfluentResource to import is found.
         '''
         if __debug__:
@@ -292,11 +292,11 @@ class IntegrationConfluentResourceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_id: Confluent Account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#account_id IntegrationConfluentResource#account_id}
-        :param resource_id: The ID associated with a Confluent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#resource_id IntegrationConfluentResource#resource_id}
-        :param enable_custom_metrics: Enable the ``custom.consumer_lag_offset`` metric, which contains extra metric tags. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#enable_custom_metrics IntegrationConfluentResource#enable_custom_metrics}
-        :param resource_type: The resource type of the Resource. Can be ``kafka``, ``connector``, ``ksql``, or ``schema_registry``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#resource_type IntegrationConfluentResource#resource_type}
-        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#tags IntegrationConfluentResource#tags}
+        :param account_id: Confluent Account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#account_id IntegrationConfluentResource#account_id}
+        :param resource_id: The ID associated with a Confluent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#resource_id IntegrationConfluentResource#resource_id}
+        :param enable_custom_metrics: Enable the ``custom.consumer_lag_offset`` metric, which contains extra metric tags. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#enable_custom_metrics IntegrationConfluentResource#enable_custom_metrics}
+        :param resource_type: The resource type of the Resource. Can be ``kafka``, ``connector``, ``ksql``, or ``schema_registry``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#resource_type IntegrationConfluentResource#resource_type}
+        :param tags: A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#tags IntegrationConfluentResource#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -407,7 +407,7 @@ class IntegrationConfluentResourceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def account_id(self) -> builtins.str:
         '''Confluent Account ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#account_id IntegrationConfluentResource#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#account_id IntegrationConfluentResource#account_id}
         '''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
@@ -417,7 +417,7 @@ class IntegrationConfluentResourceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def resource_id(self) -> builtins.str:
         '''The ID associated with a Confluent resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#resource_id IntegrationConfluentResource#resource_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#resource_id IntegrationConfluentResource#resource_id}
         '''
         result = self._values.get("resource_id")
         assert result is not None, "Required property 'resource_id' is missing"
@@ -429,7 +429,7 @@ class IntegrationConfluentResourceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable the ``custom.consumer_lag_offset`` metric, which contains extra metric tags. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#enable_custom_metrics IntegrationConfluentResource#enable_custom_metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#enable_custom_metrics IntegrationConfluentResource#enable_custom_metrics}
         '''
         result = self._values.get("enable_custom_metrics")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -438,7 +438,7 @@ class IntegrationConfluentResourceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def resource_type(self) -> typing.Optional[builtins.str]:
         '''The resource type of the Resource. Can be ``kafka``, ``connector``, ``ksql``, or ``schema_registry``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#resource_type IntegrationConfluentResource#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#resource_type IntegrationConfluentResource#resource_type}
         '''
         result = self._values.get("resource_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -447,7 +447,7 @@ class IntegrationConfluentResourceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of strings representing tags. Can be a single key, or key-value pairs separated by a colon.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_confluent_resource#tags IntegrationConfluentResource#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_confluent_resource#tags IntegrationConfluentResource#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

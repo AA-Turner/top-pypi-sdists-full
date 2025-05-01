@@ -1,7 +1,7 @@
 r'''
 # `datadog_team_membership`
 
-Refer to the Terraform Registry for docs: [`datadog_team_membership`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership).
+Refer to the Terraform Registry for docs: [`datadog_team_membership`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TeamMembership(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.teamMembership.TeamMembership",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership datadog_team_membership}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership datadog_team_membership}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class TeamMembership(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership datadog_team_membership} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership datadog_team_membership} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param team_id: ID of the team the team membership is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#team_id TeamMembership#team_id}
-        :param user_id: The ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#user_id TeamMembership#user_id}
-        :param role: The user's role within the team. Valid values are ``admin``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#role TeamMembership#role}
+        :param team_id: ID of the team the team membership is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#team_id TeamMembership#team_id}
+        :param user_id: The ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#user_id TeamMembership#user_id}
+        :param role: The user's role within the team. Valid values are ``admin``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#role TeamMembership#role}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class TeamMembership(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TeamMembership to import.
-        :param import_from_id: The id of the existing TeamMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TeamMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TeamMembership to import is found.
         '''
         if __debug__:
@@ -233,9 +233,9 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param team_id: ID of the team the team membership is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#team_id TeamMembership#team_id}
-        :param user_id: The ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#user_id TeamMembership#user_id}
-        :param role: The user's role within the team. Valid values are ``admin``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#role TeamMembership#role}
+        :param team_id: ID of the team the team membership is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#team_id TeamMembership#team_id}
+        :param user_id: The ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#user_id TeamMembership#user_id}
+        :param role: The user's role within the team. Valid values are ``admin``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#role TeamMembership#role}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,7 +340,7 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_id(self) -> builtins.str:
         '''ID of the team the team membership is associated with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#team_id TeamMembership#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#team_id TeamMembership#team_id}
         '''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
@@ -350,7 +350,7 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_id(self) -> builtins.str:
         '''The ID of the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#user_id TeamMembership#user_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#user_id TeamMembership#user_id}
         '''
         result = self._values.get("user_id")
         assert result is not None, "Required property 'user_id' is missing"
@@ -360,7 +360,7 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role(self) -> typing.Optional[builtins.str]:
         '''The user's role within the team. Valid values are ``admin``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/team_membership#role TeamMembership#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/team_membership#role TeamMembership#role}
         '''
         result = self._values.get("role")
         return typing.cast(typing.Optional[builtins.str], result)

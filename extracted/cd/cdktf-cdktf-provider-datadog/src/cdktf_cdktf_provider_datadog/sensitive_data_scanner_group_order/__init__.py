@@ -1,7 +1,7 @@
 r'''
 # `datadog_sensitive_data_scanner_group_order`
 
-Refer to the Terraform Registry for docs: [`datadog_sensitive_data_scanner_group_order`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group_order).
+Refer to the Terraform Registry for docs: [`datadog_sensitive_data_scanner_group_order`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group_order).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SensitiveDataScannerGroupOrder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.sensitiveDataScannerGroupOrder.SensitiveDataScannerGroupOrder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group_order datadog_sensitive_data_scanner_group_order}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group_order datadog_sensitive_data_scanner_group_order}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class SensitiveDataScannerGroupOrder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group_order datadog_sensitive_data_scanner_group_order} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group_order datadog_sensitive_data_scanner_group_order} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group_ids: The list of Sensitive Data Scanner group IDs, in order. Logs are tested against the query filter of each index one by one following the order of the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group_order#group_ids SensitiveDataScannerGroupOrder#group_ids}
+        :param group_ids: The list of Sensitive Data Scanner group IDs, in order. Logs are tested against the query filter of each index one by one following the order of the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group_order#group_ids SensitiveDataScannerGroupOrder#group_ids}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class SensitiveDataScannerGroupOrder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SensitiveDataScannerGroupOrder to import.
-        :param import_from_id: The id of the existing SensitiveDataScannerGroupOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group_order#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SensitiveDataScannerGroupOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group_order#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SensitiveDataScannerGroupOrder to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class SensitiveDataScannerGroupOrderConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group_ids: The list of Sensitive Data Scanner group IDs, in order. Logs are tested against the query filter of each index one by one following the order of the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group_order#group_ids SensitiveDataScannerGroupOrder#group_ids}
+        :param group_ids: The list of Sensitive Data Scanner group IDs, in order. Logs are tested against the query filter of each index one by one following the order of the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group_order#group_ids SensitiveDataScannerGroupOrder#group_ids}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -287,7 +287,7 @@ class SensitiveDataScannerGroupOrderConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         Logs are tested against the query filter of each index one by one following the order of the list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/sensitive_data_scanner_group_order#group_ids SensitiveDataScannerGroupOrder#group_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/sensitive_data_scanner_group_order#group_ids SensitiveDataScannerGroupOrder#group_ids}
         '''
         result = self._values.get("group_ids")
         assert result is not None, "Required property 'group_ids' is missing"

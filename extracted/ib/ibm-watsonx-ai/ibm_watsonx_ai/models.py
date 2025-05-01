@@ -1590,10 +1590,6 @@ class Models(WMLResource):
         elif isinstance(meta_props, dict) and meta_props.get(
             self.ConfigurationMetaNames.TYPE, ""
         ).startswith("base_foundation_model"):
-            if self._client.CLOUD_PLATFORM_SPACES:
-                raise WMLClientError(
-                    error_msg="Deployment of Base Foundation Model is unsupported for this release."
-                )
             if self._client.CPD_version < 5.0:
                 raise WMLClientError(
                     Messages.get_message(">= 5.0", message_id="invalid_cpd_version")

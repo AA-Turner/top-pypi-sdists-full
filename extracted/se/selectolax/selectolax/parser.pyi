@@ -1,4 +1,4 @@
-from typing import Any, Iterator, TypeVar, Literal, overload
+from typing import Iterator, TypeVar, Literal, overload
 
 DefaultT = TypeVar("DefaultT")
 
@@ -146,17 +146,13 @@ class Node:
         ...
     @overload
     def css_first(
-        self, query: str, default: Any = ..., strict: Literal[True] = ...
-    ) -> Node: ...
+            self, query: str, default: DefaultT, strict: bool = False
+    ) -> Node | DefaultT:
+        ...
     @overload
     def css_first(
-        self, query: str, default: DefaultT, strict: bool = False
-    ) -> Node | DefaultT: ...
-    @overload
-    def css_first(
-        self, query: str, default: None = ..., strict: bool = False
-    ) -> Node | None:
-        """Evaluate CSS selector against current node and its child nodes."""
+            self, query: str, default: None = None, strict: bool = False
+    ) -> Node | None | DefaultT:
         ...
     def decompose(self, recursive: bool = True) -> None:
         """Remove a Node from the tree."""
@@ -170,7 +166,7 @@ class Node:
     def strip_tags(self, tags: list[str], recursive: bool = False) -> None:
         """Remove specified tags from the HTML tree."""
         ...
-    def unwrap_tags(self, tags: list[str]) -> None:
+    def unwrap_tags(self, tags: list[str], delete_empty: bool = False) -> None:
         """Unwraps specified tags from the HTML tree.
 
         Works the same as the unwrap method, but applied to a list of tags."""
@@ -237,17 +233,14 @@ class HTMLParser:
         ...
     @overload
     def css_first(
-        self, query: str, default: Any = ..., strict: Literal[True] = ...
-    ) -> Node: ...
-    @overload
-    def css_first(
         self, query: str, default: DefaultT, strict: bool = False
-    ) -> Node | DefaultT: ...
+    ) -> Node | DefaultT:
+        ...
+
     @overload
     def css_first(
-        self, query: str, default: None = ..., strict: bool = False
-    ) -> Node | None:
-        """Same as css but returns only the first match."""
+            self, query: str, default: None = None, strict: bool = False
+    ) -> Node | None | DefaultT:
         ...
     @property
     def input_encoding(self) -> str:
@@ -274,7 +267,7 @@ class HTMLParser:
         """Returns the text of the node including text of all its child nodes."""
         ...
     def strip_tags(self, tags: list[str], recursive: bool = False) -> None: ...
-    def unwrap_tags(self, tags: list[str]) -> None:
+    def unwrap_tags(self, tags: list[str], delete_empty: bool = False) -> None:
         """Unwraps specified tags from the HTML tree.
 
         Works the same as th unwrap method, but applied to a list of tags."""

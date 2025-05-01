@@ -53,6 +53,8 @@ from .literals import (
     RuleVerdictOperatorType,
     RuleVerdictType,
     SearchStateType,
+    SnsNotificationEncodingType,
+    SnsNotificationPayloadTypeType,
 )
 
 if sys.version_info >= (3, 9):
@@ -282,6 +284,7 @@ __all__ = (
     "SearchStatusTypeDef",
     "SearchSummaryTypeDef",
     "SendActionTypeDef",
+    "SnsActionTypeDef",
     "StartAddressListImportJobRequestTypeDef",
     "StartArchiveExportRequestTypeDef",
     "StartArchiveExportResponseTypeDef",
@@ -649,6 +652,13 @@ class S3ActionTypeDef(TypedDict):
 class SendActionTypeDef(TypedDict):
     RoleArn: str
     ActionFailurePolicy: NotRequired[ActionFailurePolicyType]
+
+class SnsActionTypeDef(TypedDict):
+    RoleArn: str
+    TopicArn: str
+    ActionFailurePolicy: NotRequired[ActionFailurePolicyType]
+    Encoding: NotRequired[SnsNotificationEncodingType]
+    PayloadType: NotRequired[SnsNotificationPayloadTypeType]
 
 class RuleIsInAddressListOutputTypeDef(TypedDict):
     AddressLists: List[str]
@@ -1076,6 +1086,7 @@ class RuleActionOutputTypeDef(TypedDict):
     DeliverToMailbox: NotRequired[DeliverToMailboxActionTypeDef]
     DeliverToQBusiness: NotRequired[DeliverToQBusinessActionTypeDef]
     Drop: NotRequired[Dict[str, Any]]
+    PublishToSns: NotRequired[SnsActionTypeDef]
     Relay: NotRequired[RelayActionTypeDef]
     ReplaceRecipient: NotRequired[ReplaceRecipientActionOutputTypeDef]
     Send: NotRequired[SendActionTypeDef]
@@ -1234,6 +1245,7 @@ class RuleActionTypeDef(TypedDict):
     DeliverToMailbox: NotRequired[DeliverToMailboxActionTypeDef]
     DeliverToQBusiness: NotRequired[DeliverToQBusinessActionTypeDef]
     Drop: NotRequired[Mapping[str, Any]]
+    PublishToSns: NotRequired[SnsActionTypeDef]
     Relay: NotRequired[RelayActionTypeDef]
     ReplaceRecipient: NotRequired[ReplaceRecipientActionUnionTypeDef]
     Send: NotRequired[SendActionTypeDef]

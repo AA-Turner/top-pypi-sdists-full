@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_service_dependency`
 
-Refer to the Terraform Registry for docs: [`pagerduty_service_dependency`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency).
+Refer to the Terraform Registry for docs: [`pagerduty_service_dependency`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceDependency(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.serviceDependency.ServiceDependency",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency pagerduty_service_dependency}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency pagerduty_service_dependency}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class ServiceDependency(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency pagerduty_service_dependency} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency pagerduty_service_dependency} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dependency: dependency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#dependency ServiceDependency#dependency}
+        :param dependency: dependency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#dependency ServiceDependency#dependency}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class ServiceDependency(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceDependency to import.
-        :param import_from_id: The id of the existing ServiceDependency that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceDependency that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceDependency to import is found.
         '''
         if __debug__:
@@ -197,7 +197,7 @@ class ServiceDependencyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dependency: dependency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#dependency ServiceDependency#dependency}
+        :param dependency: dependency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#dependency ServiceDependency#dependency}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -299,7 +299,7 @@ class ServiceDependencyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceDependencyDependency"]]]:
         '''dependency block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#dependency ServiceDependency#dependency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#dependency ServiceDependency#dependency}
         '''
         result = self._values.get("dependency")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceDependencyDependency"]]], result)
@@ -334,9 +334,9 @@ class ServiceDependencyDependency:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dependent_service: dependent_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#dependent_service ServiceDependency#dependent_service}
-        :param supporting_service: supporting_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#supporting_service ServiceDependency#supporting_service}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#type ServiceDependency#type}.
+        :param dependent_service: dependent_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#dependent_service ServiceDependency#dependent_service}
+        :param supporting_service: supporting_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#supporting_service ServiceDependency#supporting_service}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#type ServiceDependency#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ff3e24cccd4281c5dbef74bd5698239db5bdd3b50fc507ffee559b14d5d1ba2)
@@ -357,7 +357,7 @@ class ServiceDependencyDependency:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceDependencyDependencyDependentService"]]]:
         '''dependent_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#dependent_service ServiceDependency#dependent_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#dependent_service ServiceDependency#dependent_service}
         '''
         result = self._values.get("dependent_service")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceDependencyDependencyDependentService"]]], result)
@@ -368,14 +368,14 @@ class ServiceDependencyDependency:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceDependencyDependencySupportingService"]]]:
         '''supporting_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#supporting_service ServiceDependency#supporting_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#supporting_service ServiceDependency#supporting_service}
         '''
         result = self._values.get("supporting_service")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceDependencyDependencySupportingService"]]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#type ServiceDependency#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#type ServiceDependency#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -399,8 +399,8 @@ class ServiceDependencyDependency:
 class ServiceDependencyDependencyDependentService:
     def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#id ServiceDependency#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#type ServiceDependency#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#id ServiceDependency#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#type ServiceDependency#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae035171c1783d94d86ea7eaab749a5e9390ebacca825ae65fd5610797e3ec6f)
@@ -413,7 +413,7 @@ class ServiceDependencyDependencyDependentService:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#id ServiceDependency#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#id ServiceDependency#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -424,7 +424,7 @@ class ServiceDependencyDependencyDependentService:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#type ServiceDependency#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#type ServiceDependency#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -833,8 +833,8 @@ class ServiceDependencyDependencyOutputReference(
 class ServiceDependencyDependencySupportingService:
     def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#id ServiceDependency#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#type ServiceDependency#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#id ServiceDependency#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#type ServiceDependency#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5170592014948b8a21e6954998e487dd44a4842c82193fa0f39a52b9da5c96b4)
@@ -847,7 +847,7 @@ class ServiceDependencyDependencySupportingService:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#id ServiceDependency#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#id ServiceDependency#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -858,7 +858,7 @@ class ServiceDependencyDependencySupportingService:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_dependency#type ServiceDependency#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_dependency#type ServiceDependency#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)

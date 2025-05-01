@@ -310,6 +310,8 @@ from openapi_client.models.job_details import JobDetails
 from openapi_client.models.job_queue import JobQueue
 from openapi_client.models.job_queue_config import JobQueueConfig
 from openapi_client.models.job_queue_execution_mode import JobQueueExecutionMode
+from openapi_client.models.job_queue_sort_directive import JobQueueSortDirective
+from openapi_client.models.job_queue_sort_field import JobQueueSortField
 from openapi_client.models.job_queue_spec import JobQueueSpec
 from openapi_client.models.job_queue_state import JobQueueState
 from openapi_client.models.job_queues_query import JobQueuesQuery
@@ -560,6 +562,7 @@ from openapi_client.models.update_cloud_collaborator import UpdateCloudCollabora
 from openapi_client.models.update_cloud_with_cloud_resource import UpdateCloudWithCloudResource
 from openapi_client.models.update_cloud_with_cloud_resource_gcp import UpdateCloudWithCloudResourceGCP
 from openapi_client.models.update_cluster_dns import UpdateClusterDns
+from openapi_client.models.update_job_queue_request import UpdateJobQueueRequest
 from openapi_client.models.update_machine_pool_request import UpdateMachinePoolRequest
 from openapi_client.models.update_organization_collaborator import UpdateOrganizationCollaborator
 from openapi_client.models.update_project_collaborator import UpdateProjectCollaborator

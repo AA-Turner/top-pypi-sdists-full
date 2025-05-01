@@ -838,7 +838,7 @@ MODEL_RATIO = {
     "o1-preview-2024-09-12": 7.5,
     "o3-mini": 0.55,
     "o4-mini": 0.55,
-    "gpt-image-1": 5,
+    "gpt-image-1": 2.5,
 
     # 硅基
     "llama-3.1-8b-instruct": 0.01,
@@ -905,7 +905,7 @@ COMPLETION_RATIO = {
     "deepsearch": 4,
 
     # kimi
-    "kimi-latest-8k	": 5,
+    "kimi-latest-8k": 5,
     "kimi-latest-32k": 4,
     "kimi-latest-128k": 3,
 

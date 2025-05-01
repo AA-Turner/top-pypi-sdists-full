@@ -78,7 +78,9 @@ from langchain_core.output_parsers.openai_tools import (
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable, RunnableConfig, RunnablePassthrough
 from langchain_core.tools import BaseTool
+from langchain_core.utils import get_pydantic_field_names
 from langchain_core.utils.function_calling import convert_to_openai_tool
+from langchain_core.utils.utils import _build_model_kwargs
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -463,7 +465,7 @@ def _parse_response_candidate(
         try:
             text: Optional[str] = part.text
             # Remove erroneous newline character if present
-            if text is not None:
+            if not streaming and text is not None:
                 text = text.rstrip("\n")
         except AttributeError:
             text = None
@@ -621,14 +623,24 @@ def _response_to_result(
         input_tokens = response.usage_metadata.prompt_token_count
         output_tokens = response.usage_metadata.candidates_token_count
         total_tokens = response.usage_metadata.total_token_count
+        thought_tokens = response.usage_metadata.thoughts_token_count
         cache_read_tokens = response.usage_metadata.cached_content_token_count
         if input_tokens + output_tokens + cache_read_tokens + total_tokens > 0:
-            lc_usage = UsageMetadata(
-                input_tokens=input_tokens - prev_input_tokens,
-                output_tokens=output_tokens - prev_output_tokens,
-                total_tokens=total_tokens - prev_total_tokens,
-                input_token_details={"cache_read": cache_read_tokens},
-            )
+            if thought_tokens > 0:
+                lc_usage = UsageMetadata(
+                    input_tokens=input_tokens - prev_input_tokens,
+                    output_tokens=output_tokens - prev_output_tokens,
+                    total_tokens=total_tokens - prev_total_tokens,
+                    input_token_details={"cache_read": cache_read_tokens},
+                    output_token_details={"reasoning": thought_tokens},
+                )
+            else:
+                lc_usage = UsageMetadata(
+                    input_tokens=input_tokens - prev_input_tokens,
+                    output_tokens=output_tokens - prev_output_tokens,
+                    total_tokens=total_tokens - prev_total_tokens,
+                    input_token_details={"cache_read": cache_read_tokens},
+                )
         else:
             lc_usage = None
     except AttributeError:
@@ -1015,6 +1027,9 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
     ``cachedContents/{cachedContent}``.
     """
 
+    model_kwargs: dict[str, Any] = Field(default_factory=dict)
+    """Holds any unexpected initialization parameters."""
+
     def __init__(self, **kwargs: Any) -> None:
         """Needed for arg validation."""
         # Get all valid field names, including aliases
@@ -1061,6 +1076,14 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
     def is_lc_serializable(self) -> bool:
         return True
 
+    @model_validator(mode="before")
+    @classmethod
+    def build_extra(cls, values: dict[str, Any]) -> Any:
+        """Build extra kwargs from additional params that were passed in."""
+        all_required_field_names = get_pydantic_field_names(cls)
+        values = _build_model_kwargs(values, all_required_field_names)
+        return values
+
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validates params and passes them to google-generativeai package."""
@@ -1080,7 +1103,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
 
         additional_headers = self.additional_headers or {}
         self.default_metadata = tuple(additional_headers.items())
-        client_info = get_client_info("ChatGoogleGenerativeAI")
+        client_info = get_client_info(f"ChatGoogleGenerativeAI:{self.model}")
         google_api_key = None
         if not self.credentials:
             if isinstance(self.google_api_key, SecretStr):
@@ -1120,7 +1143,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
             self.async_client_running = genaix.build_generative_async_service(
                 credentials=self.credentials,
                 api_key=google_api_key,
-                client_info=get_client_info("ChatGoogleGenerativeAI"),
+                client_info=get_client_info(f"ChatGoogleGenerativeAI:{self.model}"),
                 client_options=self.client_options,
                 transport=transport,
             )
@@ -1136,6 +1159,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
             "n": self.n,
             "safety_settings": self.safety_settings,
             "response_modalities": self.response_modalities,
+            "thinking_budget": self.thinking_budget,
         }
 
     def invoke(
@@ -1179,9 +1203,15 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
     ) -> LangSmithParams:
         """Get standard params for tracing."""
         params = self._get_invocation_params(stop=stop, **kwargs)
+        models_prefix = "models/"
+        ls_model_name = (
+            self.model[len(models_prefix) :]
+            if self.model and self.model.startswith(models_prefix)
+            else self.model
+        )
         ls_params = LangSmithParams(
             ls_provider="google_genai",
-            ls_model_name=self.model,
+            ls_model_name=ls_model_name,
             ls_model_type="chat",
             ls_temperature=params.get("temperature", self.temperature),
         )
@@ -1206,6 +1236,9 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
                 "top_k": self.top_k,
                 "top_p": self.top_p,
                 "response_modalities": self.response_modalities,
+                "thinking_config": {"thinking_budget": self.thinking_budget}
+                if self.thinking_budget is not None
+                else None,
             }.items()
             if v is not None
         }

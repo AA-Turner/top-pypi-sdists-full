@@ -987,7 +987,9 @@ def validate_job_config_dict(
         )
 
 
-def validate_list_jobs_state_filter(ctx, param, value) -> List[str]:  # noqa: ARG001
+def validate_list_jobs_state_filter(
+    _, param, value
+) -> List[HaJobStates]:  # noqa: ARG001
     """
     Validate the job state filter for list jobs CLI method
     """

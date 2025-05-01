@@ -46,6 +46,7 @@ from .literals import (
     ImageInputFormatType,
     InvocationTypeType,
     NodeTypeType,
+    OrchestrationTypeType,
     ParameterTypeType,
     PayloadTypeType,
     PerformanceConfigLatencyType,
@@ -124,6 +125,7 @@ __all__ = (
     "CreateSessionResponseTypeDef",
     "CustomOrchestrationTraceEventTypeDef",
     "CustomOrchestrationTraceTypeDef",
+    "CustomOrchestrationTypeDef",
     "DeleteAgentMemoryRequestTypeDef",
     "DeleteSessionRequestTypeDef",
     "DependencyFailedExceptionTypeDef",
@@ -271,6 +273,7 @@ __all__ = (
     "OptimizedPromptStreamTypeDef",
     "OptimizedPromptTypeDef",
     "OrchestrationConfigurationTypeDef",
+    "OrchestrationExecutorTypeDef",
     "OrchestrationModelInvocationOutputTypeDef",
     "OrchestrationTraceTypeDef",
     "OutputFileTypeDef",
@@ -474,6 +477,13 @@ class CreateSessionRequestTypeDef(TypedDict):
 
 class CustomOrchestrationTraceEventTypeDef(TypedDict):
     text: NotRequired[str]
+
+OrchestrationExecutorTypeDef = TypedDict(
+    "OrchestrationExecutorTypeDef",
+    {
+        "lambda": NotRequired[str],
+    },
+)
 
 class DeleteAgentMemoryRequestTypeDef(TypedDict):
     agentAliasId: str
@@ -969,6 +979,9 @@ class UpdateSessionResponseTypeDef(TypedDict):
 class CustomOrchestrationTraceTypeDef(TypedDict):
     event: NotRequired[CustomOrchestrationTraceEventTypeDef]
     traceId: NotRequired[str]
+
+class CustomOrchestrationTypeDef(TypedDict):
+    executor: NotRequired[OrchestrationExecutorTypeDef]
 
 class RerankingMetadataSelectiveModeConfigurationTypeDef(TypedDict):
     fieldsToExclude: NotRequired[Sequence[FieldForRerankingTypeDef]]
@@ -1921,6 +1934,9 @@ class SessionStateTypeDef(TypedDict):
     sessionAttributes: NotRequired[Mapping[str, str]]
 
 class InlineAgentTracePartTypeDef(TypedDict):
+    callerChain: NotRequired[List[CallerTypeDef]]
+    collaboratorName: NotRequired[str]
+    eventTime: NotRequired[datetime]
     sessionId: NotRequired[str]
     trace: NotRequired[TraceTypeDef]
 
@@ -1940,9 +1956,11 @@ class InvokeInlineAgentRequestTypeDef(TypedDict):
     sessionId: str
     actionGroups: NotRequired[Sequence[AgentActionGroupTypeDef]]
     agentCollaboration: NotRequired[AgentCollaborationType]
+    agentName: NotRequired[str]
     bedrockModelConfigurations: NotRequired[InlineBedrockModelConfigurationsTypeDef]
     collaboratorConfigurations: NotRequired[Sequence[CollaboratorConfigurationTypeDef]]
     collaborators: NotRequired[Sequence[CollaboratorTypeDef]]
+    customOrchestration: NotRequired[CustomOrchestrationTypeDef]
     customerEncryptionKeyArn: NotRequired[str]
     enableTrace: NotRequired[bool]
     endSession: NotRequired[bool]
@@ -1951,6 +1969,7 @@ class InvokeInlineAgentRequestTypeDef(TypedDict):
     inlineSessionState: NotRequired[InlineSessionStateTypeDef]
     inputText: NotRequired[str]
     knowledgeBases: NotRequired[Sequence[KnowledgeBaseTypeDef]]
+    orchestrationType: NotRequired[OrchestrationTypeType]
     promptOverrideConfiguration: NotRequired[PromptOverrideConfigurationTypeDef]
     streamingConfigurations: NotRequired[StreamingConfigurationsTypeDef]
 

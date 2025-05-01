@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_service_account`
 
-Refer to the Terraform Registry for docs: [`data_datadog_service_account`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account).
+Refer to the Terraform Registry for docs: [`data_datadog_service_account`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogServiceAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogServiceAccount.DataDatadogServiceAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account datadog_service_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account datadog_service_account}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataDatadogServiceAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account datadog_service_account} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account datadog_service_account} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#exact_match DataDatadogServiceAccount#exact_match}
-        :param filter: Filter all users and service accounts by name, email, or role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#filter DataDatadogServiceAccount#filter}
-        :param filter_status: Filter on status attribute. Comma separated list, with possible values ``Active``, ``Pending``, and ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#filter_status DataDatadogServiceAccount#filter_status}
-        :param id: The service account's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#id DataDatadogServiceAccount#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#exact_match DataDatadogServiceAccount#exact_match}
+        :param filter: Filter all users and service accounts by name, email, or role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#filter DataDatadogServiceAccount#filter}
+        :param filter_status: Filter on status attribute. Comma separated list, with possible values ``Active``, ``Pending``, and ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#filter_status DataDatadogServiceAccount#filter_status}
+        :param id: The service account's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#id DataDatadogServiceAccount#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataDatadogServiceAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogServiceAccount to import.
-        :param import_from_id: The id of the existing DataDatadogServiceAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogServiceAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogServiceAccount to import is found.
         '''
         if __debug__:
@@ -312,10 +312,10 @@ class DataDatadogServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#exact_match DataDatadogServiceAccount#exact_match}
-        :param filter: Filter all users and service accounts by name, email, or role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#filter DataDatadogServiceAccount#filter}
-        :param filter_status: Filter on status attribute. Comma separated list, with possible values ``Active``, ``Pending``, and ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#filter_status DataDatadogServiceAccount#filter_status}
-        :param id: The service account's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#id DataDatadogServiceAccount#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#exact_match DataDatadogServiceAccount#exact_match}
+        :param filter: Filter all users and service accounts by name, email, or role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#filter DataDatadogServiceAccount#filter}
+        :param filter_status: Filter on status attribute. Comma separated list, with possible values ``Active``, ``Pending``, and ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#filter_status DataDatadogServiceAccount#filter_status}
+        :param id: The service account's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#id DataDatadogServiceAccount#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -426,7 +426,7 @@ class DataDatadogServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#exact_match DataDatadogServiceAccount#exact_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#exact_match DataDatadogServiceAccount#exact_match}
         '''
         result = self._values.get("exact_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -435,7 +435,7 @@ class DataDatadogServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional[builtins.str]:
         '''Filter all users and service accounts by name, email, or role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#filter DataDatadogServiceAccount#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#filter DataDatadogServiceAccount#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -444,7 +444,7 @@ class DataDatadogServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_status(self) -> typing.Optional[builtins.str]:
         '''Filter on status attribute. Comma separated list, with possible values ``Active``, ``Pending``, and ``Disabled``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#filter_status DataDatadogServiceAccount#filter_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#filter_status DataDatadogServiceAccount#filter_status}
         '''
         result = self._values.get("filter_status")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -453,7 +453,7 @@ class DataDatadogServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def id(self) -> typing.Optional[builtins.str]:
         '''The service account's ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_account#id DataDatadogServiceAccount#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_account#id DataDatadogServiceAccount#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

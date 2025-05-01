@@ -1,7 +1,7 @@
 r'''
 # `datadog_apm_retention_filter_order`
 
-Refer to the Terraform Registry for docs: [`datadog_apm_retention_filter_order`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter_order).
+Refer to the Terraform Registry for docs: [`datadog_apm_retention_filter_order`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter_order).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApmRetentionFilterOrder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.apmRetentionFilterOrder.ApmRetentionFilterOrder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter_order datadog_apm_retention_filter_order}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter_order datadog_apm_retention_filter_order}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class ApmRetentionFilterOrder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter_order datadog_apm_retention_filter_order} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter_order datadog_apm_retention_filter_order} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter_ids: The filter IDs list. The order of filters IDs in this attribute defines the overall APM retention filters order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter_order#filter_ids ApmRetentionFilterOrder#filter_ids}
+        :param filter_ids: The filter IDs list. The order of filters IDs in this attribute defines the overall APM retention filters order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter_order#filter_ids ApmRetentionFilterOrder#filter_ids}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class ApmRetentionFilterOrder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApmRetentionFilterOrder to import.
-        :param import_from_id: The id of the existing ApmRetentionFilterOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter_order#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApmRetentionFilterOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter_order#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApmRetentionFilterOrder to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class ApmRetentionFilterOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter_ids: The filter IDs list. The order of filters IDs in this attribute defines the overall APM retention filters order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter_order#filter_ids ApmRetentionFilterOrder#filter_ids}
+        :param filter_ids: The filter IDs list. The order of filters IDs in this attribute defines the overall APM retention filters order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter_order#filter_ids ApmRetentionFilterOrder#filter_ids}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -285,7 +285,7 @@ class ApmRetentionFilterOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_ids(self) -> typing.List[builtins.str]:
         '''The filter IDs list. The order of filters IDs in this attribute defines the overall APM retention filters order.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter_order#filter_ids ApmRetentionFilterOrder#filter_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter_order#filter_ids ApmRetentionFilterOrder#filter_ids}
         '''
         result = self._values.get("filter_ids")
         assert result is not None, "Required property 'filter_ids' is missing"

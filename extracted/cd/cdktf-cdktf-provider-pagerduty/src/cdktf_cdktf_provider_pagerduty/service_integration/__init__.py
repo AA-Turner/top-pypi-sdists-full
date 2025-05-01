@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_service_integration`
 
-Refer to the Terraform Registry for docs: [`pagerduty_service_integration`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration).
+Refer to the Terraform Registry for docs: [`pagerduty_service_integration`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceIntegration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.serviceIntegration.ServiceIntegration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration pagerduty_service_integration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration pagerduty_service_integration}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class ServiceIntegration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration pagerduty_service_integration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration pagerduty_service_integration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#service ServiceIntegration#service}.
-        :param email_filter: email_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_filter ServiceIntegration#email_filter}
-        :param email_filter_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_filter_mode ServiceIntegration#email_filter_mode}.
-        :param email_incident_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_incident_creation ServiceIntegration#email_incident_creation}.
-        :param email_parser: email_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_parser ServiceIntegration#email_parser}
-        :param email_parsing_fallback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_parsing_fallback ServiceIntegration#email_parsing_fallback}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#id ServiceIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#integration_email ServiceIntegration#integration_email}.
-        :param integration_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#integration_key ServiceIntegration#integration_key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#name ServiceIntegration#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.
-        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#vendor ServiceIntegration#vendor}.
+        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#service ServiceIntegration#service}.
+        :param email_filter: email_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_filter ServiceIntegration#email_filter}
+        :param email_filter_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_filter_mode ServiceIntegration#email_filter_mode}.
+        :param email_incident_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_incident_creation ServiceIntegration#email_incident_creation}.
+        :param email_parser: email_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_parser ServiceIntegration#email_parser}
+        :param email_parsing_fallback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_parsing_fallback ServiceIntegration#email_parsing_fallback}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#id ServiceIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#integration_email ServiceIntegration#integration_email}.
+        :param integration_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#integration_key ServiceIntegration#integration_key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#name ServiceIntegration#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.
+        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#vendor ServiceIntegration#vendor}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class ServiceIntegration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceIntegration to import.
-        :param import_from_id: The id of the existing ServiceIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceIntegration to import is found.
         '''
         if __debug__:
@@ -487,18 +487,18 @@ class ServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#service ServiceIntegration#service}.
-        :param email_filter: email_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_filter ServiceIntegration#email_filter}
-        :param email_filter_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_filter_mode ServiceIntegration#email_filter_mode}.
-        :param email_incident_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_incident_creation ServiceIntegration#email_incident_creation}.
-        :param email_parser: email_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_parser ServiceIntegration#email_parser}
-        :param email_parsing_fallback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_parsing_fallback ServiceIntegration#email_parsing_fallback}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#id ServiceIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#integration_email ServiceIntegration#integration_email}.
-        :param integration_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#integration_key ServiceIntegration#integration_key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#name ServiceIntegration#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.
-        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#vendor ServiceIntegration#vendor}.
+        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#service ServiceIntegration#service}.
+        :param email_filter: email_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_filter ServiceIntegration#email_filter}
+        :param email_filter_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_filter_mode ServiceIntegration#email_filter_mode}.
+        :param email_incident_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_incident_creation ServiceIntegration#email_incident_creation}.
+        :param email_parser: email_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_parser ServiceIntegration#email_parser}
+        :param email_parsing_fallback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_parsing_fallback ServiceIntegration#email_parsing_fallback}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#id ServiceIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#integration_email ServiceIntegration#integration_email}.
+        :param integration_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#integration_key ServiceIntegration#integration_key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#name ServiceIntegration#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.
+        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#vendor ServiceIntegration#vendor}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -629,7 +629,7 @@ class ServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def service(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#service ServiceIntegration#service}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#service ServiceIntegration#service}.'''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
         return typing.cast(builtins.str, result)
@@ -640,20 +640,20 @@ class ServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailFilter"]]]:
         '''email_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_filter ServiceIntegration#email_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_filter ServiceIntegration#email_filter}
         '''
         result = self._values.get("email_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailFilter"]]], result)
 
     @builtins.property
     def email_filter_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_filter_mode ServiceIntegration#email_filter_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_filter_mode ServiceIntegration#email_filter_mode}.'''
         result = self._values.get("email_filter_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_incident_creation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_incident_creation ServiceIntegration#email_incident_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_incident_creation ServiceIntegration#email_incident_creation}.'''
         result = self._values.get("email_incident_creation")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -663,20 +663,20 @@ class ServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParser"]]]:
         '''email_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_parser ServiceIntegration#email_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_parser ServiceIntegration#email_parser}
         '''
         result = self._values.get("email_parser")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParser"]]], result)
 
     @builtins.property
     def email_parsing_fallback(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#email_parsing_fallback ServiceIntegration#email_parsing_fallback}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#email_parsing_fallback ServiceIntegration#email_parsing_fallback}.'''
         result = self._values.get("email_parsing_fallback")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#id ServiceIntegration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#id ServiceIntegration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -686,31 +686,31 @@ class ServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def integration_email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#integration_email ServiceIntegration#integration_email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#integration_email ServiceIntegration#integration_email}.'''
         result = self._values.get("integration_email")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def integration_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#integration_key ServiceIntegration#integration_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#integration_key ServiceIntegration#integration_key}.'''
         result = self._values.get("integration_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#name ServiceIntegration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#name ServiceIntegration#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vendor(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#vendor ServiceIntegration#vendor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#vendor ServiceIntegration#vendor}.'''
         result = self._values.get("vendor")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -750,12 +750,12 @@ class ServiceIntegrationEmailFilter:
         subject_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param body_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#body_mode ServiceIntegration#body_mode}.
-        :param body_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#body_regex ServiceIntegration#body_regex}.
-        :param from_email_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#from_email_mode ServiceIntegration#from_email_mode}.
-        :param from_email_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#from_email_regex ServiceIntegration#from_email_regex}.
-        :param subject_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#subject_mode ServiceIntegration#subject_mode}.
-        :param subject_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#subject_regex ServiceIntegration#subject_regex}.
+        :param body_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#body_mode ServiceIntegration#body_mode}.
+        :param body_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#body_regex ServiceIntegration#body_regex}.
+        :param from_email_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#from_email_mode ServiceIntegration#from_email_mode}.
+        :param from_email_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#from_email_regex ServiceIntegration#from_email_regex}.
+        :param subject_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#subject_mode ServiceIntegration#subject_mode}.
+        :param subject_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#subject_regex ServiceIntegration#subject_regex}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ad0238f631d306435845d8c33b3f01ac25e9d9fbf4fc06f3cef40db54fef070)
@@ -781,37 +781,37 @@ class ServiceIntegrationEmailFilter:
 
     @builtins.property
     def body_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#body_mode ServiceIntegration#body_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#body_mode ServiceIntegration#body_mode}.'''
         result = self._values.get("body_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def body_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#body_regex ServiceIntegration#body_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#body_regex ServiceIntegration#body_regex}.'''
         result = self._values.get("body_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def from_email_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#from_email_mode ServiceIntegration#from_email_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#from_email_mode ServiceIntegration#from_email_mode}.'''
         result = self._values.get("from_email_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def from_email_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#from_email_regex ServiceIntegration#from_email_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#from_email_regex ServiceIntegration#from_email_regex}.'''
         result = self._values.get("from_email_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subject_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#subject_mode ServiceIntegration#subject_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#subject_mode ServiceIntegration#subject_mode}.'''
         result = self._values.get("subject_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subject_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#subject_regex ServiceIntegration#subject_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#subject_regex ServiceIntegration#subject_regex}.'''
         result = self._values.get("subject_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1110,9 +1110,9 @@ class ServiceIntegrationEmailParser:
         value_extractor: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ServiceIntegrationEmailParserValueExtractor", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#action ServiceIntegration#action}.
-        :param match_predicate: match_predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#match_predicate ServiceIntegration#match_predicate}
-        :param value_extractor: value_extractor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#value_extractor ServiceIntegration#value_extractor}
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#action ServiceIntegration#action}.
+        :param match_predicate: match_predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#match_predicate ServiceIntegration#match_predicate}
+        :param value_extractor: value_extractor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#value_extractor ServiceIntegration#value_extractor}
         '''
         if isinstance(match_predicate, dict):
             match_predicate = ServiceIntegrationEmailParserMatchPredicate(**match_predicate)
@@ -1130,7 +1130,7 @@ class ServiceIntegrationEmailParser:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#action ServiceIntegration#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#action ServiceIntegration#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
@@ -1139,7 +1139,7 @@ class ServiceIntegrationEmailParser:
     def match_predicate(self) -> "ServiceIntegrationEmailParserMatchPredicate":
         '''match_predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#match_predicate ServiceIntegration#match_predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#match_predicate ServiceIntegration#match_predicate}
         '''
         result = self._values.get("match_predicate")
         assert result is not None, "Required property 'match_predicate' is missing"
@@ -1151,7 +1151,7 @@ class ServiceIntegrationEmailParser:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParserValueExtractor"]]]:
         '''value_extractor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#value_extractor ServiceIntegration#value_extractor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#value_extractor ServiceIntegration#value_extractor}
         '''
         result = self._values.get("value_extractor")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParserValueExtractor"]]], result)
@@ -1271,8 +1271,8 @@ class ServiceIntegrationEmailParserMatchPredicate:
         predicate: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ServiceIntegrationEmailParserMatchPredicatePredicate", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#predicate ServiceIntegration#predicate}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#predicate ServiceIntegration#predicate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ee283bacec3e82a3cb11f1a7bc2ba09e0e6cd68279092d4dc9686210d38a41e)
@@ -1286,7 +1286,7 @@ class ServiceIntegrationEmailParserMatchPredicate:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1297,7 +1297,7 @@ class ServiceIntegrationEmailParserMatchPredicate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParserMatchPredicatePredicate"]]]:
         '''predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#predicate ServiceIntegration#predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#predicate ServiceIntegration#predicate}
         '''
         result = self._values.get("predicate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParserMatchPredicatePredicate"]]], result)
@@ -1418,10 +1418,10 @@ class ServiceIntegrationEmailParserMatchPredicatePredicate:
         predicate: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ServiceIntegrationEmailParserMatchPredicatePredicatePredicate", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.
-        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#matcher ServiceIntegration#matcher}.
-        :param part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#part ServiceIntegration#part}.
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#predicate ServiceIntegration#predicate}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.
+        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#matcher ServiceIntegration#matcher}.
+        :param part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#part ServiceIntegration#part}.
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#predicate ServiceIntegration#predicate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a83f8d13eec4ccd17d187c3401988ff2b12bb13176d07eba6a0911c3fbdb64b)
@@ -1441,20 +1441,20 @@ class ServiceIntegrationEmailParserMatchPredicatePredicate:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def matcher(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#matcher ServiceIntegration#matcher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#matcher ServiceIntegration#matcher}.'''
         result = self._values.get("matcher")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def part(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#part ServiceIntegration#part}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#part ServiceIntegration#part}.'''
         result = self._values.get("part")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1464,7 +1464,7 @@ class ServiceIntegrationEmailParserMatchPredicatePredicate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParserMatchPredicatePredicatePredicate"]]]:
         '''predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#predicate ServiceIntegration#predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#predicate ServiceIntegration#predicate}
         '''
         result = self._values.get("predicate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceIntegrationEmailParserMatchPredicatePredicatePredicate"]]], result)
@@ -1722,9 +1722,9 @@ class ServiceIntegrationEmailParserMatchPredicatePredicatePredicate:
         type: builtins.str,
     ) -> None:
         '''
-        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#matcher ServiceIntegration#matcher}.
-        :param part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#part ServiceIntegration#part}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.
+        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#matcher ServiceIntegration#matcher}.
+        :param part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#part ServiceIntegration#part}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bda4b9e769f618ae79431c3418d50b4c12b5b5ae2b0ebac30ebf0e48d738cef1)
@@ -1739,21 +1739,21 @@ class ServiceIntegrationEmailParserMatchPredicatePredicatePredicate:
 
     @builtins.property
     def matcher(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#matcher ServiceIntegration#matcher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#matcher ServiceIntegration#matcher}.'''
         result = self._values.get("matcher")
         assert result is not None, "Required property 'matcher' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def part(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#part ServiceIntegration#part}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#part ServiceIntegration#part}.'''
         result = self._values.get("part")
         assert result is not None, "Required property 'part' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1992,8 +1992,8 @@ class ServiceIntegrationEmailParserOutputReference(
         predicate: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ServiceIntegrationEmailParserMatchPredicatePredicate, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#predicate ServiceIntegration#predicate}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#predicate ServiceIntegration#predicate}
         '''
         value = ServiceIntegrationEmailParserMatchPredicate(
             type=type, predicate=predicate
@@ -2108,12 +2108,12 @@ class ServiceIntegrationEmailParserValueExtractor:
         starts_after: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#part ServiceIntegration#part}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.
-        :param value_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#value_name ServiceIntegration#value_name}.
-        :param ends_before: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#ends_before ServiceIntegration#ends_before}.
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#regex ServiceIntegration#regex}.
-        :param starts_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#starts_after ServiceIntegration#starts_after}.
+        :param part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#part ServiceIntegration#part}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.
+        :param value_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#value_name ServiceIntegration#value_name}.
+        :param ends_before: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#ends_before ServiceIntegration#ends_before}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#regex ServiceIntegration#regex}.
+        :param starts_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#starts_after ServiceIntegration#starts_after}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89af65eb7c799f43315d773c6b8fec02d0a64bc8ad70c169cd0fcb22faa1e3d0)
@@ -2137,40 +2137,40 @@ class ServiceIntegrationEmailParserValueExtractor:
 
     @builtins.property
     def part(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#part ServiceIntegration#part}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#part ServiceIntegration#part}.'''
         result = self._values.get("part")
         assert result is not None, "Required property 'part' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#type ServiceIntegration#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#type ServiceIntegration#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#value_name ServiceIntegration#value_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#value_name ServiceIntegration#value_name}.'''
         result = self._values.get("value_name")
         assert result is not None, "Required property 'value_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ends_before(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#ends_before ServiceIntegration#ends_before}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#ends_before ServiceIntegration#ends_before}.'''
         result = self._values.get("ends_before")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#regex ServiceIntegration#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#regex ServiceIntegration#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def starts_after(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/service_integration#starts_after ServiceIntegration#starts_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/service_integration#starts_after ServiceIntegration#starts_after}.'''
         result = self._values.get("starts_after")
         return typing.cast(typing.Optional[builtins.str], result)
 

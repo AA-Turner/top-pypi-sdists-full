@@ -65,6 +65,7 @@ from ..base_experiment.base_experiment import BaseExperiment
 __all__ = ["AutoAI"]
 
 from ...credentials import Credentials
+from ...foundation_models.schema import AutoAIRAGModelConfig, AutoAIRAGCustomModelConfig
 
 if TYPE_CHECKING:
     from .optimizers import RAGOptimizer
@@ -935,7 +936,9 @@ class AutoAI(BaseExperiment):
         chunking: list[dict] | None = None,
         embedding_models: list[str] | None = None,
         retrieval_methods: list[str] | None = None,
-        foundation_models: list[str] | None = None,
+        foundation_models: (
+            list[str | dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig] | None
+        ) = None,
         max_number_of_rag_patterns: int | None = None,
         optimization_metrics: list[str] | None = None,
         generation: dict[str, Any] | None = None,
@@ -959,8 +962,8 @@ class AutoAI(BaseExperiment):
         :param retrieval_methods: Retrieval methods to be used.
         :type retrieval_methods: list[str], optional
 
-        :param foundation_models: The foundation models to try.
-        :type foundation_models: list[str], optional
+        :param foundation_models: List of foundation models to try. Custom foundation models and model config are also supported for Cloud and CPD >= 5.2.
+        :type foundation_models: list[str | dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig], optional
 
         :param max_number_of_rag_patterns: The maximum number of RAG patterns to create.
         :type max_number_of_rag_patterns: int, optional

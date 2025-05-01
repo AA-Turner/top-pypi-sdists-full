@@ -18752,16 +18752,16 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def get_root_cause_api_v2_iknow_get(self, cluster_id, **kwargs):  # noqa: E501
-        """Get Root Cause  # noqa: E501
+    def get_root_cause_for_job_api_v2_iknow_get(self, ha_job_id, **kwargs):  # noqa: E501
+        """Get Root Cause For Job  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_root_cause_api_v2_iknow_get(cluster_id, async_req=True)
+        >>> thread = api.get_root_cause_for_job_api_v2_iknow_get(ha_job_id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str cluster_id: (required)
+        :param str ha_job_id: (required)
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -18774,18 +18774,18 @@ class DefaultApi(object):
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.get_root_cause_api_v2_iknow_get_with_http_info(cluster_id, **kwargs)  # noqa: E501
+        return self.get_root_cause_for_job_api_v2_iknow_get_with_http_info(ha_job_id, **kwargs)  # noqa: E501
 
-    def get_root_cause_api_v2_iknow_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
-        """Get Root Cause  # noqa: E501
+    def get_root_cause_for_job_api_v2_iknow_get_with_http_info(self, ha_job_id, **kwargs):  # noqa: E501
+        """Get Root Cause For Job  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_root_cause_api_v2_iknow_get_with_http_info(cluster_id, async_req=True)
+        >>> thread = api.get_root_cause_for_job_api_v2_iknow_get_with_http_info(ha_job_id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str cluster_id: (required)
+        :param str ha_job_id: (required)
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -18803,7 +18803,7 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cluster_id'
+            'ha_job_id'
         ]
         all_params.extend(
             [
@@ -18818,22 +18818,22 @@ class DefaultApi(object):
             if key not in all_params:
                 raise ApiTypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method get_root_cause_api_v2_iknow_get" % key
+                    " to method get_root_cause_for_job_api_v2_iknow_get" % key
                 )
             local_var_params[key] = val
         del local_var_params['kwargs']
-        # verify the required parameter 'cluster_id' is set
-        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
-                                                        local_var_params['cluster_id'] is None):  # noqa: E501
-            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_root_cause_api_v2_iknow_get`")  # noqa: E501
+        # verify the required parameter 'ha_job_id' is set
+        if self.api_client.client_side_validation and ('ha_job_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['ha_job_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `ha_job_id` when calling `get_root_cause_for_job_api_v2_iknow_get`")  # noqa: E501
 
         collection_formats = {}
 
         path_params = {}
 
         query_params = []
-        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
-            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ha_job_id' in local_var_params and local_var_params['ha_job_id'] is not None:  # noqa: E501
+            query_params.append(('ha_job_id', local_var_params['ha_job_id']))  # noqa: E501
 
         header_params = {}
 
@@ -34143,6 +34143,131 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put(self, cloud_id, cloud_deployment, **kwargs):  # noqa: E501
+        """Update Cloud Deployments  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put(cloud_id, cloud_deployment, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param list[CloudDeployment] cloud_deployment: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: object
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put_with_http_info(cloud_id, cloud_deployment, **kwargs)  # noqa: E501
+
+    def update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put_with_http_info(self, cloud_id, cloud_deployment, **kwargs):  # noqa: E501
+        """Update Cloud Deployments  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put_with_http_info(cloud_id, cloud_deployment, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param list[CloudDeployment] cloud_deployment: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(object, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'cloud_deployment'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put`")  # noqa: E501
+        # verify the required parameter 'cloud_deployment' is set
+        if self.api_client.client_side_validation and ('cloud_deployment' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_deployment'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_deployment` when calling `update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'cloud_deployment' in local_var_params:
+            body_params = local_var_params['cloud_deployment']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/deployments', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='object',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def update_cloud_with_cloud_resource_api_v2_clouds_with_cloud_resource_gcp_router_cloud_id_put(self, cloud_id, update_cloud_with_cloud_resource_gcp, **kwargs):  # noqa: E501
         """Update Cloud With Cloud Resource  # noqa: E501
 
@@ -34865,6 +34990,133 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='InstanceusagebudgetResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def update_job_queue_api_v2_job_queues_job_queue_id_put(self, job_queue_id, update_job_queue_request, **kwargs):  # noqa: E501
+        """Update Job Queue  # noqa: E501
+
+        Update a job queue.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_job_queue_api_v2_job_queues_job_queue_id_put(job_queue_id, update_job_queue_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str job_queue_id: (required)
+        :param UpdateJobQueueRequest update_job_queue_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: DecoratedjobqueueResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.update_job_queue_api_v2_job_queues_job_queue_id_put_with_http_info(job_queue_id, update_job_queue_request, **kwargs)  # noqa: E501
+
+    def update_job_queue_api_v2_job_queues_job_queue_id_put_with_http_info(self, job_queue_id, update_job_queue_request, **kwargs):  # noqa: E501
+        """Update Job Queue  # noqa: E501
+
+        Update a job queue.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_job_queue_api_v2_job_queues_job_queue_id_put_with_http_info(job_queue_id, update_job_queue_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str job_queue_id: (required)
+        :param UpdateJobQueueRequest update_job_queue_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(DecoratedjobqueueResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'job_queue_id',
+            'update_job_queue_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method update_job_queue_api_v2_job_queues_job_queue_id_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'job_queue_id' is set
+        if self.api_client.client_side_validation and ('job_queue_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['job_queue_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `job_queue_id` when calling `update_job_queue_api_v2_job_queues_job_queue_id_put`")  # noqa: E501
+        # verify the required parameter 'update_job_queue_request' is set
+        if self.api_client.client_side_validation and ('update_job_queue_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['update_job_queue_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `update_job_queue_request` when calling `update_job_queue_api_v2_job_queues_job_queue_id_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'job_queue_id' in local_var_params:
+            path_params['job_queue_id'] = local_var_params['job_queue_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'update_job_queue_request' in local_var_params:
+            body_params = local_var_params['update_job_queue_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/job_queues/{job_queue_id}', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='DecoratedjobqueueResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

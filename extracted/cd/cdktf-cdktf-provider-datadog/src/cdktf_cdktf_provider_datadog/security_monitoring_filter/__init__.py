@@ -1,7 +1,7 @@
 r'''
 # `datadog_security_monitoring_filter`
 
-Refer to the Terraform Registry for docs: [`datadog_security_monitoring_filter`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter).
+Refer to the Terraform Registry for docs: [`datadog_security_monitoring_filter`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityMonitoringFilter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.securityMonitoringFilter.SecurityMonitoringFilter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter datadog_security_monitoring_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter datadog_security_monitoring_filter}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SecurityMonitoringFilter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter datadog_security_monitoring_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter datadog_security_monitoring_filter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param is_enabled: Whether the security filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#is_enabled SecurityMonitoringFilter#is_enabled}
-        :param name: The name of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
-        :param query: The query of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
-        :param exclusion_filter: exclusion_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#exclusion_filter SecurityMonitoringFilter#exclusion_filter}
-        :param filtered_data_type: The filtered data type. Valid values are ``logs``. Defaults to ``"logs"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#filtered_data_type SecurityMonitoringFilter#filtered_data_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#id SecurityMonitoringFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_enabled: Whether the security filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#is_enabled SecurityMonitoringFilter#is_enabled}
+        :param name: The name of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
+        :param query: The query of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
+        :param exclusion_filter: exclusion_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#exclusion_filter SecurityMonitoringFilter#exclusion_filter}
+        :param filtered_data_type: The filtered data type. Valid values are ``logs``. Defaults to ``"logs"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#filtered_data_type SecurityMonitoringFilter#filtered_data_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#id SecurityMonitoringFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SecurityMonitoringFilter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityMonitoringFilter to import.
-        :param import_from_id: The id of the existing SecurityMonitoringFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityMonitoringFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityMonitoringFilter to import is found.
         '''
         if __debug__:
@@ -320,12 +320,12 @@ class SecurityMonitoringFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param is_enabled: Whether the security filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#is_enabled SecurityMonitoringFilter#is_enabled}
-        :param name: The name of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
-        :param query: The query of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
-        :param exclusion_filter: exclusion_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#exclusion_filter SecurityMonitoringFilter#exclusion_filter}
-        :param filtered_data_type: The filtered data type. Valid values are ``logs``. Defaults to ``"logs"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#filtered_data_type SecurityMonitoringFilter#filtered_data_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#id SecurityMonitoringFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_enabled: Whether the security filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#is_enabled SecurityMonitoringFilter#is_enabled}
+        :param name: The name of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
+        :param query: The query of the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
+        :param exclusion_filter: exclusion_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#exclusion_filter SecurityMonitoringFilter#exclusion_filter}
+        :param filtered_data_type: The filtered data type. Valid values are ``logs``. Defaults to ``"logs"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#filtered_data_type SecurityMonitoringFilter#filtered_data_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#id SecurityMonitoringFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -438,7 +438,7 @@ class SecurityMonitoringFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the security filter is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#is_enabled SecurityMonitoringFilter#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#is_enabled SecurityMonitoringFilter#is_enabled}
         '''
         result = self._values.get("is_enabled")
         assert result is not None, "Required property 'is_enabled' is missing"
@@ -448,7 +448,7 @@ class SecurityMonitoringFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the security filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -458,7 +458,7 @@ class SecurityMonitoringFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> builtins.str:
         '''The query of the security filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -470,7 +470,7 @@ class SecurityMonitoringFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringFilterExclusionFilter"]]]:
         '''exclusion_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#exclusion_filter SecurityMonitoringFilter#exclusion_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#exclusion_filter SecurityMonitoringFilter#exclusion_filter}
         '''
         result = self._values.get("exclusion_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringFilterExclusionFilter"]]], result)
@@ -479,14 +479,14 @@ class SecurityMonitoringFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filtered_data_type(self) -> typing.Optional[builtins.str]:
         '''The filtered data type. Valid values are ``logs``. Defaults to ``"logs"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#filtered_data_type SecurityMonitoringFilter#filtered_data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#filtered_data_type SecurityMonitoringFilter#filtered_data_type}
         '''
         result = self._values.get("filtered_data_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#id SecurityMonitoringFilter#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#id SecurityMonitoringFilter#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -514,8 +514,8 @@ class SecurityMonitoringFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SecurityMonitoringFilterExclusionFilter:
     def __init__(self, *, name: builtins.str, query: builtins.str) -> None:
         '''
-        :param name: Exclusion filter name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
-        :param query: Exclusion filter query. Logs that match this query are excluded from the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
+        :param name: Exclusion filter name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
+        :param query: Exclusion filter query. Logs that match this query are excluded from the security filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f80e550f2de418da88a6913ae80a982c616be2f9c0a5e47b9f6f741f60fd40d)
@@ -530,7 +530,7 @@ class SecurityMonitoringFilterExclusionFilter:
     def name(self) -> builtins.str:
         '''Exclusion filter name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#name SecurityMonitoringFilter#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -540,7 +540,7 @@ class SecurityMonitoringFilterExclusionFilter:
     def query(self) -> builtins.str:
         '''Exclusion filter query. Logs that match this query are excluded from the security filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/security_monitoring_filter#query SecurityMonitoringFilter#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"

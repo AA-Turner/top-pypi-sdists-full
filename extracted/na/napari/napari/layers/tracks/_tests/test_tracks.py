@@ -217,7 +217,7 @@ def test_fast_points_lookup() -> None:
 
     assert len(time_points) == len(points_lookup)
     total_length = 0
-    for s, e, t, r in zip(start, end, time_points, repeats):
+    for s, e, t, r in zip(start, end, time_points, repeats, strict=False):
         assert points_lookup[t].start == s
         assert points_lookup[t].stop == e
         assert points_lookup[t].stop - points_lookup[t].start == r
@@ -294,6 +294,19 @@ def test_track_connex_validity() -> None:
 
     # the number of 'False' in the track_connex array should be equal to the number of tracks
     assert np.sum(~layer._manager.track_connex) == n_tracks
+
+
+def test_track_coloring() -> None:
+    """Test if the track colors are correctly set."""
+
+    data = np.zeros((100, 4))
+    data[:, 1] = np.arange(100)
+    layer = Tracks(data)
+
+    colors = np.random.random(size=(100, 4))
+    layer.track_colors = colors
+
+    assert np.array_equal(layer._track_colors, colors)
 
 
 def test_docstring():

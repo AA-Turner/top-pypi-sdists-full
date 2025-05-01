@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xvfbwrapper
-Version: 0.2.11
+Version: 0.2.12
 Summary: Manage headless displays with Xvfb (X virtual framebuffer)
 Author: Corey Goldberg
 Maintainer: Corey Goldberg
@@ -177,7 +177,6 @@ import os
 import unittest
 
 from selenium import webdriver
-
 from xvfbwrapper import Xvfb
 
 # force X11 in case we are running on a Wayland system

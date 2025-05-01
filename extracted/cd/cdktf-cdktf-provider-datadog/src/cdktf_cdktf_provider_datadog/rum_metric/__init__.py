@@ -1,7 +1,7 @@
 r'''
 # `datadog_rum_metric`
 
-Refer to the Terraform Registry for docs: [`datadog_rum_metric`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric).
+Refer to the Terraform Registry for docs: [`datadog_rum_metric`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RumMetric(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.rumMetric.RumMetric",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric datadog_rum_metric}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric datadog_rum_metric}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class RumMetric(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric datadog_rum_metric} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric datadog_rum_metric} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#event_type RumMetric#event_type}
-        :param name: The name of the RUM-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#name RumMetric#name}
-        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#compute RumMetric#compute}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#filter RumMetric#filter}
-        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#group_by RumMetric#group_by}
-        :param uniqueness: uniqueness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#uniqueness RumMetric#uniqueness}
+        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#event_type RumMetric#event_type}
+        :param name: The name of the RUM-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#name RumMetric#name}
+        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#compute RumMetric#compute}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#filter RumMetric#filter}
+        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#group_by RumMetric#group_by}
+        :param uniqueness: uniqueness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#uniqueness RumMetric#uniqueness}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class RumMetric(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RumMetric to import.
-        :param import_from_id: The id of the existing RumMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RumMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RumMetric to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class RumMetric(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: The type of aggregation to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#aggregation_type RumMetric#aggregation_type}
-        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#include_percentiles RumMetric#include_percentiles}
-        :param path: The path to the value the RUM-based metric will aggregate on. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#path RumMetric#path}
+        :param aggregation_type: The type of aggregation to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#aggregation_type RumMetric#aggregation_type}
+        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#include_percentiles RumMetric#include_percentiles}
+        :param path: The path to the value the RUM-based metric will aggregate on. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#path RumMetric#path}
         '''
         value = RumMetricCompute(
             aggregation_type=aggregation_type,
@@ -153,7 +153,7 @@ class RumMetric(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, query: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param query: The search query. Follows RUM search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#query RumMetric#query}
+        :param query: The search query. Follows RUM search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#query RumMetric#query}
         '''
         value = RumMetricFilter(query=query)
 
@@ -175,7 +175,7 @@ class RumMetric(
     @jsii.member(jsii_name="putUniqueness")
     def put_uniqueness(self, *, when: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param when: When to count updatable events. ``match`` when the event is first seen, or ``end`` when the event is complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#when RumMetric#when}
+        :param when: When to count updatable events. ``match`` when the event is first seen, or ``end`` when the event is complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#when RumMetric#when}
         '''
         value = RumMetricUniqueness(when=when)
 
@@ -316,9 +316,9 @@ class RumMetricCompute:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: The type of aggregation to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#aggregation_type RumMetric#aggregation_type}
-        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#include_percentiles RumMetric#include_percentiles}
-        :param path: The path to the value the RUM-based metric will aggregate on. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#path RumMetric#path}
+        :param aggregation_type: The type of aggregation to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#aggregation_type RumMetric#aggregation_type}
+        :param include_percentiles: Toggle to include or exclude percentile aggregations for distribution metrics. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#include_percentiles RumMetric#include_percentiles}
+        :param path: The path to the value the RUM-based metric will aggregate on. Only present when ``aggregation_type`` is ``distribution``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#path RumMetric#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13940534ba6f3d7f0044cb6aedd304c8174e8f6909506720904427ca8e073e87)
@@ -337,7 +337,7 @@ class RumMetricCompute:
     def aggregation_type(self) -> builtins.str:
         '''The type of aggregation to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#aggregation_type RumMetric#aggregation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#aggregation_type RumMetric#aggregation_type}
         '''
         result = self._values.get("aggregation_type")
         assert result is not None, "Required property 'aggregation_type' is missing"
@@ -349,7 +349,7 @@ class RumMetricCompute:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Toggle to include or exclude percentile aggregations for distribution metrics. Only present when ``aggregation_type`` is ``distribution``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#include_percentiles RumMetric#include_percentiles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#include_percentiles RumMetric#include_percentiles}
         '''
         result = self._values.get("include_percentiles")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -358,7 +358,7 @@ class RumMetricCompute:
     def path(self) -> typing.Optional[builtins.str]:
         '''The path to the value the RUM-based metric will aggregate on. Only present when ``aggregation_type`` is ``distribution``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#path RumMetric#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#path RumMetric#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -524,12 +524,12 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#event_type RumMetric#event_type}
-        :param name: The name of the RUM-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#name RumMetric#name}
-        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#compute RumMetric#compute}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#filter RumMetric#filter}
-        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#group_by RumMetric#group_by}
-        :param uniqueness: uniqueness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#uniqueness RumMetric#uniqueness}
+        :param event_type: The type of RUM events to filter on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#event_type RumMetric#event_type}
+        :param name: The name of the RUM-based metric. This field can't be updated after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#name RumMetric#name}
+        :param compute: compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#compute RumMetric#compute}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#filter RumMetric#filter}
+        :param group_by: group_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#group_by RumMetric#group_by}
+        :param uniqueness: uniqueness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#uniqueness RumMetric#uniqueness}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -649,7 +649,7 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def event_type(self) -> builtins.str:
         '''The type of RUM events to filter on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#event_type RumMetric#event_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#event_type RumMetric#event_type}
         '''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
@@ -659,7 +659,7 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the RUM-based metric. This field can't be updated after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#name RumMetric#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#name RumMetric#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -669,7 +669,7 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def compute(self) -> typing.Optional[RumMetricCompute]:
         '''compute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#compute RumMetric#compute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#compute RumMetric#compute}
         '''
         result = self._values.get("compute")
         return typing.cast(typing.Optional[RumMetricCompute], result)
@@ -678,7 +678,7 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional["RumMetricFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#filter RumMetric#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#filter RumMetric#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["RumMetricFilter"], result)
@@ -689,7 +689,7 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RumMetricGroupBy"]]]:
         '''group_by block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#group_by RumMetric#group_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#group_by RumMetric#group_by}
         '''
         result = self._values.get("group_by")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RumMetricGroupBy"]]], result)
@@ -698,7 +698,7 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def uniqueness(self) -> typing.Optional["RumMetricUniqueness"]:
         '''uniqueness block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#uniqueness RumMetric#uniqueness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#uniqueness RumMetric#uniqueness}
         '''
         result = self._values.get("uniqueness")
         return typing.cast(typing.Optional["RumMetricUniqueness"], result)
@@ -723,7 +723,7 @@ class RumMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class RumMetricFilter:
     def __init__(self, *, query: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param query: The search query. Follows RUM search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#query RumMetric#query}
+        :param query: The search query. Follows RUM search syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#query RumMetric#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ef5332e3a005389985b313e64764b01ef1f52531bf5338d02a738ad638a7698)
@@ -736,7 +736,7 @@ class RumMetricFilter:
     def query(self) -> typing.Optional[builtins.str]:
         '''The search query. Follows RUM search syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#query RumMetric#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#query RumMetric#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -825,8 +825,8 @@ class RumMetricGroupBy:
         tag_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The path to the value the RUM-based metric will be aggregated over. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#path RumMetric#path}
-        :param tag_name: Name of the tag that gets created. By default, ``path`` is used as the tag name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#tag_name RumMetric#tag_name}
+        :param path: The path to the value the RUM-based metric will be aggregated over. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#path RumMetric#path}
+        :param tag_name: Name of the tag that gets created. By default, ``path`` is used as the tag name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#tag_name RumMetric#tag_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63a6e3abf868cdaf91193ff8bbf13b053d3a87f54a077d1e0b621bc05619f1af)
@@ -842,7 +842,7 @@ class RumMetricGroupBy:
     def path(self) -> typing.Optional[builtins.str]:
         '''The path to the value the RUM-based metric will be aggregated over.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#path RumMetric#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#path RumMetric#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -851,7 +851,7 @@ class RumMetricGroupBy:
     def tag_name(self) -> typing.Optional[builtins.str]:
         '''Name of the tag that gets created. By default, ``path`` is used as the tag name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#tag_name RumMetric#tag_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#tag_name RumMetric#tag_name}
         '''
         result = self._values.get("tag_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1052,7 +1052,7 @@ class RumMetricGroupByOutputReference(
 class RumMetricUniqueness:
     def __init__(self, *, when: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param when: When to count updatable events. ``match`` when the event is first seen, or ``end`` when the event is complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#when RumMetric#when}
+        :param when: When to count updatable events. ``match`` when the event is first seen, or ``end`` when the event is complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#when RumMetric#when}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2847a96fc6474e19eb792e2ff60c71bf6cbce7e203e399504c4c72d4012684b)
@@ -1065,7 +1065,7 @@ class RumMetricUniqueness:
     def when(self) -> typing.Optional[builtins.str]:
         '''When to count updatable events. ``match`` when the event is first seen, or ``end`` when the event is complete.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_metric#when RumMetric#when}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_metric#when RumMetric#when}
         '''
         result = self._values.get("when")
         return typing.cast(typing.Optional[builtins.str], result)

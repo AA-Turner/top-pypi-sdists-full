@@ -108,7 +108,8 @@ nitpick_ignore_regex = [
     ('py:class', r'.*TraitType'),
     ('py:class', r'.*object providing a view on.*'),  # Python dict docstring
     ('py:class', r'None.  .*'),  # Python dict docstring
-    ('py:class', r'.*D\[k\].*'),  # Python dict docstring
+    ('py:class', r'.*D\[k\].*'),  # Python dict docstring,
+    ('py:class', r"({'liquid'|'solid'|'auto'})")
 ]
 
 show_warning_types = True
@@ -227,6 +228,12 @@ html_theme_options = {
             'type': 'fontawesome',
         },
         {
+            'name': 'Bluesky',
+            'url': 'https://bsky.app/profile/metpy.bsky.social',
+            'icon': 'fa-brands fa-bluesky',
+            'type': 'fontawesome',
+        },
+        {
             'name': 'Twitter',
             'url': 'https://twitter.com/MetPy',
             'icon': 'fa-brands fa-twitter',
@@ -270,7 +277,7 @@ html_context = {
     'github_user': 'Unidata',
     'github_repo': 'MetPy',
     'github_version': 'main',  # Make changes to the main branch
-    'default_mode': 'light',
+    'default_mode': 'auto',
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -449,6 +456,7 @@ linkcheck_ignore = [
     # Couldn't fix these 403's with user agents
     r'https://doi\.org/10\.1029/2010GL045777',
     r'https://doi\.org/10\.1098/rspa\.2004\.1430',
+    r'https://doi\.org/10\.1002/qj\.3899',
     # Currently giving certificate errors on GitHub
     r'https://library.wmo.int/.*',
     # For some reason GHA gets a 403 from Stack Overflow
@@ -458,7 +466,7 @@ linkcheck_ignore = [
 # Dictionary of URL redirects allowed
 linkcheck_allowed_redirects = {
     r'https://pint\.readthedocs\.io': r'https://pint\.readthedocs\.io/en/stable/',
-    r'https://conda.io/docs/': r'https://conda.io/projects/conda/en/latest/',
+    r'https://conda.io/docs/': r'https://docs.conda.io/projects/conda/en/latest/',
     r'https://github.com/Unidata/MetPy/issues/new/choose': r'https://github.com/login.*choose',
     r'https://doi.org/.*': r'https://.*',
     r'https://gitter.im/Unidata/MetPy': r'https://app.gitter.im/.*MetPy.*',
@@ -519,12 +527,15 @@ def linkcode_resolve(domain, info):
     else:
         linespec = ""
 
-    fn = os.path.relpath(fn, start=os.path.dirname(metpy.__file__))
+    if 'metpy' in fn:
+        fn = os.path.relpath(fn, start=os.path.dirname(metpy.__file__))
 
-    if "+" in metpy.__version__:
-        return f"https://github.com/Unidata/MetPy/blob/main/src/metpy/{fn}{linespec}"
+        if "+" in metpy.__version__:
+            return f"https://github.com/Unidata/MetPy/blob/main/src/metpy/{fn}{linespec}"
+        else:
+            return (
+                f"https://github.com/Unidata/MetPy/blob/"
+                f"v{metpy.__version__}/src/metpy/{fn}{linespec}"
+            )
     else:
-        return (
-            f"https://github.com/Unidata/MetPy/blob/"
-            f"v{metpy.__version__}/src/metpy/{fn}{linespec}"
-        )
+        return None

@@ -1,7 +1,7 @@
 r'''
 # `datadog_rum_retention_filters_order`
 
-Refer to the Terraform Registry for docs: [`datadog_rum_retention_filters_order`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order).
+Refer to the Terraform Registry for docs: [`datadog_rum_retention_filters_order`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RumRetentionFiltersOrder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.rumRetentionFiltersOrder.RumRetentionFiltersOrder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order datadog_rum_retention_filters_order}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order datadog_rum_retention_filters_order}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class RumRetentionFiltersOrder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order datadog_rum_retention_filters_order} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order datadog_rum_retention_filters_order} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order#application_id RumRetentionFiltersOrder#application_id}
-        :param retention_filter_ids: RUM retention filter ID list. The order of IDs in this attribute defines the order of RUM retention filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order#retention_filter_ids RumRetentionFiltersOrder#retention_filter_ids}
+        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order#application_id RumRetentionFiltersOrder#application_id}
+        :param retention_filter_ids: RUM retention filter ID list. The order of IDs in this attribute defines the order of RUM retention filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order#retention_filter_ids RumRetentionFiltersOrder#retention_filter_ids}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class RumRetentionFiltersOrder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RumRetentionFiltersOrder to import.
-        :param import_from_id: The id of the existing RumRetentionFiltersOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RumRetentionFiltersOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RumRetentionFiltersOrder to import is found.
         '''
         if __debug__:
@@ -207,8 +207,8 @@ class RumRetentionFiltersOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order#application_id RumRetentionFiltersOrder#application_id}
-        :param retention_filter_ids: RUM retention filter ID list. The order of IDs in this attribute defines the order of RUM retention filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order#retention_filter_ids RumRetentionFiltersOrder#retention_filter_ids}
+        :param application_id: RUM application ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order#application_id RumRetentionFiltersOrder#application_id}
+        :param retention_filter_ids: RUM retention filter ID list. The order of IDs in this attribute defines the order of RUM retention filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order#retention_filter_ids RumRetentionFiltersOrder#retention_filter_ids}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -310,7 +310,7 @@ class RumRetentionFiltersOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''RUM application ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order#application_id RumRetentionFiltersOrder#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order#application_id RumRetentionFiltersOrder#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -320,7 +320,7 @@ class RumRetentionFiltersOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_filter_ids(self) -> typing.List[builtins.str]:
         '''RUM retention filter ID list. The order of IDs in this attribute defines the order of RUM retention filters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/rum_retention_filters_order#retention_filter_ids RumRetentionFiltersOrder#retention_filter_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/rum_retention_filters_order#retention_filter_ids RumRetentionFiltersOrder#retention_filter_ids}
         '''
         result = self._values.get("retention_filter_ids")
         assert result is not None, "Required property 'retention_filter_ids' is missing"

@@ -1,7 +1,7 @@
 r'''
 # `datadog_metric_metadata`
 
-Refer to the Terraform Registry for docs: [`datadog_metric_metadata`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata).
+Refer to the Terraform Registry for docs: [`datadog_metric_metadata`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MetricMetadata(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.metricMetadata.MetricMetadata",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata datadog_metric_metadata}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata datadog_metric_metadata}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class MetricMetadata(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata datadog_metric_metadata} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata datadog_metric_metadata} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param metric: The name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#metric MetricMetadata#metric}
-        :param description: A description of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#description MetricMetadata#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#id MetricMetadata#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param per_unit: Per unit of the metric such as ``second`` in ``bytes per second``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#per_unit MetricMetadata#per_unit}
-        :param short_name: A short name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#short_name MetricMetadata#short_name}
-        :param statsd_interval: If applicable, statsd flush interval in seconds for the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#statsd_interval MetricMetadata#statsd_interval}
-        :param type: Metric type such as ``count``, ``gauge``, or ``rate``. Updating a metric of type ``distribution`` is not supported. If you would like to see the ``distribution`` type returned, contact `Datadog support <https://docs.datadoghq.com/help/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#type MetricMetadata#type}
-        :param unit: Primary unit of the metric such as ``byte`` or ``operation``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#unit MetricMetadata#unit}
+        :param metric: The name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#metric MetricMetadata#metric}
+        :param description: A description of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#description MetricMetadata#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#id MetricMetadata#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param per_unit: Per unit of the metric such as ``second`` in ``bytes per second``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#per_unit MetricMetadata#per_unit}
+        :param short_name: A short name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#short_name MetricMetadata#short_name}
+        :param statsd_interval: If applicable, statsd flush interval in seconds for the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#statsd_interval MetricMetadata#statsd_interval}
+        :param type: Metric type such as ``count``, ``gauge``, or ``rate``. Updating a metric of type ``distribution`` is not supported. If you would like to see the ``distribution`` type returned, contact `Datadog support <https://docs.datadoghq.com/help/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#type MetricMetadata#type}
+        :param unit: Primary unit of the metric such as ``byte`` or ``operation``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#unit MetricMetadata#unit}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class MetricMetadata(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MetricMetadata to import.
-        :param import_from_id: The id of the existing MetricMetadata that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MetricMetadata that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MetricMetadata to import is found.
         '''
         if __debug__:
@@ -362,14 +362,14 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param metric: The name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#metric MetricMetadata#metric}
-        :param description: A description of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#description MetricMetadata#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#id MetricMetadata#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param per_unit: Per unit of the metric such as ``second`` in ``bytes per second``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#per_unit MetricMetadata#per_unit}
-        :param short_name: A short name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#short_name MetricMetadata#short_name}
-        :param statsd_interval: If applicable, statsd flush interval in seconds for the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#statsd_interval MetricMetadata#statsd_interval}
-        :param type: Metric type such as ``count``, ``gauge``, or ``rate``. Updating a metric of type ``distribution`` is not supported. If you would like to see the ``distribution`` type returned, contact `Datadog support <https://docs.datadoghq.com/help/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#type MetricMetadata#type}
-        :param unit: Primary unit of the metric such as ``byte`` or ``operation``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#unit MetricMetadata#unit}
+        :param metric: The name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#metric MetricMetadata#metric}
+        :param description: A description of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#description MetricMetadata#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#id MetricMetadata#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param per_unit: Per unit of the metric such as ``second`` in ``bytes per second``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#per_unit MetricMetadata#per_unit}
+        :param short_name: A short name of the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#short_name MetricMetadata#short_name}
+        :param statsd_interval: If applicable, statsd flush interval in seconds for the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#statsd_interval MetricMetadata#statsd_interval}
+        :param type: Metric type such as ``count``, ``gauge``, or ``rate``. Updating a metric of type ``distribution`` is not supported. If you would like to see the ``distribution`` type returned, contact `Datadog support <https://docs.datadoghq.com/help/>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#type MetricMetadata#type}
+        :param unit: Primary unit of the metric such as ``byte`` or ``operation``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#unit MetricMetadata#unit}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -490,7 +490,7 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric(self) -> builtins.str:
         '''The name of the metric.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#metric MetricMetadata#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#metric MetricMetadata#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -500,14 +500,14 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the metric.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#description MetricMetadata#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#description MetricMetadata#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#id MetricMetadata#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#id MetricMetadata#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -519,7 +519,7 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def per_unit(self) -> typing.Optional[builtins.str]:
         '''Per unit of the metric such as ``second`` in ``bytes per second``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#per_unit MetricMetadata#per_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#per_unit MetricMetadata#per_unit}
         '''
         result = self._values.get("per_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -528,7 +528,7 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def short_name(self) -> typing.Optional[builtins.str]:
         '''A short name of the metric.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#short_name MetricMetadata#short_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#short_name MetricMetadata#short_name}
         '''
         result = self._values.get("short_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -537,7 +537,7 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def statsd_interval(self) -> typing.Optional[jsii.Number]:
         '''If applicable, statsd flush interval in seconds for the metric.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#statsd_interval MetricMetadata#statsd_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#statsd_interval MetricMetadata#statsd_interval}
         '''
         result = self._values.get("statsd_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -548,7 +548,7 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Updating a metric of type ``distribution`` is not supported. If you would like to see the ``distribution`` type returned, contact `Datadog support <https://docs.datadoghq.com/help/>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#type MetricMetadata#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#type MetricMetadata#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -557,7 +557,7 @@ class MetricMetadataConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def unit(self) -> typing.Optional[builtins.str]:
         '''Primary unit of the metric such as ``byte`` or ``operation``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/metric_metadata#unit MetricMetadata#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/metric_metadata#unit MetricMetadata#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)

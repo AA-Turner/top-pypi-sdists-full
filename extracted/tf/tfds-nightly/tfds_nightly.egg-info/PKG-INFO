@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tfds-nightly
-Version: 4.9.8.dev202504300044
+Version: 4.9.8.dev202505010045
 Summary: tensorflow/datasets is a library of datasets ready to use with TensorFlow.
 Home-page: https://github.com/tensorflow/datasets
 Download-URL: https://github.com/tensorflow/datasets/tags

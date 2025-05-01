@@ -5,12 +5,9 @@ from typing import Any, Literal, cast, overload
 
 import mcp.types
 from mcp import ClientSession
-from mcp.client.session import (
-    LoggingFnT,
-    MessageHandlerFnT,
-)
 from pydantic import AnyUrl
 
+from fastmcp.client.logging import LogHandler, MessageHandler
 from fastmcp.client.roots import (
     RootsHandler,
     RootsList,
@@ -22,7 +19,14 @@ from fastmcp.server import FastMCP
 
 from .transports import ClientTransport, SessionKwargs, infer_transport
 
-__all__ = ["Client", "RootsHandler", "RootsList"]
+__all__ = [
+    "Client",
+    "RootsHandler",
+    "RootsList",
+    "LogHandler",
+    "MessageHandler",
+    "SamplingHandler",
+]
 
 
 class Client:
@@ -35,12 +39,12 @@ class Client:
 
     def __init__(
         self,
-        transport: ClientTransport | FastMCP | AnyUrl | Path | str,
+        transport: ClientTransport | FastMCP | AnyUrl | Path | dict[str, Any] | str,
         # Common args
         roots: RootsList | RootsHandler | None = None,
         sampling_handler: SamplingHandler | None = None,
-        log_handler: LoggingFnT | None = None,
-        message_handler: MessageHandlerFnT | None = None,
+        log_handler: LogHandler | None = None,
+        message_handler: MessageHandler | None = None,
         read_timeout_seconds: datetime.timedelta | None = None,
     ):
         self.transport = infer_transport(transport)

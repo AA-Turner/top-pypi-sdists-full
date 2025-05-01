@@ -1,7 +1,7 @@
 r'''
 # `datadog_apm_retention_filter`
 
-Refer to the Terraform Registry for docs: [`datadog_apm_retention_filter`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter).
+Refer to the Terraform Registry for docs: [`datadog_apm_retention_filter`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApmRetentionFilter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.apmRetentionFilter.ApmRetentionFilter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter datadog_apm_retention_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter datadog_apm_retention_filter}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ApmRetentionFilter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter datadog_apm_retention_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter datadog_apm_retention_filter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: the status of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#enabled ApmRetentionFilter#enabled}
-        :param filter_type: The type of the retention filter, currently only spans-processing-sampling is available. Valid values are ``spans-sampling-processor``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#filter_type ApmRetentionFilter#filter_type}
-        :param name: The name of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#name ApmRetentionFilter#name}
-        :param rate: Sample rate to apply to spans going through this retention filter as a string; a value of 1.0 keeps all spans matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#rate ApmRetentionFilter#rate}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#filter ApmRetentionFilter#filter}
-        :param trace_rate: Sample rate to apply to traces with spans going through this retention filter as a string; a value of 1.0 keeps all traces matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#trace_rate ApmRetentionFilter#trace_rate}
+        :param enabled: the status of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#enabled ApmRetentionFilter#enabled}
+        :param filter_type: The type of the retention filter, currently only spans-processing-sampling is available. Valid values are ``spans-sampling-processor``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#filter_type ApmRetentionFilter#filter_type}
+        :param name: The name of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#name ApmRetentionFilter#name}
+        :param rate: Sample rate to apply to spans going through this retention filter as a string; a value of 1.0 keeps all spans matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#rate ApmRetentionFilter#rate}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#filter ApmRetentionFilter#filter}
+        :param trace_rate: Sample rate to apply to traces with spans going through this retention filter as a string; a value of 1.0 keeps all traces matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#trace_rate ApmRetentionFilter#trace_rate}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ApmRetentionFilter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApmRetentionFilter to import.
-        :param import_from_id: The id of the existing ApmRetentionFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApmRetentionFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApmRetentionFilter to import is found.
         '''
         if __debug__:
@@ -132,7 +132,7 @@ class ApmRetentionFilter(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, query: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param query: The search query - follow the span search syntax, use ``AND`` between tags and ``\\`` to escape special characters, use nanosecond for duration. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#query ApmRetentionFilter#query}
+        :param query: The search query - follow the span search syntax, use ``AND`` between tags and ``\\`` to escape special characters, use nanosecond for duration. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#query ApmRetentionFilter#query}
         '''
         value = ApmRetentionFilterFilter(query=query)
 
@@ -312,12 +312,12 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: the status of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#enabled ApmRetentionFilter#enabled}
-        :param filter_type: The type of the retention filter, currently only spans-processing-sampling is available. Valid values are ``spans-sampling-processor``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#filter_type ApmRetentionFilter#filter_type}
-        :param name: The name of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#name ApmRetentionFilter#name}
-        :param rate: Sample rate to apply to spans going through this retention filter as a string; a value of 1.0 keeps all spans matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#rate ApmRetentionFilter#rate}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#filter ApmRetentionFilter#filter}
-        :param trace_rate: Sample rate to apply to traces with spans going through this retention filter as a string; a value of 1.0 keeps all traces matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#trace_rate ApmRetentionFilter#trace_rate}
+        :param enabled: the status of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#enabled ApmRetentionFilter#enabled}
+        :param filter_type: The type of the retention filter, currently only spans-processing-sampling is available. Valid values are ``spans-sampling-processor``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#filter_type ApmRetentionFilter#filter_type}
+        :param name: The name of the retention filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#name ApmRetentionFilter#name}
+        :param rate: Sample rate to apply to spans going through this retention filter as a string; a value of 1.0 keeps all spans matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#rate ApmRetentionFilter#rate}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#filter ApmRetentionFilter#filter}
+        :param trace_rate: Sample rate to apply to traces with spans going through this retention filter as a string; a value of 1.0 keeps all traces matching the query. Value must be between 0.00 and 1.00. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#trace_rate ApmRetentionFilter#trace_rate}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -431,7 +431,7 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''the status of the retention filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#enabled ApmRetentionFilter#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#enabled ApmRetentionFilter#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -441,7 +441,7 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_type(self) -> builtins.str:
         '''The type of the retention filter, currently only spans-processing-sampling is available. Valid values are ``spans-sampling-processor``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#filter_type ApmRetentionFilter#filter_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#filter_type ApmRetentionFilter#filter_type}
         '''
         result = self._values.get("filter_type")
         assert result is not None, "Required property 'filter_type' is missing"
@@ -451,7 +451,7 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the retention filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#name ApmRetentionFilter#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#name ApmRetentionFilter#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -463,7 +463,7 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         a value of 1.0 keeps all spans matching the query. Value must be between 0.00 and 1.00.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#rate ApmRetentionFilter#rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#rate ApmRetentionFilter#rate}
         '''
         result = self._values.get("rate")
         assert result is not None, "Required property 'rate' is missing"
@@ -473,7 +473,7 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional["ApmRetentionFilterFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#filter ApmRetentionFilter#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#filter ApmRetentionFilter#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["ApmRetentionFilterFilter"], result)
@@ -484,7 +484,7 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         a value of 1.0 keeps all traces matching the query. Value must be between 0.00 and 1.00.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#trace_rate ApmRetentionFilter#trace_rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#trace_rate ApmRetentionFilter#trace_rate}
         '''
         result = self._values.get("trace_rate")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -509,7 +509,7 @@ class ApmRetentionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ApmRetentionFilterFilter:
     def __init__(self, *, query: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param query: The search query - follow the span search syntax, use ``AND`` between tags and ``\\`` to escape special characters, use nanosecond for duration. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#query ApmRetentionFilter#query}
+        :param query: The search query - follow the span search syntax, use ``AND`` between tags and ``\\`` to escape special characters, use nanosecond for duration. Defaults to ``"*"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#query ApmRetentionFilter#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__803274ca59092f38a94a73f8ef8100051792727349ca58299c7ca930c85bcbda)
@@ -524,7 +524,7 @@ class ApmRetentionFilterFilter:
 
         Defaults to ``"*"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/apm_retention_filter#query ApmRetentionFilter#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/apm_retention_filter#query ApmRetentionFilter#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)

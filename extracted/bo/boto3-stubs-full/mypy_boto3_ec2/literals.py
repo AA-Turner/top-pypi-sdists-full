@@ -351,6 +351,7 @@ __all__ = (
     "IpamDiscoveryFailureCodeType",
     "IpamExternalResourceVerificationTokenStateType",
     "IpamManagementStateType",
+    "IpamMeteredAccountType",
     "IpamNetworkInterfaceAttachmentStatusType",
     "IpamOverlapStatusType",
     "IpamPoolAllocationResourceTypeType",
@@ -2071,6 +2072,7 @@ IpamExternalResourceVerificationTokenStateType = Literal[
     "delete-in-progress",
 ]
 IpamManagementStateType = Literal["ignored", "managed", "unmanaged"]
+IpamMeteredAccountType = Literal["ipam-owner", "resource-owner"]
 IpamNetworkInterfaceAttachmentStatusType = Literal["available", "in-use"]
 IpamOverlapStatusType = Literal["ignored", "nonoverlapping", "overlapping"]
 IpamPoolAllocationResourceTypeType = Literal[

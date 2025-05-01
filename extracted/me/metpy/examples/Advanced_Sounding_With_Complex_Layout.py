@@ -105,7 +105,7 @@ skew.ax.set_facecolor('#ffffff')
 x1 = np.linspace(-100, 40, 8)
 x2 = np.linspace(-90, 50, 8)
 y = [1100, 50]
-for i in range(0, 8):
+for i in range(8):
     skew.shade_area(y=y, x1=x1[i], x2=x2[i], color='gray', alpha=0.02, zorder=1)
 
 # STEP 2: PLOT DATA ON THE SKEW-T. TAKE A COUPLE EXTRA STEPS TO
@@ -214,7 +214,7 @@ total_totals = mpcalc.total_totals_index(p, T, Td)
 # mixed layer parcel properties!
 ml_t, ml_td = mpcalc.mixed_layer(p, T, Td, depth=50 * units.hPa)
 ml_p, _, _ = mpcalc.mixed_parcel(p, T, Td, depth=50 * units.hPa)
-mlcape, mlcin = mpcalc.mixed_layer_cape_cin(p, T, prof, depth=50 * units.hPa)
+mlcape, mlcin = mpcalc.mixed_layer_cape_cin(p, T, Td, depth=50 * units.hPa)
 
 # most unstable parcel properties!
 mu_p, mu_t, mu_td, _ = mpcalc.most_unstable_parcel(p, T, Td, depth=50 * units.hPa)

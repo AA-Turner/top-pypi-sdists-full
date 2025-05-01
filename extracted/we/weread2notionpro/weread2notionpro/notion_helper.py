@@ -24,7 +24,7 @@ from weread2notionpro.utils  import (
     timestamp_to_date,
     get_property_value,
 )
-
+import json
 TAG_ICON_URL = "https://www.notion.so/icons/tag_gray.svg"
 USER_ICON_URL = "https://www.notion.so/icons/user-circle-filled_gray.svg"
 TARGET_ICON_URL = "https://www.notion.so/icons/target_red.svg"
@@ -52,9 +52,13 @@ class NotionHelper:
     block_type = "callout"
     sync_bookmark = True
     def __init__(self):
-        self.client = Client(auth=os.getenv("NOTION_TOKEN").strip(), log_level=logging.ERROR)
+
+        notion_json = os.getenv("NOTION")
+        notion_dict = json.loads(notion_json) if notion_json else {}
+        print(notion_dict.get("access_token"),)
+        self.client = Client(auth = notion_dict.get("access_token"),log_level=logging.ERROR)
         self.__cache = {}
-        self.page_id = self.extract_page_id(os.getenv("NOTION_PAGE").strip())
+        self.page_id = self.extract_page_id(notion_dict.get("duplicated_template_id"))
         self.search_database(self.page_id)
         for key in self.database_name_dict.keys():
             if os.getenv(key) != None and os.getenv(key) != "":
@@ -248,9 +252,6 @@ class NotionHelper:
         properties = {
             "标题": {"title": [{"type": "text", "text": {"content": "设置"}}]},
             "最后同步时间": {"date": {"start": pendulum.now("Asia/Shanghai").isoformat()}},
-            "NotinToken": {"rich_text": [{"type": "text", "text": {"content": os.getenv("NOTION_TOKEN")}}]},
-            "NotinPage": {"rich_text": [{"type": "text", "text": {"content": os.getenv("NOTION_PAGE")}}]},
-            "WeReadCookie": {"rich_text": [{"type": "text", "text": {"content": os.getenv("WEREAD_COOKIE")}}]},
         }
         if existing_pages:
             remote_properties = existing_pages[0].get("properties")

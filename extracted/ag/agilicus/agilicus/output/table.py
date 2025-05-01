@@ -24,6 +24,22 @@ def format_date_only(date_input):
 def date_else_identity(input_obj):
     if isinstance(input_obj, datetime):
         return format_date(input_obj)
+    if isinstance(input_obj, list):
+        list_as_str = ""
+        for obj in input_obj:
+            try_dict = None
+            try:
+                try_dict = obj.to_dict()
+            except Exception:
+                pass
+            if isinstance(try_dict, dict):
+                prefix = "-"
+                for k, v in try_dict.items():
+                    list_as_str += f"{prefix} {k}: {v}\n"
+                    prefix = " "
+            else:
+                list_as_str += f"- {obj}\n"
+        return list_as_str
     return input_obj
 
 

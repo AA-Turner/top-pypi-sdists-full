@@ -76,18 +76,6 @@ class Language(_common.CaseInSensitiveEnum):
   PYTHON = 'PYTHON'
 
 
-class Type(_common.CaseInSensitiveEnum):
-  """Optional. The type of the data."""
-
-  TYPE_UNSPECIFIED = 'TYPE_UNSPECIFIED'
-  STRING = 'STRING'
-  NUMBER = 'NUMBER'
-  INTEGER = 'INTEGER'
-  BOOLEAN = 'BOOLEAN'
-  ARRAY = 'ARRAY'
-  OBJECT = 'OBJECT'
-
-
 class HarmCategory(_common.CaseInSensitiveEnum):
   """Required. Harm category."""
 
@@ -127,6 +115,18 @@ class Mode(_common.CaseInSensitiveEnum):
 
   MODE_UNSPECIFIED = 'MODE_UNSPECIFIED'
   MODE_DYNAMIC = 'MODE_DYNAMIC'
+
+
+class Type(_common.CaseInSensitiveEnum):
+  """Optional. The type of the data."""
+
+  TYPE_UNSPECIFIED = 'TYPE_UNSPECIFIED'
+  STRING = 'STRING'
+  NUMBER = 'NUMBER'
+  INTEGER = 'INTEGER'
+  BOOLEAN = 'BOOLEAN'
+  ARRAY = 'ARRAY'
+  OBJECT = 'OBJECT'
 
 
 class FinishReason(_common.CaseInSensitiveEnum):
@@ -881,673 +881,6 @@ class HttpOptionsDict(TypedDict, total=False):
 HttpOptionsOrDict = Union[HttpOptions, HttpOptionsDict]
 
 
-class JSONSchemaType(Enum):
-  """The type of the data supported by JSON Schema.
-
-  The values of the enums are lower case strings, while the values of the enums
-  for the Type class are upper case strings.
-  """
-
-  NULL = 'null'
-  BOOLEAN = 'boolean'
-  OBJECT = 'object'
-  ARRAY = 'array'
-  NUMBER = 'number'
-  INTEGER = 'integer'
-  STRING = 'string'
-
-
-class JSONSchema(pydantic.BaseModel):
-  """A subset of JSON Schema according to 2020-12 JSON Schema draft.
-
-  Represents a subset of a JSON Schema object that is used by the Gemini model.
-  The difference between this class and the Schema class is that this class is
-  compatible with OpenAPI 3.1 schema objects. And the Schema class is used to
-  make API call to Gemini model.
-  """
-
-  type: Optional[Union[JSONSchemaType, list[JSONSchemaType]]] = Field(
-      default=None,
-      description="""Validation succeeds if the type of the instance matches the type represented by the given type, or matches at least one of the given types.""",
-  )
-  format: Optional[str] = Field(
-      default=None,
-      description='Define semantic information about a string instance.',
-  )
-  title: Optional[str] = Field(
-      default=None,
-      description=(
-          'A preferably short description about the purpose of the instance'
-          ' described by the schema.'
-      ),
-  )
-  description: Optional[str] = Field(
-      default=None,
-      description=(
-          'An explanation about the purpose of the instance described by the'
-          ' schema.'
-      ),
-  )
-  default: Optional[Any] = Field(
-      default=None,
-      description=(
-          'This keyword can be used to supply a default JSON value associated'
-          ' with a particular schema.'
-      ),
-  )
-  items: Optional['JSONSchema'] = Field(
-      default=None,
-      description=(
-          'Validation succeeds if each element of the instance not covered by'
-          ' prefixItems validates against this schema.'
-      ),
-  )
-  min_items: Optional[int] = Field(
-      default=None,
-      description=(
-          'An array instance is valid if its size is greater than, or equal to,'
-          ' the value of this keyword.'
-      ),
-  )
-  max_items: Optional[int] = Field(
-      default=None,
-      description=(
-          'An array instance is valid if its size is less than, or equal to,'
-          ' the value of this keyword.'
-      ),
-  )
-  enum: Optional[list[Any]] = Field(
-      default=None,
-      description=(
-          'Validation succeeds if the instance is equal to one of the elements'
-          ' in this keyword’s array value.'
-      ),
-  )
-  properties: Optional[dict[str, 'JSONSchema']] = Field(
-      default=None,
-      description=(
-          'Validation succeeds if, for each name that appears in both the'
-          ' instance and as a name within this keyword’s value, the child'
-          ' instance for that name successfully validates against the'
-          ' corresponding schema.'
-      ),
-  )
-  required: Optional[list[str]] = Field(
-      default=None,
-      description=(
-          'An object instance is valid against this keyword if every item in'
-          ' the array is the name of a property in the instance.'
-      ),
-  )
-  min_properties: Optional[int] = Field(
-      default=None,
-      description=(
-          'An object instance is valid if its number of properties is greater'
-          ' than, or equal to, the value of this keyword.'
-      ),
-  )
-  max_properties: Optional[int] = Field(
-      default=None,
-      description=(
-          'An object instance is valid if its number of properties is less'
-          ' than, or equal to, the value of this keyword.'
-      ),
-  )
-  minimum: Optional[float] = Field(
-      default=None,
-      description=(
-          'Validation succeeds if the numeric instance is greater than or equal'
-          ' to the given number.'
-      ),
-  )
-  maximum: Optional[float] = Field(
-      default=None,
-      description=(
-          'Validation succeeds if the numeric instance is less than or equal to'
-          ' the given number.'
-      ),
-  )
-  min_length: Optional[int] = Field(
-      default=None,
-      description=(
-          'A string instance is valid against this keyword if its length is'
-          ' greater than, or equal to, the value of this keyword.'
-      ),
-  )
-  max_length: Optional[int] = Field(
-      default=None,
-      description=(
-          'A string instance is valid against this keyword if its length is'
-          ' less than, or equal to, the value of this keyword.'
-      ),
-  )
-  pattern: Optional[str] = Field(
-      default=None,
-      description=(
-          'A string instance is considered valid if the regular expression'
-          ' matches the instance successfully.'
-      ),
-  )
-  any_of: Optional[list['JSONSchema']] = Field(
-      default=None,
-      description=(
-          'An instance validates successfully against this keyword if it'
-          ' validates successfully against at least one schema defined by this'
-          ' keyword’s value.'
-      ),
-  )
-
-
-class Schema(_common.BaseModel):
-  """Schema that defines the format of input and output data.
-
-  Represents a select subset of an OpenAPI 3.0 schema object.
-  """
-
-  example: Optional[Any] = Field(
-      default=None,
-      description="""Optional. Example of the object. Will only populated when the object is the root.""",
-  )
-  pattern: Optional[str] = Field(
-      default=None,
-      description="""Optional. Pattern of the Type.STRING to restrict a string to a regular expression.""",
-  )
-  default: Optional[Any] = Field(
-      default=None, description="""Optional. Default value of the data."""
-  )
-  max_length: Optional[int] = Field(
-      default=None,
-      description="""Optional. Maximum length of the Type.STRING""",
-  )
-  min_length: Optional[int] = Field(
-      default=None,
-      description="""Optional. SCHEMA FIELDS FOR TYPE STRING Minimum length of the Type.STRING""",
-  )
-  min_properties: Optional[int] = Field(
-      default=None,
-      description="""Optional. Minimum number of the properties for Type.OBJECT.""",
-  )
-  max_properties: Optional[int] = Field(
-      default=None,
-      description="""Optional. Maximum number of the properties for Type.OBJECT.""",
-  )
-  any_of: Optional[list['Schema']] = Field(
-      default=None,
-      description="""Optional. The value should be validated against any (one or more) of the subschemas in the list.""",
-  )
-  description: Optional[str] = Field(
-      default=None, description="""Optional. The description of the data."""
-  )
-  enum: Optional[list[str]] = Field(
-      default=None,
-      description="""Optional. Possible values of the element of primitive type with enum format. Examples: 1. We can define direction as : {type:STRING, format:enum, enum:["EAST", NORTH", "SOUTH", "WEST"]} 2. We can define apartment number as : {type:INTEGER, format:enum, enum:["101", "201", "301"]}""",
-  )
-  format: Optional[str] = Field(
-      default=None,
-      description="""Optional. The format of the data. Supported formats: for NUMBER type: "float", "double" for INTEGER type: "int32", "int64" for STRING type: "email", "byte", etc""",
-  )
-  items: Optional['Schema'] = Field(
-      default=None,
-      description="""Optional. SCHEMA FIELDS FOR TYPE ARRAY Schema of the elements of Type.ARRAY.""",
-  )
-  max_items: Optional[int] = Field(
-      default=None,
-      description="""Optional. Maximum number of the elements for Type.ARRAY.""",
-  )
-  maximum: Optional[float] = Field(
-      default=None,
-      description="""Optional. Maximum value of the Type.INTEGER and Type.NUMBER""",
-  )
-  min_items: Optional[int] = Field(
-      default=None,
-      description="""Optional. Minimum number of the elements for Type.ARRAY.""",
-  )
-  minimum: Optional[float] = Field(
-      default=None,
-      description="""Optional. SCHEMA FIELDS FOR TYPE INTEGER and NUMBER Minimum value of the Type.INTEGER and Type.NUMBER""",
-  )
-  nullable: Optional[bool] = Field(
-      default=None,
-      description="""Optional. Indicates if the value may be null.""",
-  )
-  properties: Optional[dict[str, 'Schema']] = Field(
-      default=None,
-      description="""Optional. SCHEMA FIELDS FOR TYPE OBJECT Properties of Type.OBJECT.""",
-  )
-  property_ordering: Optional[list[str]] = Field(
-      default=None,
-      description="""Optional. The order of the properties. Not a standard field in open api spec. Only used to support the order of the properties.""",
-  )
-  required: Optional[list[str]] = Field(
-      default=None,
-      description="""Optional. Required properties of Type.OBJECT.""",
-  )
-  title: Optional[str] = Field(
-      default=None, description="""Optional. The title of the Schema."""
-  )
-  type: Optional[Type] = Field(
-      default=None, description="""Optional. The type of the data."""
-  )
-
-  @property
-  def json_schema(self) -> JSONSchema:
-    """Converts the Schema object to a JSONSchema object, that is compatible with 2020-12 JSON Schema draft.
-
-    If a Schema field is not supported by JSONSchema, it will be ignored.
-    """
-    json_schema_field_names: set[str] = set(JSONSchema.model_fields.keys())
-    schema_field_names: tuple[str] = (
-        'items',
-    )  # 'additional_properties' to come
-    list_schema_field_names: tuple[str] = (
-        'any_of',  # 'one_of', 'all_of', 'not' to come
-    )
-    dict_schema_field_names: tuple[str] = ('properties',)  # 'defs' to come
-
-    def convert_schema(schema: Union['Schema', dict[str, Any]]) -> JSONSchema:
-      if isinstance(schema, pydantic.BaseModel):
-        schema_dict = schema.model_dump()
-      else:
-        schema_dict = schema
-      json_schema = JSONSchema()
-      for field_name, field_value in schema_dict.items():
-        if field_value is None:
-          continue
-        elif field_name == 'nullable':
-          json_schema.type = JSONSchemaType.NULL
-        elif field_name not in json_schema_field_names:
-          continue
-        elif field_name == 'type':
-          if field_value == Type.TYPE_UNSPECIFIED:
-            continue
-          json_schema_type = JSONSchemaType(field_value.lower())
-          if json_schema.type is None:
-            json_schema.type = json_schema_type
-          elif isinstance(json_schema.type, JSONSchemaType):
-            existing_type: JSONSchemaType = json_schema.type
-            json_schema.type = [existing_type, json_schema_type]
-          elif isinstance(json_schema.type, list):
-            json_schema.type.append(json_schema_type)
-        elif field_name in schema_field_names:
-          schema_field_value: 'JSONSchema' = convert_schema(field_value)
-          setattr(json_schema, field_name, schema_field_value)
-        elif field_name in list_schema_field_names:
-          list_schema_field_value: list['JSONSchema'] = [
-              convert_schema(this_field_value)
-              for this_field_value in field_value
-          ]
-          setattr(json_schema, field_name, list_schema_field_value)
-        elif field_name in dict_schema_field_names:
-          dict_schema_field_value: dict[str, 'JSONSchema'] = {
-              key: convert_schema(value) for key, value in field_value.items()
-          }
-          setattr(json_schema, field_name, dict_schema_field_value)
-        else:
-          setattr(json_schema, field_name, field_value)
-
-      return json_schema
-
-    return convert_schema(self)
-
-  @classmethod
-  def from_json_schema(
-      cls,
-      *,
-      json_schema: JSONSchema,
-      api_option: Literal['VERTEX_AI', 'GEMINI_API'] = 'GEMINI_API',
-      raise_error_on_unsupported_field: bool = False,
-  ) -> 'Schema':
-    """Converts a JSONSchema object to a Schema object.
-
-    The JSONSchema is compatible with 2020-12 JSON Schema draft, specified by
-    OpenAPI 3.1.
-
-    Args:
-        json_schema: JSONSchema object to be converted.
-        api_option: API option to be used. If set to 'VERTEX_AI', the JSONSchema
-          will be converted to a Schema object that is compatible with Vertex AI
-          API. If set to 'GEMINI_API', the JSONSchema will be converted to a
-          Schema object that is compatible with Gemini API. Default is
-          'GEMINI_API'.
-        raise_error_on_unsupported_field: If set to True, an error will be
-          raised if the JSONSchema contains any unsupported fields. Default is
-          False.
-
-    Returns:
-        Schema object that is compatible with the specified API option.
-    Raises:
-        ValueError: If the JSONSchema contains any unsupported fields and
-          raise_error_on_unsupported_field is set to True. Or if the JSONSchema
-          is not compatible with the specified API option.
-    """
-    google_schema_field_names: set[str] = set(cls.model_fields.keys())
-    schema_field_names: tuple[str, ...] = (
-        'items',
-    )  # 'additional_properties' to come
-    list_schema_field_names: tuple[str, ...] = (
-        'any_of',  # 'one_of', 'all_of', 'not' to come
-    )
-    dict_schema_field_names: tuple[str, ...] = ('properties',)  # 'defs' to come
-
-    number_integer_related_field_names: tuple[str, ...] = (
-        'description',
-        'enum',
-        'format',
-        'maximum',
-        'minimum',
-        'title',
-    )
-    string_related_field_names: tuple[str, ...] = (
-        'description',
-        'enum',
-        'format',
-        'max_length',
-        'min_length',
-        'pattern',
-        'title',
-    )
-    object_related_field_names: tuple[str, ...] = (
-        'any_of',
-        'description',
-        'max_properties',
-        'min_properties',
-        'properties',
-        'required',
-        'title',
-    )
-    array_related_field_names: tuple[str, ...] = (
-        'description',
-        'items',
-        'max_items',
-        'min_items',
-        'title',
-    )
-    boolean_related_field_names: tuple[str, ...] = (
-        'description',
-        'title',
-    )
-    # placeholder for potential gemini api unsupported fields
-    gemini_api_unsupported_field_names: tuple[str, ...] = ()
-
-    def normalize_json_schema_type(
-        json_schema_type: Optional[
-            Union[JSONSchemaType, Sequence[JSONSchemaType], str, Sequence[str]]
-        ],
-    ) -> tuple[list[str], bool]:
-      """Returns (non_null_types, nullable)"""
-      if json_schema_type is None:
-        return [], False
-      if isinstance(json_schema_type, str):
-        if json_schema_type == JSONSchemaType.NULL.value:
-          return [], True
-        return [json_schema_type], False
-      if isinstance(json_schema_type, JSONSchemaType):
-        if json_schema_type == JSONSchemaType.NULL:
-          return [], True
-        return [json_schema_type.value], False
-      non_null_types = []
-      nullable = False
-      for type_value in json_schema_type:
-        if isinstance(type_value, JSONSchemaType):
-          type_value = type_value.value
-        if type_value == JSONSchemaType.NULL.value:
-          nullable = True
-        else:
-          non_null_types.append(type_value)
-      return non_null_types, nullable
-
-    def raise_error_if_cannot_convert(
-        json_schema_dict: dict[str, Any],
-        api_option: Literal['VERTEX_AI', 'GEMINI_API'],
-        raise_error_on_unsupported_field: bool,
-    ) -> None:
-      """Raises an error if the JSONSchema cannot be converted to the specified Schema object."""
-      if not raise_error_on_unsupported_field:
-        return
-      for field_name, field_value in json_schema_dict.items():
-        if field_value is None:
-          continue
-        if field_name not in google_schema_field_names:
-          raise ValueError((
-              f'JSONSchema field "{field_name}" is not supported by the '
-              'Schema object. And the "raise_error_on_unsupported_field" '
-              'argument is set to True. If you still want to convert '
-              'it into the Schema object, please either remove the field '
-              f'"{field_name}" from the JSONSchema object, or leave the '
-              '"raise_error_on_unsupported_field" unset.'
-          ))
-        if (
-            field_name in gemini_api_unsupported_field_names
-            and api_option == 'GEMINI_API'
-        ):
-          raise ValueError((
-              f'The "{field_name}" field is not supported by the Schema '
-              'object for GEMINI_API.'
-          ))
-
-    def copy_schema_fields(
-        json_schema_dict: dict[str, Any],
-        related_fields_to_copy: tuple[str, ...],
-        sub_schema_in_any_of: dict[str, Any],
-    ) -> None:
-      """Copies the fields from json_schema_dict to sub_schema_in_any_of."""
-      for field_name in related_fields_to_copy:
-        sub_schema_in_any_of[field_name] = json_schema_dict.get(
-            field_name, None
-        )
-
-    def convert_json_schema(
-        json_schema: JSONSchema,
-        api_option: Literal['VERTEX_AI', 'GEMINI_API'],
-        raise_error_on_unsupported_field: bool,
-    ) -> 'Schema':
-      schema = Schema()
-      json_schema_dict = json_schema.model_dump()
-      raise_error_if_cannot_convert(
-          json_schema_dict=json_schema_dict,
-          api_option=api_option,
-          raise_error_on_unsupported_field=raise_error_on_unsupported_field,
-      )
-
-      # At the highest level of the logic, there are two passes:
-      # Pass 1: the JSONSchema.type is union-like,
-      #         e.g. ['null', 'string', 'array'].
-      #         for this case, we need to split the JSONSchema into multiple
-      #         sub-schemas, and copy them into the any_of field of the Schema.
-      #         And when we copy the non-type fields into any_of field,
-      #         we only copy the fields related to the specific type.
-      #         Detailed logic is commented below with `Pass 1` keyword tag.
-      # Pass 2: the JSONSchema.type is not union-like,
-      #         e.g. 'string', ['string'], ['null', 'string'].
-      #         for this case, no splitting is needed. Detailed
-      #         logic is commented below with `Pass 2` keyword tag.
-      #
-      #
-      # Pass 1: the JSONSchema.type is union-like
-      #         e.g. ['null', 'string', 'array'].
-      non_null_types, nullable = normalize_json_schema_type(
-          json_schema_dict.get('type', None)
-      )
-      if len(non_null_types) > 1:
-        logger.warning(
-            'JSONSchema type is union-like, e.g. ["null", "string", "array"]. '
-            'Converting it into multiple sub-schemas, and copying them into '
-            'the any_of field of the Schema. The value of `default` field is '
-            'ignored because it is ambiguous to tell which sub-schema it '
-            'belongs to.'
-        )
-        reformed_json_schema = JSONSchema()
-        # start splitting the JSONSchema into multiple sub-schemas
-        any_of = []
-        if nullable:
-          schema.nullable = True
-        for normalized_type in non_null_types:
-          sub_schema_in_any_of = {'type': normalized_type}
-          if normalized_type == JSONSchemaType.BOOLEAN.value:
-            copy_schema_fields(
-                json_schema_dict=json_schema_dict,
-                related_fields_to_copy=boolean_related_field_names,
-                sub_schema_in_any_of=sub_schema_in_any_of,
-            )
-          elif normalized_type in (
-              JSONSchemaType.NUMBER.value,
-              JSONSchemaType.INTEGER.value,
-          ):
-            copy_schema_fields(
-                json_schema_dict=json_schema_dict,
-                related_fields_to_copy=number_integer_related_field_names,
-                sub_schema_in_any_of=sub_schema_in_any_of,
-            )
-          elif normalized_type == JSONSchemaType.STRING.value:
-            copy_schema_fields(
-                json_schema_dict=json_schema_dict,
-                related_fields_to_copy=string_related_field_names,
-                sub_schema_in_any_of=sub_schema_in_any_of,
-            )
-          elif normalized_type == JSONSchemaType.ARRAY.value:
-            copy_schema_fields(
-                json_schema_dict=json_schema_dict,
-                related_fields_to_copy=array_related_field_names,
-                sub_schema_in_any_of=sub_schema_in_any_of,
-            )
-          elif normalized_type == JSONSchemaType.OBJECT.value:
-            copy_schema_fields(
-                json_schema_dict=json_schema_dict,
-                related_fields_to_copy=object_related_field_names,
-                sub_schema_in_any_of=sub_schema_in_any_of,
-            )
-          any_of.append(JSONSchema(**sub_schema_in_any_of))
-        reformed_json_schema.any_of = any_of
-        json_schema_dict = reformed_json_schema.model_dump()
-
-      # Pass 2: the JSONSchema.type is not union-like,
-      # e.g. 'string', ['string'], ['null', 'string'].
-      for field_name, field_value in json_schema_dict.items():
-        if field_value is None:
-          continue
-        if field_name in schema_field_names:
-          schema_field_value: 'Schema' = convert_json_schema(
-              json_schema=JSONSchema(**field_value),
-              api_option=api_option,
-              raise_error_on_unsupported_field=raise_error_on_unsupported_field,
-          )
-          setattr(schema, field_name, schema_field_value)
-        elif field_name in list_schema_field_names:
-          list_schema_field_value: list['Schema'] = [
-              convert_json_schema(
-                  json_schema=JSONSchema(**this_field_value),
-                  api_option=api_option,
-                  raise_error_on_unsupported_field=raise_error_on_unsupported_field,
-              )
-              for this_field_value in field_value
-          ]
-          setattr(schema, field_name, list_schema_field_value)
-        elif field_name in dict_schema_field_names:
-          dict_schema_field_value: dict[str, 'Schema'] = {
-              key: convert_json_schema(
-                  json_schema=JSONSchema(**value),
-                  api_option=api_option,
-                  raise_error_on_unsupported_field=raise_error_on_unsupported_field,
-              )
-              for key, value in field_value.items()
-          }
-          setattr(schema, field_name, dict_schema_field_value)
-        elif field_name == 'type':
-          # non_null_types can only be empty or have one element.
-          # because already handled union-like case above.
-          non_null_types, nullable = normalize_json_schema_type(field_value)
-          if nullable:
-            schema.nullable = True
-          if non_null_types:
-            schema.type = Type(non_null_types[0])
-        else:
-          setattr(schema, field_name, field_value)
-
-      return schema
-
-    return convert_json_schema(
-        json_schema=json_schema,
-        api_option=api_option,
-        raise_error_on_unsupported_field=raise_error_on_unsupported_field,
-    )
-
-
-class SchemaDict(TypedDict, total=False):
-  """Schema that defines the format of input and output data.
-
-  Represents a select subset of an OpenAPI 3.0 schema object.
-  """
-
-  example: Optional[Any]
-  """Optional. Example of the object. Will only populated when the object is the root."""
-
-  pattern: Optional[str]
-  """Optional. Pattern of the Type.STRING to restrict a string to a regular expression."""
-
-  default: Optional[Any]
-  """Optional. Default value of the data."""
-
-  max_length: Optional[int]
-  """Optional. Maximum length of the Type.STRING"""
-
-  min_length: Optional[int]
-  """Optional. SCHEMA FIELDS FOR TYPE STRING Minimum length of the Type.STRING"""
-
-  min_properties: Optional[int]
-  """Optional. Minimum number of the properties for Type.OBJECT."""
-
-  max_properties: Optional[int]
-  """Optional. Maximum number of the properties for Type.OBJECT."""
-
-  any_of: Optional[list['SchemaDict']]
-  """Optional. The value should be validated against any (one or more) of the subschemas in the list."""
-
-  description: Optional[str]
-  """Optional. The description of the data."""
-
-  enum: Optional[list[str]]
-  """Optional. Possible values of the element of primitive type with enum format. Examples: 1. We can define direction as : {type:STRING, format:enum, enum:["EAST", NORTH", "SOUTH", "WEST"]} 2. We can define apartment number as : {type:INTEGER, format:enum, enum:["101", "201", "301"]}"""
-
-  format: Optional[str]
-  """Optional. The format of the data. Supported formats: for NUMBER type: "float", "double" for INTEGER type: "int32", "int64" for STRING type: "email", "byte", etc"""
-
-  items: Optional['SchemaDict']
-  """Optional. SCHEMA FIELDS FOR TYPE ARRAY Schema of the elements of Type.ARRAY."""
-
-  max_items: Optional[int]
-  """Optional. Maximum number of the elements for Type.ARRAY."""
-
-  maximum: Optional[float]
-  """Optional. Maximum value of the Type.INTEGER and Type.NUMBER"""
-
-  min_items: Optional[int]
-  """Optional. Minimum number of the elements for Type.ARRAY."""
-
-  minimum: Optional[float]
-  """Optional. SCHEMA FIELDS FOR TYPE INTEGER and NUMBER Minimum value of the Type.INTEGER and Type.NUMBER"""
-
-  nullable: Optional[bool]
-  """Optional. Indicates if the value may be null."""
-
-  properties: Optional[dict[str, 'SchemaDict']]
-  """Optional. SCHEMA FIELDS FOR TYPE OBJECT Properties of Type.OBJECT."""
-
-  property_ordering: Optional[list[str]]
-  """Optional. The order of the properties. Not a standard field in open api spec. Only used to support the order of the properties."""
-
-  required: Optional[list[str]]
-  """Optional. Required properties of Type.OBJECT."""
-
-  title: Optional[str]
-  """Optional. The title of the Schema."""
-
-  type: Optional[Type]
-  """Optional. The type of the data."""
-
-
-SchemaOrDict = Union[Schema, SchemaDict]
-
-
 class ModelSelectionConfig(_common.BaseModel):
   """Config for model selection."""
 
@@ -1599,139 +932,6 @@ class SafetySettingDict(TypedDict, total=False):
 
 
 SafetySettingOrDict = Union[SafetySetting, SafetySettingDict]
-
-
-class FunctionDeclaration(_common.BaseModel):
-  """Defines a function that the model can generate JSON inputs for.
-
-  The inputs are based on `OpenAPI 3.0 specifications
-  <https://spec.openapis.org/oas/v3.0.3>`_.
-  """
-
-  response: Optional[Schema] = Field(
-      default=None,
-      description="""Describes the output from the function in the OpenAPI JSON Schema
-      Object format.""",
-  )
-  description: Optional[str] = Field(
-      default=None,
-      description="""Optional. Description and purpose of the function. Model uses it to decide how and whether to call the function.""",
-  )
-  name: Optional[str] = Field(
-      default=None,
-      description="""Required. The name of the function to call. Must start with a letter or an underscore. Must be a-z, A-Z, 0-9, or contain underscores, dots and dashes, with a maximum length of 64.""",
-  )
-  parameters: Optional[Schema] = Field(
-      default=None,
-      description="""Optional. Describes the parameters to this function in JSON Schema Object format. Reflects the Open API 3.03 Parameter Object. string Key: the name of the parameter. Parameter names are case sensitive. Schema Value: the Schema defining the type used for the parameter. For function with no parameters, this can be left unset. Parameter names must start with a letter or an underscore and must only contain chars a-z, A-Z, 0-9, or underscores with a maximum length of 64. Example with 1 required and 1 optional parameter: type: OBJECT properties: param1: type: STRING param2: type: INTEGER required: - param1""",
-  )
-
-  @classmethod
-  def from_callable_with_api_option(
-      cls,
-      *,
-      callable: Callable[..., Any],
-      api_option: Literal['VERTEX_AI', 'GEMINI_API'] = 'GEMINI_API',
-  ) -> 'FunctionDeclaration':
-    """Converts a Callable to a FunctionDeclaration based on the API option.
-
-    Supported API option is 'VERTEX_AI' or 'GEMINI_API'. If api_option is unset,
-    it will default to 'GEMINI_API'. If unsupported api_option is provided, it
-    will raise ValueError.
-    """
-    supported_api_options = ['VERTEX_AI', 'GEMINI_API']
-    if api_option not in supported_api_options:
-      raise ValueError(
-          f'Unsupported api_option value: {api_option}. Supported api_option'
-          f' value is one of: {supported_api_options}.'
-      )
-    from . import _automatic_function_calling_util
-
-    parameters_properties = {}
-    for name, param in inspect.signature(callable).parameters.items():
-      if param.kind in (
-          inspect.Parameter.POSITIONAL_OR_KEYWORD,
-          inspect.Parameter.KEYWORD_ONLY,
-          inspect.Parameter.POSITIONAL_ONLY,
-      ):
-        schema = _automatic_function_calling_util._parse_schema_from_parameter(
-            api_option, param, callable.__name__
-        )
-        parameters_properties[name] = schema
-    declaration = FunctionDeclaration(
-        name=callable.__name__,
-        description=callable.__doc__,
-    )
-    if parameters_properties:
-      declaration.parameters = Schema(
-          type='OBJECT',
-          properties=parameters_properties,
-      )
-      declaration.parameters.required = (
-          _automatic_function_calling_util._get_required_fields(
-              declaration.parameters
-          )
-      )
-    if api_option == 'GEMINI_API':
-      return declaration
-
-    return_annotation = inspect.signature(callable).return_annotation
-    if return_annotation is inspect._empty:
-      return declaration
-
-    declaration.response = (
-        _automatic_function_calling_util._parse_schema_from_parameter(
-            api_option,
-            inspect.Parameter(
-                'return_value',
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                annotation=return_annotation,
-            ),
-            callable.__name__,
-        )
-    )
-    return declaration
-
-  @classmethod
-  def from_callable(
-      cls,
-      *,
-      client: 'BaseApiClient',
-      callable: Callable[..., Any],
-  ) -> 'FunctionDeclaration':
-    """Converts a Callable to a FunctionDeclaration based on the client."""
-    if client.vertexai:
-      return cls.from_callable_with_api_option(
-          callable=callable, api_option='VERTEX_AI'
-      )
-    else:
-      return cls.from_callable_with_api_option(
-          callable=callable, api_option='GEMINI_API'
-      )
-
-
-class FunctionDeclarationDict(TypedDict, total=False):
-  """Defines a function that the model can generate JSON inputs for.
-
-  The inputs are based on `OpenAPI 3.0 specifications
-  <https://spec.openapis.org/oas/v3.0.3>`_.
-  """
-
-  response: Optional[SchemaDict]
-  """Describes the output from the function in the OpenAPI JSON Schema
-      Object format."""
-
-  description: Optional[str]
-  """Optional. Description and purpose of the function. Model uses it to decide how and whether to call the function."""
-
-  name: Optional[str]
-  """Required. The name of the function to call. Must start with a letter or an underscore. Must be a-z, A-Z, 0-9, or contain underscores, dots and dashes, with a maximum length of 64."""
-
-  parameters: Optional[SchemaDict]
-  """Optional. Describes the parameters to this function in JSON Schema Object format. Reflects the Open API 3.03 Parameter Object. string Key: the name of the parameter. Parameter names are case sensitive. Schema Value: the Schema defining the type used for the parameter. For function with no parameters, this can be left unset. Parameter names must start with a letter or an underscore and must only contain chars a-z, A-Z, 0-9, or underscores with a maximum length of 64. Example with 1 required and 1 optional parameter: type: OBJECT properties: param1: type: STRING param2: type: INTEGER required: - param1"""
-
-
-FunctionDeclarationOrDict = Union[FunctionDeclaration, FunctionDeclarationDict]
 
 
 class GoogleSearch(_common.BaseModel):
@@ -2125,13 +1325,788 @@ class ToolCodeExecutionDict(TypedDict, total=False):
 ToolCodeExecutionOrDict = Union[ToolCodeExecution, ToolCodeExecutionDict]
 
 
+class JSONSchemaType(Enum):
+  """The type of the data supported by JSON Schema.
+
+  The values of the enums are lower case strings, while the values of the enums
+  for the Type class are upper case strings.
+  """
+
+  NULL = 'null'
+  BOOLEAN = 'boolean'
+  OBJECT = 'object'
+  ARRAY = 'array'
+  NUMBER = 'number'
+  INTEGER = 'integer'
+  STRING = 'string'
+
+
+class JSONSchema(pydantic.BaseModel):
+  """A subset of JSON Schema according to 2020-12 JSON Schema draft.
+
+  Represents a subset of a JSON Schema object that is used by the Gemini model.
+  The difference between this class and the Schema class is that this class is
+  compatible with OpenAPI 3.1 schema objects. And the Schema class is used to
+  make API call to Gemini model.
+  """
+
+  type: Optional[Union[JSONSchemaType, list[JSONSchemaType]]] = Field(
+      default=None,
+      description="""Validation succeeds if the type of the instance matches the type represented by the given type, or matches at least one of the given types.""",
+  )
+  format: Optional[str] = Field(
+      default=None,
+      description='Define semantic information about a string instance.',
+  )
+  title: Optional[str] = Field(
+      default=None,
+      description=(
+          'A preferably short description about the purpose of the instance'
+          ' described by the schema.'
+      ),
+  )
+  description: Optional[str] = Field(
+      default=None,
+      description=(
+          'An explanation about the purpose of the instance described by the'
+          ' schema.'
+      ),
+  )
+  default: Optional[Any] = Field(
+      default=None,
+      description=(
+          'This keyword can be used to supply a default JSON value associated'
+          ' with a particular schema.'
+      ),
+  )
+  items: Optional['JSONSchema'] = Field(
+      default=None,
+      description=(
+          'Validation succeeds if each element of the instance not covered by'
+          ' prefixItems validates against this schema.'
+      ),
+  )
+  min_items: Optional[int] = Field(
+      default=None,
+      description=(
+          'An array instance is valid if its size is greater than, or equal to,'
+          ' the value of this keyword.'
+      ),
+  )
+  max_items: Optional[int] = Field(
+      default=None,
+      description=(
+          'An array instance is valid if its size is less than, or equal to,'
+          ' the value of this keyword.'
+      ),
+  )
+  enum: Optional[list[Any]] = Field(
+      default=None,
+      description=(
+          'Validation succeeds if the instance is equal to one of the elements'
+          ' in this keyword’s array value.'
+      ),
+  )
+  properties: Optional[dict[str, 'JSONSchema']] = Field(
+      default=None,
+      description=(
+          'Validation succeeds if, for each name that appears in both the'
+          ' instance and as a name within this keyword’s value, the child'
+          ' instance for that name successfully validates against the'
+          ' corresponding schema.'
+      ),
+  )
+  required: Optional[list[str]] = Field(
+      default=None,
+      description=(
+          'An object instance is valid against this keyword if every item in'
+          ' the array is the name of a property in the instance.'
+      ),
+  )
+  min_properties: Optional[int] = Field(
+      default=None,
+      description=(
+          'An object instance is valid if its number of properties is greater'
+          ' than, or equal to, the value of this keyword.'
+      ),
+  )
+  max_properties: Optional[int] = Field(
+      default=None,
+      description=(
+          'An object instance is valid if its number of properties is less'
+          ' than, or equal to, the value of this keyword.'
+      ),
+  )
+  minimum: Optional[float] = Field(
+      default=None,
+      description=(
+          'Validation succeeds if the numeric instance is greater than or equal'
+          ' to the given number.'
+      ),
+  )
+  maximum: Optional[float] = Field(
+      default=None,
+      description=(
+          'Validation succeeds if the numeric instance is less than or equal to'
+          ' the given number.'
+      ),
+  )
+  min_length: Optional[int] = Field(
+      default=None,
+      description=(
+          'A string instance is valid against this keyword if its length is'
+          ' greater than, or equal to, the value of this keyword.'
+      ),
+  )
+  max_length: Optional[int] = Field(
+      default=None,
+      description=(
+          'A string instance is valid against this keyword if its length is'
+          ' less than, or equal to, the value of this keyword.'
+      ),
+  )
+  pattern: Optional[str] = Field(
+      default=None,
+      description=(
+          'A string instance is considered valid if the regular expression'
+          ' matches the instance successfully.'
+      ),
+  )
+  any_of: Optional[list['JSONSchema']] = Field(
+      default=None,
+      description=(
+          'An instance validates successfully against this keyword if it'
+          ' validates successfully against at least one schema defined by this'
+          ' keyword’s value.'
+      ),
+  )
+
+
+class Schema(_common.BaseModel):
+  """Schema is used to define the format of input/output data.
+
+  Represents a select subset of an [OpenAPI 3.0 schema
+  object](https://spec.openapis.org/oas/v3.0.3#schema-object). More fields may
+  be added in the future as needed.
+  """
+
+  any_of: Optional[list['Schema']] = Field(
+      default=None,
+      description="""Optional. The value should be validated against any (one or more) of the subschemas in the list.""",
+  )
+  default: Optional[Any] = Field(
+      default=None, description="""Optional. Default value of the data."""
+  )
+  description: Optional[str] = Field(
+      default=None, description="""Optional. The description of the data."""
+  )
+  enum: Optional[list[str]] = Field(
+      default=None,
+      description="""Optional. Possible values of the element of primitive type with enum format. Examples: 1. We can define direction as : {type:STRING, format:enum, enum:["EAST", NORTH", "SOUTH", "WEST"]} 2. We can define apartment number as : {type:INTEGER, format:enum, enum:["101", "201", "301"]}""",
+  )
+  example: Optional[Any] = Field(
+      default=None,
+      description="""Optional. Example of the object. Will only populated when the object is the root.""",
+  )
+  format: Optional[str] = Field(
+      default=None,
+      description="""Optional. The format of the data. Supported formats: for NUMBER type: "float", "double" for INTEGER type: "int32", "int64" for STRING type: "email", "byte", etc""",
+  )
+  items: Optional['Schema'] = Field(
+      default=None,
+      description="""Optional. SCHEMA FIELDS FOR TYPE ARRAY Schema of the elements of Type.ARRAY.""",
+  )
+  max_items: Optional[int] = Field(
+      default=None,
+      description="""Optional. Maximum number of the elements for Type.ARRAY.""",
+  )
+  max_length: Optional[int] = Field(
+      default=None,
+      description="""Optional. Maximum length of the Type.STRING""",
+  )
+  max_properties: Optional[int] = Field(
+      default=None,
+      description="""Optional. Maximum number of the properties for Type.OBJECT.""",
+  )
+  maximum: Optional[float] = Field(
+      default=None,
+      description="""Optional. Maximum value of the Type.INTEGER and Type.NUMBER""",
+  )
+  min_items: Optional[int] = Field(
+      default=None,
+      description="""Optional. Minimum number of the elements for Type.ARRAY.""",
+  )
+  min_length: Optional[int] = Field(
+      default=None,
+      description="""Optional. SCHEMA FIELDS FOR TYPE STRING Minimum length of the Type.STRING""",
+  )
+  min_properties: Optional[int] = Field(
+      default=None,
+      description="""Optional. Minimum number of the properties for Type.OBJECT.""",
+  )
+  minimum: Optional[float] = Field(
+      default=None,
+      description="""Optional. SCHEMA FIELDS FOR TYPE INTEGER and NUMBER Minimum value of the Type.INTEGER and Type.NUMBER""",
+  )
+  nullable: Optional[bool] = Field(
+      default=None,
+      description="""Optional. Indicates if the value may be null.""",
+  )
+  pattern: Optional[str] = Field(
+      default=None,
+      description="""Optional. Pattern of the Type.STRING to restrict a string to a regular expression.""",
+  )
+  properties: Optional[dict[str, 'Schema']] = Field(
+      default=None,
+      description="""Optional. SCHEMA FIELDS FOR TYPE OBJECT Properties of Type.OBJECT.""",
+  )
+  property_ordering: Optional[list[str]] = Field(
+      default=None,
+      description="""Optional. The order of the properties. Not a standard field in open api spec. Only used to support the order of the properties.""",
+  )
+  required: Optional[list[str]] = Field(
+      default=None,
+      description="""Optional. Required properties of Type.OBJECT.""",
+  )
+  title: Optional[str] = Field(
+      default=None, description="""Optional. The title of the Schema."""
+  )
+  type: Optional[Type] = Field(
+      default=None, description="""Optional. The type of the data."""
+  )
+
+  @property
+  def json_schema(self) -> JSONSchema:
+    """Converts the Schema object to a JSONSchema object, that is compatible with 2020-12 JSON Schema draft.
+
+    If a Schema field is not supported by JSONSchema, it will be ignored.
+    """
+    json_schema_field_names: set[str] = set(JSONSchema.model_fields.keys())
+    schema_field_names: tuple[str] = (
+        'items',
+    )  # 'additional_properties' to come
+    list_schema_field_names: tuple[str] = (
+        'any_of',  # 'one_of', 'all_of', 'not' to come
+    )
+    dict_schema_field_names: tuple[str] = ('properties',)  # 'defs' to come
+
+    def convert_schema(schema: Union['Schema', dict[str, Any]]) -> JSONSchema:
+      if isinstance(schema, pydantic.BaseModel):
+        schema_dict = schema.model_dump()
+      else:
+        schema_dict = schema
+      json_schema = JSONSchema()
+      for field_name, field_value in schema_dict.items():
+        if field_value is None:
+          continue
+        elif field_name == 'nullable':
+          json_schema.type = JSONSchemaType.NULL
+        elif field_name not in json_schema_field_names:
+          continue
+        elif field_name == 'type':
+          if field_value == Type.TYPE_UNSPECIFIED:
+            continue
+          json_schema_type = JSONSchemaType(field_value.lower())
+          if json_schema.type is None:
+            json_schema.type = json_schema_type
+          elif isinstance(json_schema.type, JSONSchemaType):
+            existing_type: JSONSchemaType = json_schema.type
+            json_schema.type = [existing_type, json_schema_type]
+          elif isinstance(json_schema.type, list):
+            json_schema.type.append(json_schema_type)
+        elif field_name in schema_field_names:
+          schema_field_value: 'JSONSchema' = convert_schema(field_value)
+          setattr(json_schema, field_name, schema_field_value)
+        elif field_name in list_schema_field_names:
+          list_schema_field_value: list['JSONSchema'] = [
+              convert_schema(this_field_value)
+              for this_field_value in field_value
+          ]
+          setattr(json_schema, field_name, list_schema_field_value)
+        elif field_name in dict_schema_field_names:
+          dict_schema_field_value: dict[str, 'JSONSchema'] = {
+              key: convert_schema(value) for key, value in field_value.items()
+          }
+          setattr(json_schema, field_name, dict_schema_field_value)
+        else:
+          setattr(json_schema, field_name, field_value)
+
+      return json_schema
+
+    return convert_schema(self)
+
+  @classmethod
+  def from_json_schema(
+      cls,
+      *,
+      json_schema: JSONSchema,
+      api_option: Literal['VERTEX_AI', 'GEMINI_API'] = 'GEMINI_API',
+      raise_error_on_unsupported_field: bool = False,
+  ) -> 'Schema':
+    """Converts a JSONSchema object to a Schema object.
+
+    The JSONSchema is compatible with 2020-12 JSON Schema draft, specified by
+    OpenAPI 3.1.
+
+    Args:
+        json_schema: JSONSchema object to be converted.
+        api_option: API option to be used. If set to 'VERTEX_AI', the JSONSchema
+          will be converted to a Schema object that is compatible with Vertex AI
+          API. If set to 'GEMINI_API', the JSONSchema will be converted to a
+          Schema object that is compatible with Gemini API. Default is
+          'GEMINI_API'.
+        raise_error_on_unsupported_field: If set to True, an error will be
+          raised if the JSONSchema contains any unsupported fields. Default is
+          False.
+
+    Returns:
+        Schema object that is compatible with the specified API option.
+    Raises:
+        ValueError: If the JSONSchema contains any unsupported fields and
+          raise_error_on_unsupported_field is set to True. Or if the JSONSchema
+          is not compatible with the specified API option.
+    """
+    google_schema_field_names: set[str] = set(cls.model_fields.keys())
+    schema_field_names: tuple[str, ...] = (
+        'items',
+    )  # 'additional_properties' to come
+    list_schema_field_names: tuple[str, ...] = (
+        'any_of',  # 'one_of', 'all_of', 'not' to come
+    )
+    dict_schema_field_names: tuple[str, ...] = ('properties',)  # 'defs' to come
+
+    related_field_names_by_type: dict[str, tuple[str, ...]] = {
+        JSONSchemaType.NUMBER.value: (
+            'description',
+            'enum',
+            'format',
+            'maximum',
+            'minimum',
+            'title',
+        ),
+        JSONSchemaType.STRING.value: (
+            'description',
+            'enum',
+            'format',
+            'max_length',
+            'min_length',
+            'pattern',
+            'title',
+        ),
+        JSONSchemaType.OBJECT.value: (
+            'any_of',
+            'description',
+            'max_properties',
+            'min_properties',
+            'properties',
+            'required',
+            'title',
+        ),
+        JSONSchemaType.ARRAY.value: (
+            'description',
+            'items',
+            'max_items',
+            'min_items',
+            'title',
+        ),
+        JSONSchemaType.BOOLEAN.value: (
+            'description',
+            'title',
+        ),
+    }
+    # Treat `INTEGER` like `NUMBER`.
+    related_field_names_by_type[JSONSchemaType.INTEGER.value] = (
+        related_field_names_by_type[JSONSchemaType.NUMBER.value]
+    )
+
+    # placeholder for potential gemini api unsupported fields
+    gemini_api_unsupported_field_names: tuple[str, ...] = ()
+
+    def normalize_json_schema_type(
+        json_schema_type: Optional[
+            Union[JSONSchemaType, Sequence[JSONSchemaType], str, Sequence[str]]
+        ],
+    ) -> tuple[list[str], bool]:
+      """Returns (non_null_types, nullable)"""
+      if json_schema_type is None:
+        return [], False
+      if not isinstance(json_schema_type, Sequence):
+        json_schema_type = [json_schema_type]
+      non_null_types = []
+      nullable = False
+      for type_value in json_schema_type:
+        if isinstance(type_value, JSONSchemaType):
+          type_value = type_value.value
+        if type_value == JSONSchemaType.NULL.value:
+          nullable = True
+        else:
+          non_null_types.append(type_value)
+      return non_null_types, nullable
+
+    def raise_error_if_cannot_convert(
+        json_schema_dict: dict[str, Any],
+        api_option: Literal['VERTEX_AI', 'GEMINI_API'],
+        raise_error_on_unsupported_field: bool,
+    ) -> None:
+      """Raises an error if the JSONSchema cannot be converted to the specified Schema object."""
+      if not raise_error_on_unsupported_field:
+        return
+      for field_name, field_value in json_schema_dict.items():
+        if field_value is None:
+          continue
+        if field_name not in google_schema_field_names:
+          raise ValueError((
+              f'JSONSchema field "{field_name}" is not supported by the '
+              'Schema object. And the "raise_error_on_unsupported_field" '
+              'argument is set to True. If you still want to convert '
+              'it into the Schema object, please either remove the field '
+              f'"{field_name}" from the JSONSchema object, or leave the '
+              '"raise_error_on_unsupported_field" unset.'
+          ))
+        if (
+            field_name in gemini_api_unsupported_field_names
+            and api_option == 'GEMINI_API'
+        ):
+          raise ValueError((
+              f'The "{field_name}" field is not supported by the Schema '
+              'object for GEMINI_API.'
+          ))
+
+    def copy_schema_fields(
+        json_schema_dict: dict[str, Any],
+        related_fields_to_copy: tuple[str, ...],
+        sub_schema_in_any_of: dict[str, Any],
+    ) -> None:
+      """Copies the fields from json_schema_dict to sub_schema_in_any_of."""
+      for field_name in related_fields_to_copy:
+        sub_schema_in_any_of[field_name] = json_schema_dict.get(
+            field_name, None
+        )
+
+    def convert_json_schema(
+        json_schema: JSONSchema,
+        api_option: Literal['VERTEX_AI', 'GEMINI_API'],
+        raise_error_on_unsupported_field: bool,
+    ) -> 'Schema':
+      schema = Schema()
+      json_schema_dict = json_schema.model_dump()
+      raise_error_if_cannot_convert(
+          json_schema_dict=json_schema_dict,
+          api_option=api_option,
+          raise_error_on_unsupported_field=raise_error_on_unsupported_field,
+      )
+
+      # At the highest level of the logic, there are two passes:
+      # Pass 1: the JSONSchema.type is union-like,
+      #         e.g. ['null', 'string', 'array'].
+      #         for this case, we need to split the JSONSchema into multiple
+      #         sub-schemas, and copy them into the any_of field of the Schema.
+      #         And when we copy the non-type fields into any_of field,
+      #         we only copy the fields related to the specific type.
+      #         Detailed logic is commented below with `Pass 1` keyword tag.
+      # Pass 2: the JSONSchema.type is not union-like,
+      #         e.g. 'string', ['string'], ['null', 'string'].
+      #         for this case, no splitting is needed. Detailed
+      #         logic is commented below with `Pass 2` keyword tag.
+      #
+      #
+      # Pass 1: the JSONSchema.type is union-like
+      #         e.g. ['null', 'string', 'array'].
+      non_null_types, nullable = normalize_json_schema_type(
+          json_schema_dict.get('type', None)
+      )
+      if len(non_null_types) > 1:
+        logger.warning(
+            'JSONSchema type is union-like, e.g. ["null", "string", "array"]. '
+            'Converting it into multiple sub-schemas, and copying them into '
+            'the any_of field of the Schema. The value of `default` field is '
+            'ignored because it is ambiguous to tell which sub-schema it '
+            'belongs to.'
+        )
+        reformed_json_schema = JSONSchema()
+        # start splitting the JSONSchema into multiple sub-schemas
+        any_of = []
+        if nullable:
+          schema.nullable = True
+        for normalized_type in non_null_types:
+          sub_schema_in_any_of = {'type': normalized_type}
+          related_field_names = related_field_names_by_type.get(normalized_type)
+          if related_field_names is not None:
+            copy_schema_fields(
+                json_schema_dict=json_schema_dict,
+                related_fields_to_copy=related_field_names,
+                sub_schema_in_any_of=sub_schema_in_any_of,
+            )
+          any_of.append(JSONSchema(**sub_schema_in_any_of))
+        reformed_json_schema.any_of = any_of
+        json_schema_dict = reformed_json_schema.model_dump()
+
+      # Pass 2: the JSONSchema.type is not union-like,
+      # e.g. 'string', ['string'], ['null', 'string'].
+      for field_name, field_value in json_schema_dict.items():
+        if field_value is None:
+          continue
+        if field_name in schema_field_names:
+          schema_field_value: 'Schema' = convert_json_schema(
+              json_schema=JSONSchema(**field_value),
+              api_option=api_option,
+              raise_error_on_unsupported_field=raise_error_on_unsupported_field,
+          )
+          setattr(schema, field_name, schema_field_value)
+        elif field_name in list_schema_field_names:
+          list_schema_field_value: list['Schema'] = [
+              convert_json_schema(
+                  json_schema=JSONSchema(**this_field_value),
+                  api_option=api_option,
+                  raise_error_on_unsupported_field=raise_error_on_unsupported_field,
+              )
+              for this_field_value in field_value
+          ]
+          setattr(schema, field_name, list_schema_field_value)
+        elif field_name in dict_schema_field_names:
+          dict_schema_field_value: dict[str, 'Schema'] = {
+              key: convert_json_schema(
+                  json_schema=JSONSchema(**value),
+                  api_option=api_option,
+                  raise_error_on_unsupported_field=raise_error_on_unsupported_field,
+              )
+              for key, value in field_value.items()
+          }
+          setattr(schema, field_name, dict_schema_field_value)
+        elif field_name == 'type':
+          # non_null_types can only be empty or have one element.
+          # because already handled union-like case above.
+          non_null_types, nullable = normalize_json_schema_type(field_value)
+          if nullable:
+            schema.nullable = True
+          if non_null_types:
+            schema.type = Type(non_null_types[0])
+        else:
+          setattr(schema, field_name, field_value)
+
+      return schema
+
+    return convert_json_schema(
+        json_schema=json_schema,
+        api_option=api_option,
+        raise_error_on_unsupported_field=raise_error_on_unsupported_field,
+    )
+
+
+class SchemaDict(TypedDict, total=False):
+  """Schema is used to define the format of input/output data.
+
+  Represents a select subset of an [OpenAPI 3.0 schema
+  object](https://spec.openapis.org/oas/v3.0.3#schema-object). More fields may
+  be added in the future as needed.
+  """
+
+  any_of: Optional[list['SchemaDict']]
+  """Optional. The value should be validated against any (one or more) of the subschemas in the list."""
+
+  default: Optional[Any]
+  """Optional. Default value of the data."""
+
+  description: Optional[str]
+  """Optional. The description of the data."""
+
+  enum: Optional[list[str]]
+  """Optional. Possible values of the element of primitive type with enum format. Examples: 1. We can define direction as : {type:STRING, format:enum, enum:["EAST", NORTH", "SOUTH", "WEST"]} 2. We can define apartment number as : {type:INTEGER, format:enum, enum:["101", "201", "301"]}"""
+
+  example: Optional[Any]
+  """Optional. Example of the object. Will only populated when the object is the root."""
+
+  format: Optional[str]
+  """Optional. The format of the data. Supported formats: for NUMBER type: "float", "double" for INTEGER type: "int32", "int64" for STRING type: "email", "byte", etc"""
+
+  items: Optional['SchemaDict']
+  """Optional. SCHEMA FIELDS FOR TYPE ARRAY Schema of the elements of Type.ARRAY."""
+
+  max_items: Optional[int]
+  """Optional. Maximum number of the elements for Type.ARRAY."""
+
+  max_length: Optional[int]
+  """Optional. Maximum length of the Type.STRING"""
+
+  max_properties: Optional[int]
+  """Optional. Maximum number of the properties for Type.OBJECT."""
+
+  maximum: Optional[float]
+  """Optional. Maximum value of the Type.INTEGER and Type.NUMBER"""
+
+  min_items: Optional[int]
+  """Optional. Minimum number of the elements for Type.ARRAY."""
+
+  min_length: Optional[int]
+  """Optional. SCHEMA FIELDS FOR TYPE STRING Minimum length of the Type.STRING"""
+
+  min_properties: Optional[int]
+  """Optional. Minimum number of the properties for Type.OBJECT."""
+
+  minimum: Optional[float]
+  """Optional. SCHEMA FIELDS FOR TYPE INTEGER and NUMBER Minimum value of the Type.INTEGER and Type.NUMBER"""
+
+  nullable: Optional[bool]
+  """Optional. Indicates if the value may be null."""
+
+  pattern: Optional[str]
+  """Optional. Pattern of the Type.STRING to restrict a string to a regular expression."""
+
+  properties: Optional[dict[str, 'SchemaDict']]
+  """Optional. SCHEMA FIELDS FOR TYPE OBJECT Properties of Type.OBJECT."""
+
+  property_ordering: Optional[list[str]]
+  """Optional. The order of the properties. Not a standard field in open api spec. Only used to support the order of the properties."""
+
+  required: Optional[list[str]]
+  """Optional. Required properties of Type.OBJECT."""
+
+  title: Optional[str]
+  """Optional. The title of the Schema."""
+
+  type: Optional[Type]
+  """Optional. The type of the data."""
+
+
+SchemaOrDict = Union[Schema, SchemaDict]
+
+
+class FunctionDeclaration(_common.BaseModel):
+  """Structured representation of a function declaration as defined by the [OpenAPI 3.0 specification](https://spec.openapis.org/oas/v3.0.3).
+
+  Included in this declaration are the function name, description, parameters
+  and response type. This FunctionDeclaration is a representation of a block of
+  code that can be used as a `Tool` by the model and executed by the client.
+  """
+
+  description: Optional[str] = Field(
+      default=None,
+      description="""Optional. Description and purpose of the function. Model uses it to decide how and whether to call the function.""",
+  )
+  name: Optional[str] = Field(
+      default=None,
+      description="""Required. The name of the function to call. Must start with a letter or an underscore. Must be a-z, A-Z, 0-9, or contain underscores, dots and dashes, with a maximum length of 64.""",
+  )
+  parameters: Optional[Schema] = Field(
+      default=None,
+      description="""Optional. Describes the parameters to this function in JSON Schema Object format. Reflects the Open API 3.03 Parameter Object. string Key: the name of the parameter. Parameter names are case sensitive. Schema Value: the Schema defining the type used for the parameter. For function with no parameters, this can be left unset. Parameter names must start with a letter or an underscore and must only contain chars a-z, A-Z, 0-9, or underscores with a maximum length of 64. Example with 1 required and 1 optional parameter: type: OBJECT properties: param1: type: STRING param2: type: INTEGER required: - param1""",
+  )
+  response: Optional[Schema] = Field(
+      default=None,
+      description="""Optional. Describes the output from this function in JSON Schema format. Reflects the Open API 3.03 Response Object. The Schema defines the type used for the response value of the function.""",
+  )
+
+  @classmethod
+  def from_callable_with_api_option(
+      cls,
+      *,
+      callable: Callable[..., Any],
+      api_option: Literal['VERTEX_AI', 'GEMINI_API'] = 'GEMINI_API',
+  ) -> 'FunctionDeclaration':
+    """Converts a Callable to a FunctionDeclaration based on the API option.
+
+    Supported API option is 'VERTEX_AI' or 'GEMINI_API'. If api_option is unset,
+    it will default to 'GEMINI_API'. If unsupported api_option is provided, it
+    will raise ValueError.
+    """
+    supported_api_options = ['VERTEX_AI', 'GEMINI_API']
+    if api_option not in supported_api_options:
+      raise ValueError(
+          f'Unsupported api_option value: {api_option}. Supported api_option'
+          f' value is one of: {supported_api_options}.'
+      )
+    from . import _automatic_function_calling_util
+
+    parameters_properties = {}
+    for name, param in inspect.signature(callable).parameters.items():
+      if param.kind in (
+          inspect.Parameter.POSITIONAL_OR_KEYWORD,
+          inspect.Parameter.KEYWORD_ONLY,
+          inspect.Parameter.POSITIONAL_ONLY,
+      ):
+        schema = _automatic_function_calling_util._parse_schema_from_parameter(
+            api_option, param, callable.__name__
+        )
+        parameters_properties[name] = schema
+    declaration = FunctionDeclaration(
+        name=callable.__name__,
+        description=callable.__doc__,
+    )
+    if parameters_properties:
+      declaration.parameters = Schema(
+          type='OBJECT',
+          properties=parameters_properties,
+      )
+      declaration.parameters.required = (
+          _automatic_function_calling_util._get_required_fields(
+              declaration.parameters
+          )
+      )
+    if api_option == 'GEMINI_API':
+      return declaration
+
+    return_annotation = inspect.signature(callable).return_annotation
+    if return_annotation is inspect._empty:
+      return declaration
+
+    declaration.response = (
+        _automatic_function_calling_util._parse_schema_from_parameter(
+            api_option,
+            inspect.Parameter(
+                'return_value',
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=return_annotation,
+            ),
+            callable.__name__,
+        )
+    )
+    return declaration
+
+  @classmethod
+  def from_callable(
+      cls,
+      *,
+      client: 'BaseApiClient',
+      callable: Callable[..., Any],
+  ) -> 'FunctionDeclaration':
+    """Converts a Callable to a FunctionDeclaration based on the client."""
+    if client.vertexai:
+      return cls.from_callable_with_api_option(
+          callable=callable, api_option='VERTEX_AI'
+      )
+    else:
+      return cls.from_callable_with_api_option(
+          callable=callable, api_option='GEMINI_API'
+      )
+
+
+class FunctionDeclarationDict(TypedDict, total=False):
+  """Structured representation of a function declaration as defined by the [OpenAPI 3.0 specification](https://spec.openapis.org/oas/v3.0.3).
+
+  Included in this declaration are the function name, description, parameters
+  and response type. This FunctionDeclaration is a representation of a block of
+  code that can be used as a `Tool` by the model and executed by the client.
+  """
+
+  description: Optional[str]
+  """Optional. Description and purpose of the function. Model uses it to decide how and whether to call the function."""
+
+  name: Optional[str]
+  """Required. The name of the function to call. Must start with a letter or an underscore. Must be a-z, A-Z, 0-9, or contain underscores, dots and dashes, with a maximum length of 64."""
+
+  parameters: Optional[SchemaDict]
+  """Optional. Describes the parameters to this function in JSON Schema Object format. Reflects the Open API 3.03 Parameter Object. string Key: the name of the parameter. Parameter names are case sensitive. Schema Value: the Schema defining the type used for the parameter. For function with no parameters, this can be left unset. Parameter names must start with a letter or an underscore and must only contain chars a-z, A-Z, 0-9, or underscores with a maximum length of 64. Example with 1 required and 1 optional parameter: type: OBJECT properties: param1: type: STRING param2: type: INTEGER required: - param1"""
+
+  response: Optional[SchemaDict]
+  """Optional. Describes the output from this function in JSON Schema format. Reflects the Open API 3.03 Response Object. The Schema defines the type used for the response value of the function."""
+
+
+FunctionDeclarationOrDict = Union[FunctionDeclaration, FunctionDeclarationDict]
+
+
 class Tool(_common.BaseModel):
   """Tool details of a tool that the model may use to generate a response."""
 
-  function_declarations: Optional[list[FunctionDeclaration]] = Field(
-      default=None,
-      description="""List of function declarations that the tool supports.""",
-  )
   retrieval: Optional[Retrieval] = Field(
       default=None,
       description="""Optional. Retrieval tool type. System will always execute the provided retrieval tool(s) to get external knowledge to answer the prompt. Retrieval results are presented to the model for generation.""",
@@ -2149,13 +2124,14 @@ class Tool(_common.BaseModel):
       default=None,
       description="""Optional. CodeExecution tool type. Enables the model to execute code as part of generation. This field is only used by the Gemini Developer API services.""",
   )
+  function_declarations: Optional[list[FunctionDeclaration]] = Field(
+      default=None,
+      description="""Optional. Function tool type. One or more function declarations to be passed to the model along with the current user query. Model may decide to call a subset of these functions by populating FunctionCall in the response. User should provide a FunctionResponse for each function call in the next turn. Based on the function responses, Model will generate the final response back to the user. Maximum 128 function declarations can be provided.""",
+  )
 
 
 class ToolDict(TypedDict, total=False):
   """Tool details of a tool that the model may use to generate a response."""
-
-  function_declarations: Optional[list[FunctionDeclarationDict]]
-  """List of function declarations that the tool supports."""
 
   retrieval: Optional[RetrievalDict]
   """Optional. Retrieval tool type. System will always execute the provided retrieval tool(s) to get external knowledge to answer the prompt. Retrieval results are presented to the model for generation."""
@@ -2169,6 +2145,9 @@ class ToolDict(TypedDict, total=False):
 
   code_execution: Optional[ToolCodeExecutionDict]
   """Optional. CodeExecution tool type. Enables the model to execute code as part of generation. This field is only used by the Gemini Developer API services."""
+
+  function_declarations: Optional[list[FunctionDeclarationDict]]
+  """Optional. Function tool type. One or more function declarations to be passed to the model along with the current user query. Model may decide to call a subset of these functions by populating FunctionCall in the response. User should provide a FunctionResponse for each function call in the next turn. Based on the function responses, Model will generate the final response back to the user. Maximum 128 function declarations can be provided."""
 
 
 ToolOrDict = Union[Tool, ToolDict]
@@ -5544,6 +5523,7 @@ ListModelsResponseOrDict = Union[ListModelsResponse, ListModelsResponseDict]
 
 
 class UpdateModelConfig(_common.BaseModel):
+  """Configuration for updating a tuned model."""
 
   http_options: Optional[HttpOptions] = Field(
       default=None, description="""Used to override HTTP request options."""
@@ -5553,6 +5533,7 @@ class UpdateModelConfig(_common.BaseModel):
 
 
 class UpdateModelConfigDict(TypedDict, total=False):
+  """Configuration for updating a tuned model."""
 
   http_options: Optional[HttpOptionsDict]
   """Used to override HTTP request options."""
@@ -5568,12 +5549,14 @@ UpdateModelConfigOrDict = Union[UpdateModelConfig, UpdateModelConfigDict]
 
 
 class _UpdateModelParameters(_common.BaseModel):
+  """Configuration for updating a tuned model."""
 
   model: Optional[str] = Field(default=None, description="""""")
   config: Optional[UpdateModelConfig] = Field(default=None, description="""""")
 
 
 class _UpdateModelParametersDict(TypedDict, total=False):
+  """Configuration for updating a tuned model."""
 
   model: Optional[str]
   """"""
@@ -5588,6 +5571,7 @@ _UpdateModelParametersOrDict = Union[
 
 
 class DeleteModelConfig(_common.BaseModel):
+  """Configuration for deleting a tuned model."""
 
   http_options: Optional[HttpOptions] = Field(
       default=None, description="""Used to override HTTP request options."""
@@ -5595,6 +5579,7 @@ class DeleteModelConfig(_common.BaseModel):
 
 
 class DeleteModelConfigDict(TypedDict, total=False):
+  """Configuration for deleting a tuned model."""
 
   http_options: Optional[HttpOptionsDict]
   """Used to override HTTP request options."""
@@ -5604,6 +5589,7 @@ DeleteModelConfigOrDict = Union[DeleteModelConfig, DeleteModelConfigDict]
 
 
 class _DeleteModelParameters(_common.BaseModel):
+  """Parameters for deleting a tuned model."""
 
   model: Optional[str] = Field(default=None, description="""""")
   config: Optional[DeleteModelConfig] = Field(
@@ -5612,6 +5598,7 @@ class _DeleteModelParameters(_common.BaseModel):
 
 
 class _DeleteModelParametersDict(TypedDict, total=False):
+  """Parameters for deleting a tuned model."""
 
   model: Optional[str]
   """"""
@@ -7585,7 +7572,7 @@ class _CreateCachedContentParameters(_common.BaseModel):
 
   model: Optional[str] = Field(
       default=None,
-      description="""ID of the model to use. Example: gemini-1.5-flash""",
+      description="""ID of the model to use. Example: gemini-2.0-flash""",
   )
   config: Optional[CreateCachedContentConfig] = Field(
       default=None,
@@ -7598,7 +7585,7 @@ class _CreateCachedContentParametersDict(TypedDict, total=False):
   """Parameters for caches.create method."""
 
   model: Optional[str]
-  """ID of the model to use. Example: gemini-1.5-flash"""
+  """ID of the model to use. Example: gemini-2.0-flash"""
 
   config: Optional[CreateCachedContentConfigDict]
   """Configuration that contains optional parameters.
@@ -9603,6 +9590,10 @@ class LiveServerContent(_common.BaseModel):
       default=None,
       description="""If true, indicates that a client message has interrupted current model generation. If the client is playing out the content in realtime, this is a good signal to stop and empty the current queue.""",
   )
+  grounding_metadata: Optional[GroundingMetadata] = Field(
+      default=None,
+      description="""Metadata returned to client when grounding is enabled.""",
+  )
   generation_complete: Optional[bool] = Field(
       default=None,
       description="""If true, indicates that the model is done generating. When model is
@@ -9644,6 +9635,9 @@ class LiveServerContentDict(TypedDict, total=False):
 
   interrupted: Optional[bool]
   """If true, indicates that a client message has interrupted current model generation. If the client is playing out the content in realtime, this is a good signal to stop and empty the current queue."""
+
+  grounding_metadata: Optional[GroundingMetadataDict]
+  """Metadata returned to client when grounding is enabled."""
 
   generation_complete: Optional[bool]
   """If true, indicates that the model is done generating. When model is
@@ -10761,6 +10755,7 @@ if _is_pillow_image_imported:
   BlobImageUnion = Union[Blob, PIL_Image]
 else:
   BlobImageUnion = Blob  # type: ignore[misc]
+
 
 BlobImageUnionDict = Union[BlobImageUnion, BlobDict]
 

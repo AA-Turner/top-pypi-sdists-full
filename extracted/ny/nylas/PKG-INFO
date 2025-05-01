@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: nylas
-Version: 6.8.0
+Version: 6.9.0
 Summary: Python bindings for the Nylas API platform.
 Home-page: https://github.com/nylas/nylas-python
 Author: Nylas Team

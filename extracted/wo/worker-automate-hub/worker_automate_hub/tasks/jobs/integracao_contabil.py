@@ -133,6 +133,9 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
+            
+        console.log(f"Versão contabil: {main_window.window_text()[-3:]}")
+            
         versao_contabil = main_window.window_text()[-3:]
         uuidProcessos = ["0436cb8c-0c58-41a1-9609-443cc37c1801", "d34d8593-0cbf-4f8c-8647-5736e1168d89", "e1696b6b-9de4-4f22-a977-b191a39506a9"]
         
@@ -158,7 +161,7 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         #pyautogui.press("tab")
         #pyautogui.click(x=654, y=342)
         await worker_sleep(3)
-        console.print("Selecionando item do campo origem...")
+        # console.print("Selecionando item do campo origem...")
         # adicionando foco
         try:
             app.top_window().restore()
@@ -174,14 +177,12 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 class_name="TRzComboBox", found_index=1
             )
             checkbox_origem.select(task.configEntrada.get("origem"))
-            
-        console.print("Preenchendo campo origem...")
-        await metodo_selecao_origem_especial(task.configEntrada.get("origem"))
-        main_window.set_focus()
-        
+        else:
+            console.print("Preenchendo campo origem...")
+            await metodo_selecao_origem_especial(task.configEntrada.get("origem"))
+        # main_window.set_focus()
         await worker_sleep(5)
-        console.print("Preenchendo campo periodo...")
-        
+        console.print(f"Preenchendo campo periodo com {task.configEntrada.get("periodoInicial")}...")
         if versao_contabil_padrao:
             pyautogui.press("tab", presses=2)
             await worker_sleep(4)

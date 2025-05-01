@@ -32,6 +32,11 @@ LOG = logging.getLogger(__name__)
 
 DOCKER_CONTEXT_DIR = os.path.join(os.path.dirname(__file__), "..", "containers", "worker")
 
+DEFAULT_WAITER_CONFIG = {
+    "Delay": 5,
+    "MaxAttempts": 30,
+}
+
 
 class DeadlineWorker(abc.ABC):
     @abc.abstractmethod
@@ -115,6 +120,7 @@ class DeadlineWorkerConfiguration:
 
     job_user: str = field(default="job-user")
     agent_user: str = field(default="deadline-worker")
+    windows_user_secret: str | None = None
     job_user_group: str = field(default="deadline-job-users")
 
     job_users: list[PosixSessionUser] = field(
@@ -166,8 +172,8 @@ class EC2InstanceWorker(DeadlineWorker):
         raise NotImplementedError("'ssm_document_name' was not implemented.")
 
     @abc.abstractmethod
-    def _start_worker_agent(self) -> None:  # pragma: no cover
-        raise NotImplementedError("'_start_worker_agent' was not implemented.")
+    def _setup_worker_agent(self) -> None:  # pragma: no cover
+        raise NotImplementedError("'_setup_worker_agent' was not implemented.")
 
     @abc.abstractmethod
     def configure_worker_command(
@@ -199,7 +205,7 @@ class EC2InstanceWorker(DeadlineWorker):
     def start(self) -> None:
         s3_files = self._stage_s3_bucket()
         self._launch_instance(s3_files=s3_files)
-        self._start_worker_agent()
+        self._setup_worker_agent()
 
     def stop(self) -> None:
         LOG.info(f"Terminating EC2 instance {self.instance_id}")
@@ -237,17 +243,30 @@ class EC2InstanceWorker(DeadlineWorker):
     def wait_until_stopped(
         self, *, max_checks: int = 25, seconds_between_checks: float = 5
     ) -> None:
+        self.wait_until_desired_worker_status(
+            max_checks=max_checks,
+            seconds_between_checks=seconds_between_checks,
+            desired_status="STOPPED",
+        )
+
+    def wait_until_desired_worker_status(
+        self,
+        *,
+        max_checks: int = 25,
+        seconds_between_checks: float = 5,
+        desired_status: str = "STOPPED",
+    ) -> None:
         for _ in range(max_checks):
             response = self.deadline_client.get_worker(
                 farmId=self.configuration.farm_id,
                 fleetId=self.configuration.fleet.id,
                 workerId=self.worker_id,
             )
-            if response["status"] == "STOPPED":
-                LOG.info(f"{self.worker_id} is STOPPED")
+            if response["status"] == desired_status:
+                LOG.info(f"{self.worker_id} is {desired_status}")
                 break
             time.sleep(seconds_between_checks)
-            LOG.info(f"Waiting for {self.worker_id} to transition to STOPPED status")
+            LOG.info(f"Waiting for {self.worker_id} to transition to {desired_status} status")
         else:
             raise TimeoutError
 
@@ -304,7 +323,9 @@ class EC2InstanceWorker(DeadlineWorker):
 
         return WorkerLog(worker_id=self.worker_id, logs=log_events)  # type: ignore[arg-type]
 
-    def send_command(self, command: str) -> CommandResult:
+    def send_command(
+        self, command: str, ssm_waiter_config: dict[str, int] = DEFAULT_WAITER_CONFIG
+    ) -> CommandResult:
         """Send a command via SSM to a shell on a launched EC2 instance. Once the command has fully
         finished the result of the invocation is returned.
         """
@@ -345,7 +366,7 @@ class EC2InstanceWorker(DeadlineWorker):
             ssm_waiter.wait(
                 InstanceId=self.instance_id,
                 CommandId=command_id,
-                WaiterConfig={"Delay": 5, "MaxAttempts": 30},
+                WaiterConfig=ssm_waiter_config,
             )
         except botocore.exceptions.WaiterError:  # pragma: no cover
             # Swallow exception, we're going to check the result anyway
@@ -502,28 +523,22 @@ class WindowsInstanceWorkerBase(EC2InstanceWorker):
     def ssm_document_name(self) -> str:
         return "AWS-RunPowerShellScript"
 
-    def _start_worker_agent(self) -> None:
+    def _setup_worker_agent(self) -> None:
         assert self.instance_id
         LOG.info(f"Sending SSM command to configure Worker agent on instance {self.instance_id}")
 
         cmd_result = self.send_command(
             f"{self.configure_worker_command(config=self.configuration)}"
         )
+        assert cmd_result.exit_code == 0, f"Failed to configure Worker agent: {cmd_result}"
         LOG.info("Successfully configured Worker agent")
-        LOG.info("Sending SSM Command to check if Worker Agent is running")
-        cmd_result = self.send_command(
-            " ; ".join(
-                [
-                    "echo 'Running Get-Process to check if the agent is running'",
-                    'for($i=1; $i -le 30 -and "" -ne $err ; $i++){sleep $i; Get-Process pythonservice -ErrorVariable err}',
-                    "IF(Get-Process pythonservice){echo '+++SERVICE IS RUNNING+++'}ELSE{echo '+++SERVICE NOT RUNNING+++'; Get-Content -Encoding utf8 C:\ProgramData\Amazon\Deadline\Logs\worker-agent-bootstrap.log,C:\ProgramData\Amazon\Deadline\Logs\worker-agent.log; exit 1}",
-                ]
-            ),
-        )
-        assert cmd_result.exit_code == 0, f"Failed to start Worker agent: {cmd_result}"
-        LOG.info("Successfully started Worker agent")
 
-        self.worker_id = self.get_worker_id()
+        if self.configuration.start_service:
+            LOG.info(
+                f"Sending SSM command to start Windows Worker agent on instance {self.instance_id}"
+            )
+            self.start_worker_service()
+            LOG.info("Successfully started Worker agent")
 
     def configure_worker_common(self, *, config: DeadlineWorkerConfiguration) -> str:
         """Get the command to configure the Worker. This must be run as Administrator.
@@ -568,9 +583,20 @@ class WindowsInstanceWorkerBase(EC2InstanceWorker):
     def start_worker_service(self):
         LOG.info("Sending command to start the Worker Agent service")
 
-        cmd_result = self.send_command('Start-Service -Name "DeadlineWorker"')
+        cmd_result = self.send_command(
+            " ; ".join(
+                [
+                    'Start-Service -Name "DeadlineWorker"',
+                    "echo 'Running Get-Process to check if the agent is running'",
+                    'for($i=1; $i -le 30 -and "" -ne $err ; $i++){sleep $i; Get-Process pythonservice -ErrorVariable err}',
+                    "IF(Get-Process pythonservice){echo '+++SERVICE IS RUNNING+++'}ELSE{echo '+++SERVICE NOT RUNNING+++'; Get-Content -Encoding utf8 C:\\ProgramData\\Amazon\\Deadline\\Logs\\worker-agent-bootstrap.log,C:\\ProgramData\\Amazon\\Deadline\\Logs\\worker-agent.log; exit 1}",
+                ]
+            ),
+        )
 
         assert cmd_result.exit_code == 0, f"Failed to start Worker Agent service: : {cmd_result}"
+
+        self.worker_id = self.get_worker_id()
 
     def stop_worker_service(self):
         LOG.info("Sending command to stop the Worker Agent service")
@@ -579,14 +605,16 @@ class WindowsInstanceWorkerBase(EC2InstanceWorker):
         assert cmd_result.exit_code == 0, f"Failed to stop Worker Agent service: : {cmd_result}"
 
     def get_worker_id(self) -> str:
+        LOG.info(f"Sending SSM command to get the worker ID on instance {self.instance_id}")
         cmd_result = self.send_command(
             " ; ".join(
                 [
-                    'for($i=1; $i -le 20 -and "" -ne $err ; $i++){sleep $i; Get-Item C:\ProgramData\Amazon\Deadline\Cache\worker.json -ErrorVariable err 1>$null}',
-                    "$worker=Get-Content -Raw C:\ProgramData\Amazon\Deadline\Cache\worker.json | ConvertFrom-Json",
+                    'for($i=1; $i -le 20 -and "" -ne $err ; $i++){sleep $i; Get-Item C:\\ProgramData\\Amazon\\Deadline\\Cache\\worker.json -ErrorVariable err 1>$null}',
+                    "$worker=Get-Content -Raw C:\\ProgramData\\Amazon\\Deadline\\Cache\\worker.json | ConvertFrom-Json",
                     "echo $worker.worker_id",
                 ]
-            )
+            ),
+            {"Delay": 5, "MaxAttempts": 36},
         )
         assert cmd_result.exit_code == 0, f"Failed to get Worker ID: {cmd_result}"
 
@@ -594,7 +622,27 @@ class WindowsInstanceWorkerBase(EC2InstanceWorker):
         assert re.match(
             r"^worker-[0-9a-f]{32}$", worker_id
         ), f"Got nonvalid Worker ID from command stdout: {cmd_result}"
+
+        LOG.info(f"Obtained Worker ID: {worker_id}")
         return worker_id
+
+    def get_windows_user_secret_cmd(self, secret_id: str) -> str:
+        """
+        Returns a PowerShell command string that will retrieve and use the secret on the worker instance itself.
+
+        Args:
+            secret_id: The ID of the secret in Secrets Manager
+
+        Returns:
+            str: PowerShell command to fetch and extract the password from the secret
+        """
+        return (
+            "aws secretsmanager get-secret-value "
+            f"--secret-id {secret_id} "
+            "--query 'SecretString' --output text | "
+            "ConvertFrom-Json | "
+            "Select-Object -ExpandProperty password"
+        )
 
 
 @dataclass
@@ -608,6 +656,7 @@ class WindowsInstanceBuildWorker(WindowsInstanceWorkerBase):
 
     def configure_worker_command(self, *, config: DeadlineWorkerConfiguration) -> str:
         """Get the command to configure the Worker. This must be run as Administrator."""
+
         cmds = [
             "Set-PSDebug -trace 1",
             self.configure_worker_common(config=config),
@@ -621,6 +670,7 @@ class WindowsInstanceBuildWorker(WindowsInstanceWorkerBase):
                 + f"--fleet-id {config.fleet.id} "
                 + f"--region {config.region} "
                 + f"--user {config.agent_user} "
+                + (f"--password $({self.get_windows_user_secret_cmd(secret_id=config.windows_user_secret)}) " if config.windows_user_secret else "")
                 + f"{'--allow-shutdown ' if config.allow_shutdown else ''}"
                 + f"{'--disallow-instance-profile ' if config.disallow_instance_profile else ''}"
                 + (f"--session-root-dir {config.session_root_dir} " if config.session_root_dir is not None else '')
@@ -661,13 +711,13 @@ class WindowsInstanceBuildWorker(WindowsInstanceWorkerBase):
 
         userdata = f"""<powershell>
 $ProgressPreference = 'SilentlyContinue'
-Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.9/python-3.12.9-amd64.exe" -OutFile "C:\python-3.12.9-amd64.exe"
-$installerHash=(Get-FileHash "C:\python-3.12.9-amd64.exe" -Algorithm "MD5")
+Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.9/python-3.12.9-amd64.exe" -OutFile "C:\\python-3.12.9-amd64.exe"
+$installerHash=(Get-FileHash "C:\\python-3.12.9-amd64.exe" -Algorithm "MD5")
 $expectedHash="1cfb1bbf96007b12b98db895dcd86487"
 if ($installerHash.Hash -ne $expectedHash) {{ throw "Could not verify Python installer." }}
-Start-Process -FilePath "C:\python-3.12.9-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 AppendPath=1" -Wait
-Invoke-WebRequest -Uri "https://awscli.amazonaws.com/AWSCLIV2.msi" -Outfile "C:\AWSCLIV2.msi"
-Start-Process msiexec.exe -ArgumentList "/i C:\AWSCLIV2.msi /quiet" -Wait
+Start-Process -FilePath "C:\\python-3.12.9-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 AppendPath=1" -Wait
+Invoke-WebRequest -Uri "https://awscli.amazonaws.com/AWSCLIV2.msi" -Outfile "C:\\AWSCLIV2.msi"
+Start-Process msiexec.exe -ArgumentList "/i C:\\AWSCLIV2.msi /quiet" -Wait
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
 $secret = aws secretsmanager get-secret-value --secret-id WindowsPasswordSecret --query SecretString --output text | ConvertFrom-Json
 $password = ConvertTo-SecureString -String $($secret.password) -AsPlainText -Force
@@ -705,10 +755,12 @@ class PosixInstanceWorkerBase(EC2InstanceWorker):
     def ssm_document_name(self) -> str:
         return "AWS-RunShellScript"
 
-    def send_command(self, command: str) -> CommandResult:
-        return super().send_command("set -eou pipefail; " + command)
+    def send_command(
+        self, command: str, ssm_waiter_config: dict[str, int] = DEFAULT_WAITER_CONFIG
+    ) -> CommandResult:
+        return super().send_command("set -eou pipefail; " + command, ssm_waiter_config)
 
-    def _start_worker_agent(self) -> None:
+    def _setup_worker_agent(self) -> None:
         assert self.instance_id
         LOG.info(
             f"Starting worker for farm: {self.configuration.farm_id} and fleet: {self.configuration.fleet.id}"
@@ -725,8 +777,6 @@ class PosixInstanceWorkerBase(EC2InstanceWorker):
             )
             self.start_worker_service()
             LOG.info("Successfully started worker agent")
-
-        self.worker_id = self.get_worker_id()
 
     def configure_agent_user_environment(
         self, config: DeadlineWorkerConfiguration
@@ -793,6 +843,8 @@ class PosixInstanceWorkerBase(EC2InstanceWorker):
         )
 
         assert cmd_result.exit_code == 0, f"Failed to start Worker Agent service: {cmd_result}"
+
+        self.worker_id = self.get_worker_id()
 
     def stop_worker_service(self):
         LOG.info("Sending command to stop the Worker Agent service")

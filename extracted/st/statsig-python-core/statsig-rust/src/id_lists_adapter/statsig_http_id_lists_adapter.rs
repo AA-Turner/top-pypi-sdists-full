@@ -58,7 +58,7 @@ impl StatsigHttpIdListsAdapter {
         let network = NetworkClient::new(
             sdk_key,
             Some(StatsigMetadata::get_constant_request_headers(sdk_key)),
-            options.disable_network,
+            Some(options),
         );
 
         Self {
@@ -204,8 +204,10 @@ impl StatsigHttpIdListsAdapter {
                 log_error_to_statsig_and_console!(
                     self.ops_stats.clone(),
                     TAG,
-                    "Failed to acquire write lock on listener: {}",
-                    e
+                    StatsigErr::LockFailure(format!(
+                        "Failed to acquire write lock on listener: {}",
+                        e
+                    ))
                 );
             }
         }
@@ -299,8 +301,7 @@ impl StatsigHttpIdListsAdapter {
                 log_error_to_statsig_and_console!(
                     self.ops_stats.clone(),
                     TAG,
-                    "Failed to acquire read lock on listener: {}",
-                    e
+                    StatsigErr::LockFailure("Failed to acquire read lock on listener".to_string())
                 );
                 Err(StatsigErr::LockFailure(e.to_string()))
             }
@@ -455,7 +456,7 @@ mod tests {
     }
 
     fn get_hashed_marcos() -> String {
-        let hashed = HashUtil::new().sha256(&"Marcos".to_string());
+        let hashed = HashUtil::new().sha256("Marcos");
         hashed.chars().take(8).collect()
     }
 

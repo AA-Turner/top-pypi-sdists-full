@@ -1,7 +1,7 @@
 r'''
 # `datadog_software_catalog`
 
-Refer to the Terraform Registry for docs: [`datadog_software_catalog`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/software_catalog).
+Refer to the Terraform Registry for docs: [`datadog_software_catalog`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/software_catalog).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SoftwareCatalog(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.softwareCatalog.SoftwareCatalog",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/software_catalog datadog_software_catalog}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/software_catalog datadog_software_catalog}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class SoftwareCatalog(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/software_catalog datadog_software_catalog} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/software_catalog datadog_software_catalog} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entity: The catalog entity definition. Entity must be a valid entity YAML/JSON structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/software_catalog#entity SoftwareCatalog#entity}
+        :param entity: The catalog entity definition. Entity must be a valid entity YAML/JSON structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/software_catalog#entity SoftwareCatalog#entity}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class SoftwareCatalog(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SoftwareCatalog to import.
-        :param import_from_id: The id of the existing SoftwareCatalog that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/software_catalog#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SoftwareCatalog that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/software_catalog#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SoftwareCatalog to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class SoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entity: The catalog entity definition. Entity must be a valid entity YAML/JSON structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/software_catalog#entity SoftwareCatalog#entity}
+        :param entity: The catalog entity definition. Entity must be a valid entity YAML/JSON structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/software_catalog#entity SoftwareCatalog#entity}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -285,7 +285,7 @@ class SoftwareCatalogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entity(self) -> builtins.str:
         '''The catalog entity definition. Entity must be a valid entity YAML/JSON structure.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/software_catalog#entity SoftwareCatalog#entity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/software_catalog#entity SoftwareCatalog#entity}
         '''
         result = self._values.get("entity")
         assert result is not None, "Required property 'entity' is missing"

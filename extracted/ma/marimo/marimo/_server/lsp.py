@@ -70,8 +70,8 @@ class BaseLspServer(LspServer):
                 stdout=subprocess.PIPE
                 if GLOBAL_SETTINGS.DEVELOPMENT_MODE
                 else subprocess.DEVNULL,
-                # pipe error output
-                stderr=subprocess.PIPE,
+                # subprocess.PIPE in Windows breaks the lsp-server
+                stderr=subprocess.DEVNULL,
                 stdin=None,
                 text=True,
             )

@@ -1,7 +1,7 @@
 r'''
 # `datadog_synthetics_private_location`
 
-Refer to the Terraform Registry for docs: [`datadog_synthetics_private_location`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location).
+Refer to the Terraform Registry for docs: [`datadog_synthetics_private_location`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsPrivateLocation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.syntheticsPrivateLocation.SyntheticsPrivateLocation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location datadog_synthetics_private_location}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location datadog_synthetics_private_location}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class SyntheticsPrivateLocation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location datadog_synthetics_private_location} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location datadog_synthetics_private_location} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Synthetics private location name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
-        :param description: Description of the private location. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#metadata SyntheticsPrivateLocation#metadata}
-        :param tags: A list of tags to associate with your synthetics private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#tags SyntheticsPrivateLocation#tags}
+        :param name: Synthetics private location name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
+        :param description: Description of the private location. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#metadata SyntheticsPrivateLocation#metadata}
+        :param tags: A list of tags to associate with your synthetics private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#tags SyntheticsPrivateLocation#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class SyntheticsPrivateLocation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsPrivateLocation to import.
-        :param import_from_id: The id of the existing SyntheticsPrivateLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsPrivateLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsPrivateLocation to import is found.
         '''
         if __debug__:
@@ -276,10 +276,10 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Synthetics private location name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
-        :param description: Description of the private location. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#metadata SyntheticsPrivateLocation#metadata}
-        :param tags: A list of tags to associate with your synthetics private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#tags SyntheticsPrivateLocation#tags}
+        :param name: Synthetics private location name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
+        :param description: Description of the private location. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#metadata SyntheticsPrivateLocation#metadata}
+        :param tags: A list of tags to associate with your synthetics private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#tags SyntheticsPrivateLocation#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -388,7 +388,7 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Synthetics private location name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -398,7 +398,7 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the private location. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -409,7 +409,7 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsPrivateLocationMetadata"]]]:
         '''metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#metadata SyntheticsPrivateLocation#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#metadata SyntheticsPrivateLocation#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsPrivateLocationMetadata"]]], result)
@@ -418,7 +418,7 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of tags to associate with your synthetics private location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#tags SyntheticsPrivateLocation#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#tags SyntheticsPrivateLocation#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -447,7 +447,7 @@ class SyntheticsPrivateLocationMetadata:
         restricted_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param restricted_roles: A set of role identifiers pulled from the Roles API to restrict read and write access. **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#restricted_roles SyntheticsPrivateLocation#restricted_roles}
+        :param restricted_roles: A set of role identifiers pulled from the Roles API to restrict read and write access. **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#restricted_roles SyntheticsPrivateLocation#restricted_roles}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78ebd3a98892fe796f4c55cbb1a65f11c1bd0d6ec55a678bfd3127ccebd7934a)
@@ -462,7 +462,7 @@ class SyntheticsPrivateLocationMetadata:
 
         **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_private_location#restricted_roles SyntheticsPrivateLocation#restricted_roles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_private_location#restricted_roles SyntheticsPrivateLocation#restricted_roles}
         '''
         result = self._values.get("restricted_roles")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

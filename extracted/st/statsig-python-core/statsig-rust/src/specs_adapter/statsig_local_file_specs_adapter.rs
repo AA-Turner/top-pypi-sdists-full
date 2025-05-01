@@ -1,8 +1,9 @@
 use crate::hashing::djb2;
-use crate::spec_types::{SpecsResponse, SpecsResponseFull};
 use crate::specs_adapter::{SpecsAdapter, SpecsSource, SpecsUpdate, SpecsUpdateListener};
+use crate::specs_response::spec_types::SpecsResponseFull;
+use crate::specs_response::spec_types_encoded::DecodedSpecsResponse;
 use crate::statsig_err::StatsigErr;
-use crate::{log_w, StatsigRuntime};
+use crate::{log_w, StatsigOptions, StatsigRuntime};
 use async_trait::async_trait;
 use chrono::Utc;
 
@@ -31,16 +32,17 @@ impl StatsigLocalFileSpecsAdapter {
         let hashed_key = djb2(sdk_key);
         let file_path = format!("{output_directory}/{hashed_key}_specs.json");
 
+        let options = StatsigOptions {
+            specs_url,
+            disable_network: Some(disable_network),
+            fallback_to_statsig_api: Some(fallback_to_statsig_api),
+            ..Default::default()
+        };
+
         Self {
             file_path,
             listener: RwLock::new(None),
-            http_adapter: StatsigHttpSpecsAdapter::new(
-                sdk_key,
-                specs_url.as_ref(),
-                fallback_to_statsig_api,
-                None,
-                Some(disable_network),
-            ),
+            http_adapter: StatsigHttpSpecsAdapter::new(sdk_key, Some(&options)),
         }
     }
 
@@ -49,14 +51,15 @@ impl StatsigLocalFileSpecsAdapter {
             Ok(Some(specs)) => SpecsInfo {
                 lcut: Some(specs.time),
                 checksum: specs.checksum,
-                zstd_dict_id: None,
+                zstd_dict_id: None, // For backwards compatibility, we only store uncompressed specs
                 source: SpecsSource::Adapter("FileBased".to_owned()),
             },
             _ => SpecsInfo::empty(),
         };
 
         let data = match self.http_adapter.fetch_specs_from_network(specs_info).await {
-            Ok(data) => data,
+            Ok(data) => String::from_utf8(data)
+                .map_err(|e| StatsigErr::SerializationError(e.to_string()))?,
             Err(e) => {
                 return Err(StatsigErr::NetworkError(
                     e,
@@ -85,7 +88,7 @@ impl StatsigLocalFileSpecsAdapter {
         match &self.listener.read() {
             Ok(lock) => match lock.as_ref() {
                 Some(listener) => listener.did_receive_specs_update(SpecsUpdate {
-                    data,
+                    data: data.into_bytes(),
                     source: SpecsSource::Adapter("FileBased".to_owned()),
                     received_at: Utc::now().timestamp_millis() as u64,
                 }),
@@ -95,7 +98,7 @@ impl StatsigLocalFileSpecsAdapter {
         }
     }
 
-    fn read_specs_from_file(&self) -> Result<Option<Box<SpecsResponseFull>>, StatsigErr> {
+    fn read_specs_from_file(&self) -> Result<Option<SpecsResponseFull>, StatsigErr> {
         if !std::path::Path::new(&self.file_path).exists() {
             return Ok(None);
         }
@@ -110,10 +113,10 @@ impl StatsigLocalFileSpecsAdapter {
         Ok(self.parse_specs_data_to_full_response(&data))
     }
 
-    fn parse_specs_data_to_full_response(&self, data: &str) -> Option<Box<SpecsResponseFull>> {
-        match serde_json::from_str::<SpecsResponse>(data) {
-            Ok(SpecsResponse::Full(full)) => Some(full),
-            Ok(SpecsResponse::NoUpdates(_)) => None,
+    fn parse_specs_data_to_full_response(&self, data: &str) -> Option<SpecsResponseFull> {
+        let mut place = SpecsResponseFull::default();
+        match DecodedSpecsResponse::from_slice(data.as_bytes(), &mut place, None) {
+            Ok(_) => Some(place),
             Err(e) => {
                 log_w!(TAG, "Failed to parse specs data: {}", e);
                 None

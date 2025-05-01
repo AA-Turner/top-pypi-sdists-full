@@ -1,7 +1,6 @@
 # Copyright 2024 Marimo. All rights reserved.
 from __future__ import annotations
 
-import builtins
 import token as token_types
 from enum import Enum
 from io import BytesIO
@@ -16,7 +15,8 @@ from marimo._ast.names import (
     SETUP_CELL_NAME,
     TOPLEVEL_CELL_PREFIX,
 )
-from marimo._ast.visitor import Name
+from marimo._ast.variables import BUILTINS
+from marimo._ast.visitor import Name, VariableData
 from marimo._runtime.dataflow import DirectedGraph
 from marimo._types.ids import CellId_t
 
@@ -244,7 +244,8 @@ class TopLevelExtraction:
         defs: set[Name] = set()
         refs: set[Name] = set()
         self.allowed_refs: set[Name] = set(toplevel_defs)
-        # Run through and get deff + refs, and a naive attempt at resolving cell
+        self._variables: Optional[dict[Name, VariableData]] = None
+        # Run through and get defs + refs, and a naive attempt at resolving cell
         # status.
         for idx, (code, name, config) in enumerate(
             zip(codes, names, cell_configs)
@@ -264,7 +265,7 @@ class TopLevelExtraction:
             [status.name for status in self.statuses if not status.is_toplevel]
         )
 
-        self.unshadowed = set(builtins.__dict__.keys()) - defs
+        self.unshadowed = BUILTINS - defs
         self.allowed_refs.update(self.unshadowed)
         self.used_refs = refs
 
@@ -348,6 +349,23 @@ class TopLevelExtraction:
             if name in self.unresolved:
                 _ = resolve(name)
         assert not self.unresolved
+
+    @property
+    def variables(self) -> dict[Name, VariableData]:
+        # Grabs all initial variable data from cells for use in annotations.
+        if self._variables is not None:
+            return self._variables
+        variables = {}
+        for status in self.cells.values():
+            if status._cell:
+                variables.update(status._cell.init_variable_data)
+        for var, status in self.toplevel.items():
+            if status._cell:
+                toplevel_variable = status._cell.toplevel_variable
+                if toplevel_variable:
+                    variables[var] = toplevel_variable
+        self._variables = variables
+        return variables
 
     @classmethod
     def from_graph(

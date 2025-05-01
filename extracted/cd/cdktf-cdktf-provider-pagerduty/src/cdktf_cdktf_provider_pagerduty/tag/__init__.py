@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_tag`
 
-Refer to the Terraform Registry for docs: [`pagerduty_tag`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag).
+Refer to the Terraform Registry for docs: [`pagerduty_tag`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Tag(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.tag.Tag",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag pagerduty_tag}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag pagerduty_tag}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class Tag(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag pagerduty_tag} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag pagerduty_tag} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag#label Tag#label}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag#label Tag#label}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class Tag(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Tag to import.
-        :param import_from_id: The id of the existing Tag that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Tag that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Tag to import is found.
         '''
         if __debug__:
@@ -195,7 +195,7 @@ class TagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag#label Tag#label}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag#label Tag#label}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -293,7 +293,7 @@ class TagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag#label Tag#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag#label Tag#label}.'''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
         return typing.cast(builtins.str, result)

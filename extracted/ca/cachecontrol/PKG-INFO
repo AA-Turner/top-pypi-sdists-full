@@ -1,22 +1,22 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: CacheControl
-Version: 0.14.2
+Version: 0.14.3
 Summary: httplib2 caching for requests
 Keywords: requests,http,caching,web
 Author-email: Eric Larson <ericlarson@ionrock.com>, Frost Ming <me@frostming.com>, William Woodruff <william@yossarian.net>
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
+License-File: LICENSE.txt
 Requires-Dist: requests >= 2.16.0
 Requires-Dist: msgpack >= 0.5.2, < 2.0.0
 Requires-Dist: CacheControl[filecache, redis] ; extra == "dev"

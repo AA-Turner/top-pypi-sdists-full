@@ -1,7 +1,7 @@
 r'''
 # `datadog_logs_archive_order`
 
-Refer to the Terraform Registry for docs: [`datadog_logs_archive_order`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order).
+Refer to the Terraform Registry for docs: [`datadog_logs_archive_order`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogsArchiveOrder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.logsArchiveOrder.LogsArchiveOrder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order datadog_logs_archive_order}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order datadog_logs_archive_order}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class LogsArchiveOrder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order datadog_logs_archive_order} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order datadog_logs_archive_order} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param archive_ids: The archive IDs list. The order of archive IDs in this attribute defines the overall archive order for logs. If ``archive_ids`` is empty or not specified, it will import the actual archive order, and create the resource. Otherwise, it will try to update the order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order#archive_ids LogsArchiveOrder#archive_ids}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order#id LogsArchiveOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param archive_ids: The archive IDs list. The order of archive IDs in this attribute defines the overall archive order for logs. If ``archive_ids`` is empty or not specified, it will import the actual archive order, and create the resource. Otherwise, it will try to update the order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order#archive_ids LogsArchiveOrder#archive_ids}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order#id LogsArchiveOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class LogsArchiveOrder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogsArchiveOrder to import.
-        :param import_from_id: The id of the existing LogsArchiveOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogsArchiveOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogsArchiveOrder to import is found.
         '''
         if __debug__:
@@ -210,8 +210,8 @@ class LogsArchiveOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param archive_ids: The archive IDs list. The order of archive IDs in this attribute defines the overall archive order for logs. If ``archive_ids`` is empty or not specified, it will import the actual archive order, and create the resource. Otherwise, it will try to update the order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order#archive_ids LogsArchiveOrder#archive_ids}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order#id LogsArchiveOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param archive_ids: The archive IDs list. The order of archive IDs in this attribute defines the overall archive order for logs. If ``archive_ids`` is empty or not specified, it will import the actual archive order, and create the resource. Otherwise, it will try to update the order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order#archive_ids LogsArchiveOrder#archive_ids}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order#id LogsArchiveOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -316,14 +316,14 @@ class LogsArchiveOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The order of archive IDs in this attribute defines the overall archive order for logs. If ``archive_ids`` is empty or not specified, it will import the actual archive order, and create the resource. Otherwise, it will try to update the order.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order#archive_ids LogsArchiveOrder#archive_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order#archive_ids LogsArchiveOrder#archive_ids}
         '''
         result = self._values.get("archive_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_archive_order#id LogsArchiveOrder#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_archive_order#id LogsArchiveOrder#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

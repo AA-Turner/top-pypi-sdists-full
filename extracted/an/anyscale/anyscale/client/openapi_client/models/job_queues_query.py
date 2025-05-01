@@ -38,7 +38,8 @@ class JobQueuesQuery(object):
         'cluster_status': 'SessionState',
         'project_id': 'str',
         'cloud_id': 'str',
-        'paging': 'PageQuery'
+        'paging': 'PageQuery',
+        'sorting_directives': 'list[JobQueueSortDirective]'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class JobQueuesQuery(object):
         'cluster_status': 'cluster_status',
         'project_id': 'project_id',
         'cloud_id': 'cloud_id',
-        'paging': 'paging'
+        'paging': 'paging',
+        'sorting_directives': 'sorting_directives'
     }
 
-    def __init__(self, name=None, creator_id=None, cluster_status=None, project_id=None, cloud_id=None, paging=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, creator_id=None, cluster_status=None, project_id=None, cloud_id=None, paging=None, sorting_directives=None, local_vars_configuration=None):  # noqa: E501
         """JobQueuesQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class JobQueuesQuery(object):
         self._project_id = None
         self._cloud_id = None
         self._paging = None
+        self._sorting_directives = None
         self.discriminator = None
 
         if name is not None:
@@ -76,6 +79,8 @@ class JobQueuesQuery(object):
             self.cloud_id = cloud_id
         if paging is not None:
             self.paging = paging
+        if sorting_directives is not None:
+            self.sorting_directives = sorting_directives
 
     @property
     def name(self):
@@ -214,6 +219,29 @@ class JobQueuesQuery(object):
         """
 
         self._paging = paging
+
+    @property
+    def sorting_directives(self):
+        """Gets the sorting_directives of this JobQueuesQuery.  # noqa: E501
+
+        List of sorting criteria (multi-field sort supported).  # noqa: E501
+
+        :return: The sorting_directives of this JobQueuesQuery.  # noqa: E501
+        :rtype: list[JobQueueSortDirective]
+        """
+        return self._sorting_directives
+
+    @sorting_directives.setter
+    def sorting_directives(self, sorting_directives):
+        """Sets the sorting_directives of this JobQueuesQuery.
+
+        List of sorting criteria (multi-field sort supported).  # noqa: E501
+
+        :param sorting_directives: The sorting_directives of this JobQueuesQuery.  # noqa: E501
+        :type: list[JobQueueSortDirective]
+        """
+
+        self._sorting_directives = sorting_directives
 
     def to_dict(self):
         """Returns the model properties as a dict"""

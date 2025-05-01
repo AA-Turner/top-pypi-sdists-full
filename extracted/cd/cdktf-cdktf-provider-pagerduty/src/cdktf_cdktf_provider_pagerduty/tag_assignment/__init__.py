@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_tag_assignment`
 
-Refer to the Terraform Registry for docs: [`pagerduty_tag_assignment`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment).
+Refer to the Terraform Registry for docs: [`pagerduty_tag_assignment`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TagAssignment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.tagAssignment.TagAssignment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment pagerduty_tag_assignment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment pagerduty_tag_assignment}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class TagAssignment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment pagerduty_tag_assignment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment pagerduty_tag_assignment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#entity_id TagAssignment#entity_id}.
-        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#entity_type TagAssignment#entity_type}.
-        :param tag_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#tag_id TagAssignment#tag_id}.
+        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#entity_id TagAssignment#entity_id}.
+        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#entity_type TagAssignment#entity_type}.
+        :param tag_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#tag_id TagAssignment#tag_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class TagAssignment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TagAssignment to import.
-        :param import_from_id: The id of the existing TagAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TagAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TagAssignment to import is found.
         '''
         if __debug__:
@@ -229,9 +229,9 @@ class TagAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#entity_id TagAssignment#entity_id}.
-        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#entity_type TagAssignment#entity_type}.
-        :param tag_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#tag_id TagAssignment#tag_id}.
+        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#entity_id TagAssignment#entity_id}.
+        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#entity_type TagAssignment#entity_type}.
+        :param tag_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#tag_id TagAssignment#tag_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -333,21 +333,21 @@ class TagAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def entity_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#entity_id TagAssignment#entity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#entity_id TagAssignment#entity_id}.'''
         result = self._values.get("entity_id")
         assert result is not None, "Required property 'entity_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def entity_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#entity_type TagAssignment#entity_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#entity_type TagAssignment#entity_type}.'''
         result = self._values.get("entity_type")
         assert result is not None, "Required property 'entity_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tag_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/tag_assignment#tag_id TagAssignment#tag_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/tag_assignment#tag_id TagAssignment#tag_id}.'''
         result = self._values.get("tag_id")
         assert result is not None, "Required property 'tag_id' is missing"
         return typing.cast(builtins.str, result)

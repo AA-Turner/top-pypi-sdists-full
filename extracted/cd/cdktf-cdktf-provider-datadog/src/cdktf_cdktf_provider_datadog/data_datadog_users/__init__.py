@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_users`
 
-Refer to the Terraform Registry for docs: [`data_datadog_users`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users).
+Refer to the Terraform Registry for docs: [`data_datadog_users`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogUsers(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogUsers.DataDatadogUsers",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users datadog_users}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users datadog_users}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataDatadogUsers(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users datadog_users} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users datadog_users} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users#filter DataDatadogUsers#filter}
-        :param filter_status: Filter on status attribute. Comma-separated list with possible values of Active, Pending, and Disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users#filter_status DataDatadogUsers#filter_status}
+        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users#filter DataDatadogUsers#filter}
+        :param filter_status: Filter on status attribute. Comma-separated list with possible values of Active, Pending, and Disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users#filter_status DataDatadogUsers#filter_status}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataDatadogUsers(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogUsers to import.
-        :param import_from_id: The id of the existing DataDatadogUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogUsers to import is found.
         '''
         if __debug__:
@@ -220,8 +220,8 @@ class DataDatadogUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users#filter DataDatadogUsers#filter}
-        :param filter_status: Filter on status attribute. Comma-separated list with possible values of Active, Pending, and Disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users#filter_status DataDatadogUsers#filter_status}
+        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users#filter DataDatadogUsers#filter}
+        :param filter_status: Filter on status attribute. Comma-separated list with possible values of Active, Pending, and Disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users#filter_status DataDatadogUsers#filter_status}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -324,7 +324,7 @@ class DataDatadogUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional[builtins.str]:
         '''Filter all users by the given string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users#filter DataDatadogUsers#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users#filter DataDatadogUsers#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -333,7 +333,7 @@ class DataDatadogUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_status(self) -> typing.Optional[builtins.str]:
         '''Filter on status attribute. Comma-separated list with possible values of Active, Pending, and Disabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/users#filter_status DataDatadogUsers#filter_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/users#filter_status DataDatadogUsers#filter_status}
         '''
         result = self._values.get("filter_status")
         return typing.cast(typing.Optional[builtins.str], result)

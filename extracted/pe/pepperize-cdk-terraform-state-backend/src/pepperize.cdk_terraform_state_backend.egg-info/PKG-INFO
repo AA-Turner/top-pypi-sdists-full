@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pepperize.cdk-terraform-state-backend
-Version: 0.1.1167
+Version: 0.1.1168
 Summary: This project provides a CDK construct bootstrapping an AWS account with a S3 Bucket and a DynamoDB table as terraform state backend.
 Home-page: https://github.com/pepperize/cdk-terraform-state-backend.git
 Author: Patrick Florek<patrick.florek@gmail.com>

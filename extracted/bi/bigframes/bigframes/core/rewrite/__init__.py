@@ -12,12 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from bigframes.core.rewrite.fold_row_count import fold_row_counts
 from bigframes.core.rewrite.identifiers import remap_variables
 from bigframes.core.rewrite.implicit_align import try_row_join
 from bigframes.core.rewrite.legacy_align import legacy_join_as_projection
 from bigframes.core.rewrite.order import bake_order, defer_order
 from bigframes.core.rewrite.pruning import column_pruning
-from bigframes.core.rewrite.scan_reduction import try_reduce_to_table_scan
+from bigframes.core.rewrite.scan_reduction import (
+    try_reduce_to_local_scan,
+    try_reduce_to_table_scan,
+)
 from bigframes.core.rewrite.slices import pull_up_limits, rewrite_slice
 from bigframes.core.rewrite.timedeltas import rewrite_timedelta_expressions
 from bigframes.core.rewrite.windows import rewrite_range_rolling
@@ -34,4 +38,6 @@ __all__ = [
     "rewrite_range_rolling",
     "try_reduce_to_table_scan",
     "bake_order",
+    "try_reduce_to_local_scan",
+    "fold_row_counts",
 ]

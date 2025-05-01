@@ -49,6 +49,7 @@ __all__ = (
     "InferenceProfileStatusType",
     "InferenceProfileTypeType",
     "InferenceTypeType",
+    "JobStatusDetailsType",
     "ListCustomModelsPaginatorName",
     "ListEvaluationJobsPaginatorName",
     "ListGuardrailsPaginatorName",
@@ -150,6 +151,9 @@ GuardrailWordActionType = Literal["BLOCK", "NONE"]
 InferenceProfileStatusType = Literal["ACTIVE"]
 InferenceProfileTypeType = Literal["APPLICATION", "SYSTEM_DEFINED"]
 InferenceTypeType = Literal["ON_DEMAND", "PROVISIONED"]
+JobStatusDetailsType = Literal[
+    "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
+]
 ListCustomModelsPaginatorName = Literal["list_custom_models"]
 ListEvaluationJobsPaginatorName = Literal["list_evaluation_jobs"]
 ListGuardrailsPaginatorName = Literal["list_guardrails"]
@@ -561,6 +565,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

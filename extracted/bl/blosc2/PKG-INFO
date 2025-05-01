@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: blosc2
-Version: 3.3.1
+Version: 3.3.2
 Summary: A fast & compressed ndarray library with a flexible compute engine.
 Author-Email: Blosc Development Team <blosc@blosc.org>
 Maintainer-Email: Blosc Development Team <blosc@blosc.org>
@@ -15,12 +15,13 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Project-URL: homepage, https://github.com/Blosc/python-blosc2
 Project-URL: documentation, https://www.blosc.org/python-blosc2/python-blosc2.html
-Requires-Python: >=3.11
+Requires-Python: >=3.10
 Requires-Dist: numpy>=1.26
 Requires-Dist: ndindex
 Requires-Dist: msgpack

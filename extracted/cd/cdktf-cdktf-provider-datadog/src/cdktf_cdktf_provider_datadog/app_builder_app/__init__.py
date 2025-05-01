@@ -1,7 +1,7 @@
 r'''
 # `datadog_app_builder_app`
 
-Refer to the Terraform Registry for docs: [`datadog_app_builder_app`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app).
+Refer to the Terraform Registry for docs: [`datadog_app_builder_app`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppBuilderApp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.appBuilderApp.AppBuilderApp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app datadog_app_builder_app}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app datadog_app_builder_app}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class AppBuilderApp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app datadog_app_builder_app} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app datadog_app_builder_app} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_json: The JSON representation of the App. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#app_json AppBuilderApp#app_json}
-        :param action_query_names_to_connection_ids: If specified, this will override the Action Connection IDs for the specified Action Query Names in the App JSON. Otherwise, a map of the App's Action Query Names to Action Connection IDs will be returned in output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#action_query_names_to_connection_ids AppBuilderApp#action_query_names_to_connection_ids}
-        :param description: If specified, this will override the human-readable description of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#description AppBuilderApp#description}
-        :param name: If specified, this will override the name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#name AppBuilderApp#name}
-        :param published: Set the app to published or unpublished. Published apps are available to other users. To ensure the app is accessible to the correct users, you also need to set a `Restriction Policy <https://docs.datadoghq.com/api/latest/restriction-policies/>`_ on the app if a policy does not yet exist. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#published AppBuilderApp#published}
-        :param root_instance_name: The name of the root component of the app. This must be a grid component that contains all other components. If specified, this will override the root instance name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#root_instance_name AppBuilderApp#root_instance_name}
+        :param app_json: The JSON representation of the App. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#app_json AppBuilderApp#app_json}
+        :param action_query_names_to_connection_ids: If specified, this will override the Action Connection IDs for the specified Action Query Names in the App JSON. Otherwise, a map of the App's Action Query Names to Action Connection IDs will be returned in output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#action_query_names_to_connection_ids AppBuilderApp#action_query_names_to_connection_ids}
+        :param description: If specified, this will override the human-readable description of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#description AppBuilderApp#description}
+        :param name: If specified, this will override the name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#name AppBuilderApp#name}
+        :param published: Set the app to published or unpublished. Published apps are available to other users. To ensure the app is accessible to the correct users, you also need to set a `Restriction Policy <https://docs.datadoghq.com/api/latest/restriction-policies/>`_ on the app if a policy does not yet exist. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#published AppBuilderApp#published}
+        :param root_instance_name: The name of the root component of the app. This must be a grid component that contains all other components. If specified, this will override the root instance name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#root_instance_name AppBuilderApp#root_instance_name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class AppBuilderApp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppBuilderApp to import.
-        :param import_from_id: The id of the existing AppBuilderApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppBuilderApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppBuilderApp to import is found.
         '''
         if __debug__:
@@ -327,12 +327,12 @@ class AppBuilderAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_json: The JSON representation of the App. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#app_json AppBuilderApp#app_json}
-        :param action_query_names_to_connection_ids: If specified, this will override the Action Connection IDs for the specified Action Query Names in the App JSON. Otherwise, a map of the App's Action Query Names to Action Connection IDs will be returned in output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#action_query_names_to_connection_ids AppBuilderApp#action_query_names_to_connection_ids}
-        :param description: If specified, this will override the human-readable description of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#description AppBuilderApp#description}
-        :param name: If specified, this will override the name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#name AppBuilderApp#name}
-        :param published: Set the app to published or unpublished. Published apps are available to other users. To ensure the app is accessible to the correct users, you also need to set a `Restriction Policy <https://docs.datadoghq.com/api/latest/restriction-policies/>`_ on the app if a policy does not yet exist. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#published AppBuilderApp#published}
-        :param root_instance_name: The name of the root component of the app. This must be a grid component that contains all other components. If specified, this will override the root instance name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#root_instance_name AppBuilderApp#root_instance_name}
+        :param app_json: The JSON representation of the App. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#app_json AppBuilderApp#app_json}
+        :param action_query_names_to_connection_ids: If specified, this will override the Action Connection IDs for the specified Action Query Names in the App JSON. Otherwise, a map of the App's Action Query Names to Action Connection IDs will be returned in output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#action_query_names_to_connection_ids AppBuilderApp#action_query_names_to_connection_ids}
+        :param description: If specified, this will override the human-readable description of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#description AppBuilderApp#description}
+        :param name: If specified, this will override the name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#name AppBuilderApp#name}
+        :param published: Set the app to published or unpublished. Published apps are available to other users. To ensure the app is accessible to the correct users, you also need to set a `Restriction Policy <https://docs.datadoghq.com/api/latest/restriction-policies/>`_ on the app if a policy does not yet exist. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#published AppBuilderApp#published}
+        :param root_instance_name: The name of the root component of the app. This must be a grid component that contains all other components. If specified, this will override the root instance name of the App in the App JSON. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#root_instance_name AppBuilderApp#root_instance_name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -447,7 +447,7 @@ class AppBuilderAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_json(self) -> builtins.str:
         '''The JSON representation of the App. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#app_json AppBuilderApp#app_json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#app_json AppBuilderApp#app_json}
         '''
         result = self._values.get("app_json")
         assert result is not None, "Required property 'app_json' is missing"
@@ -461,7 +461,7 @@ class AppBuilderAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Otherwise, a map of the App's Action Query Names to Action Connection IDs will be returned in output.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#action_query_names_to_connection_ids AppBuilderApp#action_query_names_to_connection_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#action_query_names_to_connection_ids AppBuilderApp#action_query_names_to_connection_ids}
         '''
         result = self._values.get("action_query_names_to_connection_ids")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -472,7 +472,7 @@ class AppBuilderAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#description AppBuilderApp#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#description AppBuilderApp#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -483,7 +483,7 @@ class AppBuilderAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#name AppBuilderApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#name AppBuilderApp#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -496,7 +496,7 @@ class AppBuilderAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Published apps are available to other users. To ensure the app is accessible to the correct users, you also need to set a `Restriction Policy <https://docs.datadoghq.com/api/latest/restriction-policies/>`_ on the app if a policy does not yet exist. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#published AppBuilderApp#published}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#published AppBuilderApp#published}
         '''
         result = self._values.get("published")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -507,7 +507,7 @@ class AppBuilderAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This must be a grid component that contains all other components. If specified, this will override the root instance name of the App in the App JSON. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/app_builder_app#root_instance_name AppBuilderApp#root_instance_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/app_builder_app#root_instance_name AppBuilderApp#root_instance_name}
         '''
         result = self._values.get("root_instance_name")
         return typing.cast(typing.Optional[builtins.str], result)

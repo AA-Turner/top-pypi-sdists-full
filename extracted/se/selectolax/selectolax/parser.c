@@ -31,143 +31,143 @@
         "name": "selectolax.parser",
         "sources": [
             "selectolax/parser.pyx",
-            "modest/source/myencoding/mystring.c",
+            "modest/source/modest/modest.c",
+            "modest/source/modest/glue.c",
+            "modest/source/modest/declaration.c",
+            "modest/source/modest/finder/match.c",
+            "modest/source/modest/finder/finder.c",
+            "modest/source/modest/finder/thread.c",
+            "modest/source/modest/finder/pseudo_class.c",
+            "modest/source/modest/finder/type.c",
+            "modest/source/modest/render/binding.c",
+            "modest/source/modest/render/begin.c",
+            "modest/source/modest/render/tree.c",
+            "modest/source/modest/render/tree_node.c",
+            "modest/source/modest/layer/layer.c",
+            "modest/source/modest/style/raw.c",
+            "modest/source/modest/style/sheet.c",
+            "modest/source/modest/style/default.c",
+            "modest/source/modest/style/map.c",
+            "modest/source/modest/style/type.c",
+            "modest/source/modest/node/serialization.c",
+            "modest/source/modest/node/node.c",
+            "modest/source/modest/node/property.c",
+            "modest/source/modest/node/raw_property.c",
             "modest/source/myencoding/detect.c",
             "modest/source/myencoding/encoding.c",
-            "modest/source/myurl/host.c",
-            "modest/source/myurl/utils.c",
-            "modest/source/myurl/scheme.c",
-            "modest/source/myurl/path.c",
-            "modest/source/myurl/parser.c",
-            "modest/source/myurl/url.c",
-            "modest/source/myurl/parser_end.c",
-            "modest/source/myurl/serialization.c",
-            "modest/source/myurl/myosi.c",
-            "modest/source/myurl/punycode.c",
-            "modest/source/mycss/stack.c",
-            "modest/source/mycss/mycss.c",
-            "modest/source/mycss/an_plus_b.c",
-            "modest/source/mycss/entry.c",
-            "modest/source/mycss/parser.c",
-            "modest/source/mycss/mystring.c",
-            "modest/source/mycss/tokenizer_global.c",
-            "modest/source/mycss/check.c",
-            "modest/source/mycss/tokenizer.c",
-            "modest/source/mycss/convert.c",
-            "modest/source/mycss/stylesheet.c",
+            "modest/source/myencoding/mystring.c",
+            "modest/source/mycore/myosi.c",
+            "modest/source/mycore/thread_queue.c",
+            "modest/source/mycore/incoming.c",
+            "modest/source/mycore/utils.c",
+            "modest/source/mycore/mythread.c",
+            "modest/source/mycore/mystring.c",
+            "modest/source/mycore/utils/mchar_async.c",
+            "modest/source/mycore/utils/mcobject.c",
+            "modest/source/mycore/utils/avl_tree.c",
+            "modest/source/mycore/utils/mcobject_async.c",
+            "modest/source/mycore/utils/mhash.c",
+            "modest/source/mycore/utils/mcsync.c",
+            "modest/source/mycore/utils/mctree.c",
+            "modest/source/mycore/utils/mcsimple.c",
+            "modest/source/myunicode/myosi.c",
             "modest/source/mycss/tokenizer_end.c",
-            "modest/source/mycss/selectors/list.c",
-            "modest/source/mycss/selectors/init.c",
-            "modest/source/mycss/selectors/function.c",
-            "modest/source/mycss/selectors/parser.c",
-            "modest/source/mycss/selectors/state.c",
-            "modest/source/mycss/selectors/serialization.c",
-            "modest/source/mycss/selectors/function_parser.c",
-            "modest/source/mycss/selectors/pseudo.c",
-            "modest/source/mycss/selectors/value.c",
-            "modest/source/mycss/values/image.c",
-            "modest/source/mycss/values/color_parser.c",
-            "modest/source/mycss/values/units.c",
-            "modest/source/mycss/values/serialization.c",
-            "modest/source/mycss/values/values.c",
-            "modest/source/mycss/values/destroy.c",
-            "modest/source/mycss/values/color.c",
-            "modest/source/mycss/values/consume.c",
-            "modest/source/mycss/media/init.c",
-            "modest/source/mycss/media/state.c",
-            "modest/source/mycss/declaration/entry_destroy.c",
-            "modest/source/mycss/declaration/init.c",
-            "modest/source/mycss/declaration/entry.c",
-            "modest/source/mycss/declaration/parser.c",
-            "modest/source/mycss/declaration/state.c",
-            "modest/source/mycss/declaration/serialization.c",
-            "modest/source/mycss/declaration/default.c",
+            "modest/source/mycss/tokenizer.c",
+            "modest/source/mycss/check.c",
+            "modest/source/mycss/tokenizer_global.c",
+            "modest/source/mycss/parser.c",
+            "modest/source/mycss/stylesheet.c",
+            "modest/source/mycss/an_plus_b.c",
+            "modest/source/mycss/mycss.c",
+            "modest/source/mycss/entry.c",
+            "modest/source/mycss/mystring.c",
+            "modest/source/mycss/convert.c",
+            "modest/source/mycss/stack.c",
+            "modest/source/mycss/namespace/serialization.c",
             "modest/source/mycss/namespace/init.c",
             "modest/source/mycss/namespace/parser.c",
             "modest/source/mycss/namespace/state.c",
-            "modest/source/mycss/namespace/serialization.c",
+            "modest/source/mycss/selectors/pseudo.c",
+            "modest/source/mycss/selectors/serialization.c",
+            "modest/source/mycss/selectors/list.c",
+            "modest/source/mycss/selectors/init.c",
+            "modest/source/mycss/selectors/parser.c",
+            "modest/source/mycss/selectors/function_parser.c",
+            "modest/source/mycss/selectors/state.c",
+            "modest/source/mycss/selectors/function.c",
+            "modest/source/mycss/selectors/value.c",
+            "modest/source/mycss/values/serialization.c",
+            "modest/source/mycss/values/units.c",
+            "modest/source/mycss/values/consume.c",
+            "modest/source/mycss/values/values.c",
+            "modest/source/mycss/values/color_parser.c",
+            "modest/source/mycss/values/color.c",
+            "modest/source/mycss/values/destroy.c",
+            "modest/source/mycss/values/image.c",
+            "modest/source/mycss/media/init.c",
+            "modest/source/mycss/media/state.c",
             "modest/source/mycss/property/parser_image.c",
+            "modest/source/mycss/property/serialization.c",
+            "modest/source/mycss/property/parser_background.c",
+            "modest/source/mycss/property/parser_url.c",
+            "modest/source/mycss/property/shared.c",
             "modest/source/mycss/property/init.c",
             "modest/source/mycss/property/parser_text_decoration.c",
             "modest/source/mycss/property/parser.c",
-            "modest/source/mycss/property/parser_background.c",
-            "modest/source/mycss/property/serialization.c",
-            "modest/source/mycss/property/parser_url.c",
-            "modest/source/mycss/property/shared.c",
-            "modest/source/myhtml/tokenizer_script.c",
-            "modest/source/myhtml/tag.c",
-            "modest/source/myhtml/tag_init.c",
-            "modest/source/myhtml/mynamespace.c",
-            "modest/source/myhtml/callback.c",
-            "modest/source/myhtml/tokenizer_doctype.c",
-            "modest/source/myhtml/charef.c",
-            "modest/source/myhtml/rules.c",
-            "modest/source/myhtml/parser.c",
-            "modest/source/myhtml/mystring.c",
-            "modest/source/myhtml/serialization.c",
-            "modest/source/myhtml/tree.c",
-            "modest/source/myhtml/token.c",
-            "modest/source/myhtml/tokenizer.c",
-            "modest/source/myhtml/myhtml.c",
-            "modest/source/myhtml/data_process.c",
-            "modest/source/myhtml/stream.c",
-            "modest/source/myhtml/tokenizer_end.c",
+            "modest/source/mycss/declaration/serialization.c",
+            "modest/source/mycss/declaration/init.c",
+            "modest/source/mycss/declaration/entry_destroy.c",
+            "modest/source/mycss/declaration/parser.c",
+            "modest/source/mycss/declaration/state.c",
+            "modest/source/mycss/declaration/entry.c",
+            "modest/source/mycss/declaration/default.c",
             "modest/source/myport/posix/mycore/memory.c",
-            "modest/source/myport/posix/mycore/thread.c",
-            "modest/source/myport/posix/mycore/perf.c",
             "modest/source/myport/posix/mycore/io.c",
+            "modest/source/myport/posix/mycore/perf.c",
+            "modest/source/myport/posix/mycore/thread.c",
             "modest/source/myport/posix/mycore/utils/mcsync.c",
-            "modest/source/modest/modest.c",
-            "modest/source/modest/declaration.c",
-            "modest/source/modest/glue.c",
-            "modest/source/modest/render/tree_node.c",
-            "modest/source/modest/render/tree.c",
-            "modest/source/modest/render/begin.c",
-            "modest/source/modest/render/binding.c",
-            "modest/source/modest/node/property.c",
-            "modest/source/modest/node/node.c",
-            "modest/source/modest/node/serialization.c",
-            "modest/source/modest/node/raw_property.c",
-            "modest/source/modest/finder/finder.c",
-            "modest/source/modest/finder/type.c",
-            "modest/source/modest/finder/thread.c",
-            "modest/source/modest/finder/pseudo_class.c",
-            "modest/source/modest/finder/match.c",
-            "modest/source/modest/layer/layer.c",
-            "modest/source/modest/style/map.c",
-            "modest/source/modest/style/type.c",
-            "modest/source/modest/style/default.c",
-            "modest/source/modest/style/sheet.c",
-            "modest/source/modest/style/raw.c",
-            "modest/source/mycore/utils.c",
-            "modest/source/mycore/incoming.c",
-            "modest/source/mycore/mystring.c",
-            "modest/source/mycore/thread_queue.c",
-            "modest/source/mycore/myosi.c",
-            "modest/source/mycore/mythread.c",
-            "modest/source/mycore/utils/mhash.c",
-            "modest/source/mycore/utils/mcsimple.c",
-            "modest/source/mycore/utils/mcsync.c",
-            "modest/source/mycore/utils/avl_tree.c",
-            "modest/source/mycore/utils/mcobject.c",
-            "modest/source/mycore/utils/mcobject_async.c",
-            "modest/source/mycore/utils/mctree.c",
-            "modest/source/mycore/utils/mchar_async.c",
-            "modest/source/myfont/maxp.c",
-            "modest/source/myfont/os_2.c",
+            "modest/source/myurl/serialization.c",
+            "modest/source/myurl/path.c",
+            "modest/source/myurl/myosi.c",
+            "modest/source/myurl/host.c",
+            "modest/source/myurl/punycode.c",
+            "modest/source/myurl/parser.c",
+            "modest/source/myurl/scheme.c",
+            "modest/source/myurl/utils.c",
+            "modest/source/myurl/parser_end.c",
+            "modest/source/myurl/url.c",
+            "modest/source/myfont/hhea.c",
+            "modest/source/myfont/hmtx.c",
             "modest/source/myfont/name.c",
-            "modest/source/myfont/vmtx.c",
-            "modest/source/myfont/cmap.c",
             "modest/source/myfont/vhea.c",
             "modest/source/myfont/myosi.c",
-            "modest/source/myfont/pclt.c",
-            "modest/source/myfont/hhea.c",
-            "modest/source/myfont/glyf.c",
+            "modest/source/myfont/maxp.c",
             "modest/source/myfont/head.c",
-            "modest/source/myfont/loca.c",
+            "modest/source/myfont/os_2.c",
             "modest/source/myfont/myfont.c",
-            "modest/source/myfont/hmtx.c",
-            "modest/source/myunicode/myosi.c"
+            "modest/source/myfont/loca.c",
+            "modest/source/myfont/pclt.c",
+            "modest/source/myfont/vmtx.c",
+            "modest/source/myfont/cmap.c",
+            "modest/source/myfont/glyf.c",
+            "modest/source/myhtml/tokenizer_end.c",
+            "modest/source/myhtml/tokenizer.c",
+            "modest/source/myhtml/serialization.c",
+            "modest/source/myhtml/tag.c",
+            "modest/source/myhtml/myhtml.c",
+            "modest/source/myhtml/mynamespace.c",
+            "modest/source/myhtml/tokenizer_script.c",
+            "modest/source/myhtml/rules.c",
+            "modest/source/myhtml/parser.c",
+            "modest/source/myhtml/charef.c",
+            "modest/source/myhtml/stream.c",
+            "modest/source/myhtml/token.c",
+            "modest/source/myhtml/tree.c",
+            "modest/source/myhtml/data_process.c",
+            "modest/source/myhtml/tag_init.c",
+            "modest/source/myhtml/callback.c",
+            "modest/source/myhtml/tokenizer_doctype.c",
+            "modest/source/myhtml/mystring.c"
         ]
     },
     "module_name": "selectolax.parser"
@@ -1753,7 +1753,7 @@ struct __pyx_opt_args_10selectolax_6parser_4Node__text_deep {
   PyObject *strip;
 };
 
-/* "selectolax/modest/node.pxi":954
+/* "selectolax/modest/node.pxi":970
  *                 stack.push(current_node.child)
  * 
  * cdef inline str append_text(str text, str node_text, str separator='', bint strip=False):             # <<<<<<<<<<<<<<
@@ -3303,6 +3303,7 @@ static const char __pyx_k__138[] = "?";
 static const char __pyx_k_args[] = "args";
 static const char __pyx_k_attr[] = "attr";
 static const char __pyx_k_body[] = "<body";
+static const char __pyx_k_bool[] = "bool";
 static const char __pyx_k_deep[] = "deep";
 static const char __pyx_k_dict[] = "__dict__";
 static const char __pyx_k_find[] = "find";
@@ -3456,6 +3457,7 @@ static const char __pyx_k_RuntimeError[] = "RuntimeError";
 static const char __pyx_k_Selector_css[] = "Selector.css";
 static const char __pyx_k_attributes_2[] = " attributes, ";
 static const char __pyx_k_current_node[] = "current_node";
+static const char __pyx_k_delete_empty[] = "delete_empty";
 static const char __pyx_k_final_length[] = "final_length";
 static const char __pyx_k_include_text[] = "include_text";
 static const char __pyx_k_initializing[] = "_initializing";
@@ -3543,20 +3545,20 @@ static const char __pyx_k_Node_decompose_line_493[] = "Node.decompose (line 493)
 static const char __pyx_k_Stack___setstate_cython[] = "Stack.__setstate_cython__";
 static const char __pyx_k_Can_t_init_MyHTML_object[] = "Can't init MyHTML object.";
 static const char __pyx_k_Node_script_srcs_contain[] = "Node.script_srcs_contain";
-static const char __pyx_k_Node_strip_tags_line_547[] = "Node.strip_tags (line 547)";
+static const char __pyx_k_Node_strip_tags_line_555[] = "Node.strip_tags (line 555)";
 static const char __pyx_k_Selector___reduce_cython[] = "Selector.__reduce_cython__";
 static const char __pyx_k_Tag_name_cannot_be_empty[] = "Tag name cannot be empty";
 static const char __pyx_k_document_no_head_no_body[] = "document_no_head_no_body";
-static const char __pyx_k_Node_unwrap_tags_line_571[] = "Node.unwrap_tags (line 571)";
-static const char __pyx_k_Node_unwrap_tags_line_755[] = "Node.unwrap_tags (line 755)";
+static const char __pyx_k_Node_unwrap_tags_line_579[] = "Node.unwrap_tags (line 579)";
+static const char __pyx_k_Node_unwrap_tags_line_767[] = "Node.unwrap_tags (line 767)";
 static const char __pyx_k_any_attribute_longer_than[] = "any_attribute_longer_than";
 static const char __pyx_k_Attributes___reduce_cython[] = "_Attributes.__reduce_cython__";
 static const char __pyx_k_HTMLParser___reduce_cython[] = "HTMLParser.__reduce_cython__";
 static const char __pyx_k_HTMLParser_any_css_matches[] = "HTMLParser.any_css_matches";
 static const char __pyx_k_HTMLParser_scripts_contain[] = "HTMLParser.scripts_contain";
-static const char __pyx_k_Node_insert_after_line_675[] = "Node.insert_after (line 675)";
-static const char __pyx_k_Node_insert_child_line_715[] = "Node.insert_child (line 715)";
-static const char __pyx_k_Node_replace_with_line_594[] = "Node.replace_with (line 594)";
+static const char __pyx_k_Node_insert_after_line_687[] = "Node.insert_after (line 687)";
+static const char __pyx_k_Node_insert_child_line_727[] = "Node.insert_child (line 727)";
+static const char __pyx_k_Node_replace_with_line_606[] = "Node.replace_with (line 606)";
 static const char __pyx_k_Selector___setstate_cython[] = "Selector.__setstate_cython__";
 static const char __pyx_k_Selector_any_text_contains[] = "Selector.any_text_contains";
 static const char __pyx_k_selectolax_modest_node_pxi[] = "selectolax/modest/node.pxi";
@@ -3565,7 +3567,7 @@ static const char __pyx_k_CSSSelector___reduce_cython[] = "CSSSelector.__reduce_
 static const char __pyx_k_HTMLParser_merge_text_nodes[] = "HTMLParser.merge_text_nodes";
 static const char __pyx_k_No_matching_signature_found[] = "No matching signature found";
 static const char __pyx_k_Node_attrs___get___line_187[] = "Node.attrs.__get__ (line 187)";
-static const char __pyx_k_Node_insert_before_line_635[] = "Node.insert_before (line 635)";
+static const char __pyx_k_Node_insert_before_line_647[] = "Node.insert_before (line 647)";
 static const char __pyx_k_selectolax_modest_utils_pxi[] = "selectolax/modest/../utils.pxi";
 static const char __pyx_k_Attributes___setstate_cython[] = "_Attributes.__setstate_cython__";
 static const char __pyx_k_HTMLParser___setstate_cython[] = "HTMLParser.__setstate_cython__";
@@ -3575,16 +3577,16 @@ static const char __pyx_k_Can_t_init_MyHTML_Tree_object[] = "Can't init MyHTML T
 static const char __pyx_k_Expected_a_string_but_s_found[] = "Expected a string, but %s found";
 static const char __pyx_k_HTMLParser_script_srcs_contain[] = "HTMLParser.script_srcs_contain";
 static const char __pyx_k_HTMLParser_strip_tags_line_229[] = "HTMLParser.strip_tags (line 229)";
-static const char __pyx_k_Node_merge_text_nodes_line_902[] = "Node.merge_text_nodes (line 902)";
+static const char __pyx_k_Node_merge_text_nodes_line_918[] = "Node.merge_text_nodes (line 918)";
 static const char __pyx_k_Selector_attribute_longer_than[] = "Selector.attribute_longer_than";
 static const char __pyx_k_Can_t_allocate_memory_for_a_new[] = "Can't allocate memory for a new node.";
 static const char __pyx_k_HTMLParser_unwrap_tags_line_272[] = "HTMLParser.unwrap_tags (line 272)";
 static const char __pyx_k_Insert_a_node_after_the_current[] = "\n        Insert a node after the current Node.\n\n        Parameters\n        ----------\n        value : str, bytes or Node\n            The text or Node instance to insert after the Node.\n            When a text string is passed, it's treated as text. All HTML tags will be escaped.\n            Convert and pass the ``Node`` object when you want to work with HTML.\n            Does not clone the ``Node`` object.\n            All future changes to the passed ``Node`` object will also be taken into account.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser('<div>Get <img src=\"\" alt=\"Laptop\"></div>')\n        >>> img = tree.css_first('img')\n        >>> img.insert_after(img.attributes.get('alt', ''))\n        >>> tree.body.child.html\n        '<div>Get <img src=\"\" alt=\"Laptop\">Laptop</div>'\n\n        >>> html_parser = HTMLParser('<div>Get <span alt=\"Laptop\"><img src=\"/jpg\"> <div></div></span></div>')\n        >>> html_parser2 = HTMLParser('<div>Test</div>')\n        >>> img_node = html_parser.css_first('img')\n        >>> img_node.insert_after(html_parser2.body.child)\n        <div>Get <span alt=\"Laptop\"><img src=\"/jpg\"><div>Test</div> <div></div></span></div>'\n        ";
 static const char __pyx_k_Insert_a_node_before_the_curren[] = "\n        Insert a node before the current Node.\n\n        Parameters\n        ----------\n        value : str, bytes or Node\n            The text or Node instance to insert before the Node.\n            When a text string is passed, it's treated as text. All HTML tags will be escaped.\n            Convert and pass the ``Node`` object when you want to work with HTML.\n            Does not clone the ``Node`` object.\n            All future changes to the passed ``Node`` object will also be taken into account.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser('<div>Get <img src=\"\" alt=\"Laptop\"></div>')\n        >>> img = tree.css_first('img')\n        >>> img.insert_before(img.attributes.get('alt', ''))\n        >>> tree.body.child.html\n        '<div>Get Laptop<img src=\"\" alt=\"Laptop\"></div>'\n\n        >>> html_parser = HTMLParser('<div>Get <span alt=\"Laptop\"><img src=\"/jpg\"> <div></div></span></div>')\n        >>> html_parser2 = HTMLParser('<div>Test</div>')\n        >>> img_node = html_parser.css_first('img')\n        >>> img_node.insert_before(html_parser2.body.child)\n        <div>Get <span alt=\"Laptop\"><div>Test</div><img src=\"/jpg\"> <div></div></span></div>'\n        ";
 static const char __pyx_k_Insert_a_node_inside_at_the_end[] = "\n        Insert a node inside (at the end of) the current Node.\n\n        Parameters\n        ----------\n        value : str, bytes or Node\n            The text or Node instance to insert inside the Node.\n            When a text string is passed, it's treated as text. All HTML tags will be escaped.\n            Convert and pass the ``Node`` object when you want to work with HTML.\n            Does not clone the ``Node`` object.\n            All future changes to the passed ``Node`` object will also be taken into account.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser('<div>Get <img src=\"\"></div>')\n        >>> div = tree.css_first('div')\n        >>> div.insert_child('Laptop')\n        >>> tree.body.child.html\n        '<div>Get <img src=\"\">Laptop</div>'\n\n        >>> html_parser = HTMLParser('<div>Get <span alt=\"Laptop\"> <div>Laptop</div> </span></div>')\n        >>> html_parser2 = HTMLParser('<div>Test</div>')\n        >>> span_node = html_parser.css_first('span')\n        >>> span_node.insert_child(html_parser2.body.child)\n        <div>Get <span alt=\"Laptop\"> <div>Laptop</div> <div>Test</div> </span></div>'\n        ";
-static const char __pyx_k_Node_raw_value___get___line_778[] = "Node.raw_value.__get__ (line 778)";
+static const char __pyx_k_Node_raw_value___get___line_794[] = "Node.raw_value.__get__ (line 794)";
 static const char __pyx_k_The_specified_HTML_input_is_too[] = "The specified HTML input is too large to be processed (%d bytes)";
-static const char __pyx_k_Unwraps_specified_tags_from_the[] = "Unwraps specified tags from the HTML tree.\n\n        Works the same as the ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        ";
+static const char __pyx_k_Unwraps_specified_tags_from_the[] = "Unwraps specified tags from the HTML tree.\n\n        Works the same as the ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n        delete_empty : bool, default False\n            Whenever to delete empty tags.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        \n        Note: by default, empty tags are ignored, set \"delete_empty\" to \"True\" to change this.\n        ";
 static const char __pyx_k_selectolax_modest_selection_pxi[] = "selectolax/modest/selection.pxi";
 static const char __pyx_k_self_css_entry_self_finder_self[] = "self.css_entry,self.finder,self.selectors_list cannot be converted to a Python object for pickling";
 static const char __pyx_k_A_dict_like_object_that_is_simil[] = "A dict-like object that is similar to the ``attributes`` property, but operates directly on the Node data.\n\n        .. warning:: Use ``attributes`` instead, if you don't want to modify Node attributes.\n\n        Returns\n        -------\n        attributes : Attributes mapping object.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div id='a'></div>\")\n        >>> node = tree.css_first('div')\n        >>> node.attrs\n        <div attributes, 1 items>\n        >>> node.attrs['id']\n        'a'\n        >>> node.attrs['foo'] = 'bar'\n        >>> del node.attrs['id']\n        >>> node.attributes\n        {'foo': 'bar'}\n        >>> node.attrs['id'] = 'new_id'\n        >>> node.html\n        '<div foo=\"bar\" id=\"new_id\"></div>'\n        ";
@@ -3594,7 +3596,7 @@ static const char __pyx_k_Expected_a_string_or_Node_instan[] = "Expected a strin
 static const char __pyx_k_Expected_at_least_d_argument_s_g[] = "Expected at least %d argument%s, got %d";
 static const char __pyx_k_Function_call_with_ambiguous_arg[] = "Function call with ambiguous argument types";
 static const char __pyx_k_Get_all_attributes_that_belong_t[] = "Get all attributes that belong to the current node.\n\n        The value of empty attributes is None.\n\n        Returns\n        -------\n        attributes : dictionary of all attributes.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div data id='my_id'></div>\")\n        >>> node = tree.css_first('div')\n        >>> node.attributes\n        {'data': None, 'id': 'my_id'}\n        ";
-static const char __pyx_k_HTMLParser_merge_text_nodes_line[] = "HTMLParser.merge_text_nodes (line 352)";
+static const char __pyx_k_HTMLParser_merge_text_nodes_line[] = "HTMLParser.merge_text_nodes (line 354)";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0xc5dfe7e, 0xad8d8ab, 0xc00154f) = (node, nodes))";
 static const char __pyx_k_Iterates_over_all_text_nodes_and[] = "Iterates over all text nodes and merges all text nodes that are close to each other.\n\n        This is useful for text extraction.\n        Use it when you need to strip HTML tags and merge \"dangling\" text.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><p><strong>J</strong>ohn</p><p>Doe</p></div>\")\n        >>> node = tree.css_first('div')\n        >>> tree.unwrap_tags([\"strong\"])\n        >>> tree.text(deep=True, separator=\" \", strip=True)\n        \"J ohn Doe\" # Text extraction produces an extra space because the strong tag was removed.\n        >>> node.merge_text_nodes()\n        >>> tree.text(deep=True, separator=\" \", strip=True)\n        \"John Doe\"\n        ";
 static const char __pyx_k_Literal_document_fragment_head_b[] = "Literal['document', 'fragment', 'head', 'body', 'head_and_body', 'document_no_head', 'document_no_body', 'document_no_head_no_body']";
@@ -3603,14 +3605,14 @@ static const char __pyx_k_Remove_a_Node_from_the_tree_Para[] = "Remove a Node fr
 static const char __pyx_k_Remove_specified_tags_from_the_H[] = "Remove specified tags from the HTML tree.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n        recursive : bool, default True\n            Whenever to delete all its child nodes\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser('<html><head></head><body><script></script><div>Hello world!</div></body></html>')\n        >>> tags = ['head', 'style', 'script', 'xmp', 'iframe', 'noembed', 'noframes']\n        >>> tree.strip_tags(tags)\n        >>> tree.html\n        '<html><body><div>Hello world!</div></body></html>'\n\n        ";
 static const char __pyx_k_Remove_specified_tags_from_the_n[] = "Remove specified tags from the node.\n\n        Parameters\n        ----------\n        tags : list of str\n            List of tags to remove.\n        recursive : bool, default True\n            Whenever to delete all its child nodes\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser('<html><head></head><body><script></script><div>Hello world!</div></body></html>')\n        >>> tags = ['head', 'style', 'script', 'xmp', 'iframe', 'noembed', 'noframes']\n        >>> tree.strip_tags(tags)\n        >>> tree.html\n        '<html><body><div>Hello world!</div></body></html>'\n\n        ";
 static const char __pyx_k_Replace_current_Node_with_specif[] = "Replace current Node with specified value.\n\n        Parameters\n        ----------\n        value : str, bytes or Node\n            The text or Node instance to replace the Node with.\n            When a text string is passed, it's treated as text. All HTML tags will be escaped.\n            Convert and pass the ``Node`` object when you want to work with HTML.\n            Does not clone the ``Node`` object.\n            All future changes to the passed ``Node`` object will also be taken into account.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser('<div>Get <img src=\"\" alt=\"Laptop\"></div>')\n        >>> img = tree.css_first('img')\n        >>> img.replace_with(img.attributes.get('alt', ''))\n        >>> tree.body.child.html\n        '<div>Get Laptop</div>'\n\n        >>> html_parser = HTMLParser('<div>Get <span alt=\"Laptop\"><img src=\"/jpg\"> <div></div></span></div>')\n        >>> html_parser2 = HTMLParser('<div>Test</div>')\n        >>> img_node = html_parser.css_first('img')\n        >>> img_node.replace_with(html_parser2.body.child)\n        '<div>Get <span alt=\"Laptop\"><div>Test</div> <div></div></span></div>'\n        ";
-static const char __pyx_k_Replace_node_with_whatever_is_in[] = "Replace node with whatever is inside this node.\n\n        Examples\n        --------\n\n        >>>  tree = HTMLParser(\"<div>Hello <i>world</i>!</div>\")\n        >>>  tree.css_first('i').unwrap()\n        >>>  tree.html\n        '<html><head></head><body><div>Hello world!</div></body></html>'\n\n        ";
+static const char __pyx_k_Replace_node_with_whatever_is_in[] = "Replace node with whatever is inside this node.\n\n        Parameters\n        ----------\n        delete_empty : bool, default False\n            Whenever to delete empty tags.\n\n        Examples\n        --------\n\n        >>>  tree = HTMLParser(\"<div>Hello <i>world</i>!</div>\")\n        >>>  tree.css_first('i').unwrap()\n        >>>  tree.html\n        '<html><head></head><body><div>Hello world!</div></body></html>'\n\n        Note: by default, empty tags are ignored, set \"delete_empty\" to \"True\" to change this.\n        ";
 static const char __pyx_k_Return_the_raw_unparsed_original[] = "Return the raw (unparsed, original) value of a node.\n\n        Currently, works on text nodes only.\n\n        Returns\n        -------\n\n        raw_value : bytes\n\n        Examples\n        --------\n\n        >>> html_parser = HTMLParser('<div>&#x3C;test&#x3E;</div>')\n        >>> selector = html_parser.css_first('div')\n        >>> selector.child.html\n        '&lt;test&gt;'\n        >>> selector.child.raw_value\n        b'&#x3C;test&#x3E;'\n        ";
 static const char __pyx_k_Selector_any_attribute_longer_th[] = "Selector.any_attribute_longer_than";
 static const char __pyx_k_no_default___reduce___due_to_non[] = "no default __reduce__ due to non-trivial __cinit__";
 static const char __pyx_k_self_html_tree_cannot_be_convert[] = "self.html_tree cannot be converted to a Python object for pickling";
 static const char __pyx_k_self_node_cannot_be_converted_to[] = "self.node cannot be converted to a Python object for pickling";
-static const char __pyx_k_Unwraps_specified_tags_from_the_2[] = "Unwraps specified tags from the HTML tree.\n\n        Works the same as th ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        ";
-static const char __pyx_k_Unwraps_specified_tags_from_the_3[] = "Unwraps specified tags from the HTML tree.\n\n        Works the same as th `unwrap` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.head.unwrap_tags(['i','a'])\n        >>> tree.head.html\n        '<body><div>Hello world!</div></body>'\n        ";
+static const char __pyx_k_Unwraps_specified_tags_from_the_2[] = "Unwraps specified tags from the HTML tree.\n\n        Works the same as th ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n        delete_empty : bool, default False\n            Whenever to delete empty tags.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        \n        Note: by default, empty tags are ignored, set \"delete_empty\" to \"True\" to change this.\n        ";
+static const char __pyx_k_Unwraps_specified_tags_from_the_3[] = "Unwraps specified tags from the HTML tree.\n\n        Works the same as th `unwrap` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n        delete_empty : bool, default False\n            If True, removes empty tags.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.head.unwrap_tags(['i','a'])\n        >>> tree.head.html\n        '<body><div>Hello world!</div></body>'\n        ";
 /* #### Code section: decls ### */
 static int __pyx_pf_10selectolax_6parser_11CSSSelector___init__(struct __pyx_obj_10selectolax_6parser_CSSSelector *__pyx_v_self, PyObject *__pyx_v_selector); /* proto */
 static void __pyx_pf_10selectolax_6parser_11CSSSelector_2__dealloc__(struct __pyx_obj_10selectolax_6parser_CSSSelector *__pyx_v_self); /* proto */
@@ -3666,9 +3668,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_14css_matches(struct __pyx_
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_16css_first(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_query, PyObject *__pyx_v_default, PyBoolObject *__pyx_v_strict); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_18decompose(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyBoolObject *__pyx_v_recursive); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_20remove(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyBoolObject *__pyx_v_recursive); /* proto */
-static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_delete_empty); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags, PyBoolObject *__pyx_v_recursive); /* proto */
-static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags); /* proto */
+static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags, PyObject *__pyx_v_delete_empty); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_signatures, PyObject *__pyx_v_args, PyObject *__pyx_v_kwargs, CYTHON_UNUSED PyObject *__pyx_v_defaults, PyObject *__pyx_v__fused_sigindex); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
@@ -3685,7 +3687,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags); /* proto */
+static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags, PyObject *__pyx_v_delete_empty); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_38select(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_query); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_query); /* proto */
@@ -3719,7 +3721,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4body___get__(struct
 static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_6tags(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_name); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_8text(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyBoolObject *__pyx_v_deep, PyObject *__pyx_v_separator, PyBoolObject *__pyx_v_strip); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_10strip_tags(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_tags, PyBoolObject *__pyx_v_recursive); /* proto */
-static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_tags); /* proto */
+static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_tags, PyObject *__pyx_v_delete_empty); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4html___get__(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_14select(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_query); /* proto */
 static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_16any_css_matches(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_selectors); /* proto */
@@ -3976,31 +3978,31 @@ typedef struct {
   PyObject *__pyx_n_s_Node_decompose;
   PyObject *__pyx_kp_u_Node_decompose_line_493;
   PyObject *__pyx_n_s_Node_insert_after;
-  PyObject *__pyx_kp_u_Node_insert_after_line_675;
+  PyObject *__pyx_kp_u_Node_insert_after_line_687;
   PyObject *__pyx_n_s_Node_insert_before;
-  PyObject *__pyx_kp_u_Node_insert_before_line_635;
+  PyObject *__pyx_kp_u_Node_insert_before_line_647;
   PyObject *__pyx_n_s_Node_insert_child;
-  PyObject *__pyx_kp_u_Node_insert_child_line_715;
+  PyObject *__pyx_kp_u_Node_insert_child_line_727;
   PyObject *__pyx_n_s_Node_iter;
   PyObject *__pyx_n_s_Node_merge_text_nodes;
-  PyObject *__pyx_kp_u_Node_merge_text_nodes_line_902;
-  PyObject *__pyx_kp_u_Node_raw_value___get___line_778;
+  PyObject *__pyx_kp_u_Node_merge_text_nodes_line_918;
+  PyObject *__pyx_kp_u_Node_raw_value___get___line_794;
   PyObject *__pyx_n_s_Node_remove;
   PyObject *__pyx_n_s_Node_replace_with;
-  PyObject *__pyx_kp_u_Node_replace_with_line_594;
+  PyObject *__pyx_kp_u_Node_replace_with_line_606;
   PyObject *__pyx_kp_u_Node_s;
   PyObject *__pyx_n_s_Node_script_srcs_contain;
   PyObject *__pyx_n_s_Node_scripts_contain;
   PyObject *__pyx_n_s_Node_select;
   PyObject *__pyx_n_s_Node_strip_tags;
-  PyObject *__pyx_kp_u_Node_strip_tags_line_547;
+  PyObject *__pyx_kp_u_Node_strip_tags_line_555;
   PyObject *__pyx_n_s_Node_text;
   PyObject *__pyx_n_s_Node_traverse;
   PyObject *__pyx_n_s_Node_unwrap;
   PyObject *__pyx_kp_u_Node_unwrap_line_518;
   PyObject *__pyx_n_s_Node_unwrap_tags;
-  PyObject *__pyx_kp_u_Node_unwrap_tags_line_571;
-  PyObject *__pyx_kp_u_Node_unwrap_tags_line_755;
+  PyObject *__pyx_kp_u_Node_unwrap_tags_line_579;
+  PyObject *__pyx_kp_u_Node_unwrap_tags_line_767;
   PyObject *__pyx_n_s_Optional;
   PyObject *__pyx_kp_s_Optional_Parser;
   PyObject *__pyx_n_s_Parser;
@@ -4060,6 +4062,7 @@ typedef struct {
   PyObject *__pyx_kp_u_body;
   PyObject *__pyx_n_s_body_2;
   PyObject *__pyx_n_u_body_2;
+  PyObject *__pyx_n_s_bool;
   PyObject *__pyx_n_s_bytes;
   PyObject *__pyx_n_s_bytes_html;
   PyObject *__pyx_n_s_bytes_val;
@@ -4083,6 +4086,7 @@ typedef struct {
   PyObject *__pyx_n_s_deep;
   PyObject *__pyx_n_s_default;
   PyObject *__pyx_n_s_defaults;
+  PyObject *__pyx_n_s_delete_empty;
   PyObject *__pyx_n_s_detect_encoding;
   PyObject *__pyx_n_s_dict;
   PyObject *__pyx_n_s_dict_2;
@@ -4520,31 +4524,31 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_decompose);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Node_decompose_line_493);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_insert_after);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_insert_after_line_675);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_insert_after_line_687);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_insert_before);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_insert_before_line_635);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_insert_before_line_647);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_insert_child);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_insert_child_line_715);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_insert_child_line_727);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_iter);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_merge_text_nodes);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_merge_text_nodes_line_902);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_raw_value___get___line_778);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_merge_text_nodes_line_918);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_raw_value___get___line_794);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_remove);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_replace_with);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_replace_with_line_594);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_replace_with_line_606);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Node_s);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_script_srcs_contain);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_scripts_contain);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_select);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_strip_tags);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_strip_tags_line_547);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_strip_tags_line_555);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_text);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_traverse);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_unwrap);
   Py_CLEAR(clear_module_state->__pyx_kp_u_Node_unwrap_line_518);
   Py_CLEAR(clear_module_state->__pyx_n_s_Node_unwrap_tags);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_unwrap_tags_line_571);
-  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_unwrap_tags_line_755);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_unwrap_tags_line_579);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Node_unwrap_tags_line_767);
   Py_CLEAR(clear_module_state->__pyx_n_s_Optional);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Optional_Parser);
   Py_CLEAR(clear_module_state->__pyx_n_s_Parser);
@@ -4604,6 +4608,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_u_body);
   Py_CLEAR(clear_module_state->__pyx_n_s_body_2);
   Py_CLEAR(clear_module_state->__pyx_n_u_body_2);
+  Py_CLEAR(clear_module_state->__pyx_n_s_bool);
   Py_CLEAR(clear_module_state->__pyx_n_s_bytes);
   Py_CLEAR(clear_module_state->__pyx_n_s_bytes_html);
   Py_CLEAR(clear_module_state->__pyx_n_s_bytes_val);
@@ -4627,6 +4632,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_deep);
   Py_CLEAR(clear_module_state->__pyx_n_s_default);
   Py_CLEAR(clear_module_state->__pyx_n_s_defaults);
+  Py_CLEAR(clear_module_state->__pyx_n_s_delete_empty);
   Py_CLEAR(clear_module_state->__pyx_n_s_detect_encoding);
   Py_CLEAR(clear_module_state->__pyx_n_s_dict);
   Py_CLEAR(clear_module_state->__pyx_n_s_dict_2);
@@ -5042,31 +5048,31 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_decompose);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Node_decompose_line_493);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_insert_after);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_insert_after_line_675);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_insert_after_line_687);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_insert_before);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_insert_before_line_635);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_insert_before_line_647);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_insert_child);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_insert_child_line_715);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_insert_child_line_727);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_iter);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_merge_text_nodes);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_merge_text_nodes_line_902);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_raw_value___get___line_778);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_merge_text_nodes_line_918);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_raw_value___get___line_794);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_remove);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_replace_with);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_replace_with_line_594);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_replace_with_line_606);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Node_s);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_script_srcs_contain);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_scripts_contain);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_select);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_strip_tags);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_strip_tags_line_547);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_strip_tags_line_555);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_text);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_traverse);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_unwrap);
   Py_VISIT(traverse_module_state->__pyx_kp_u_Node_unwrap_line_518);
   Py_VISIT(traverse_module_state->__pyx_n_s_Node_unwrap_tags);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_unwrap_tags_line_571);
-  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_unwrap_tags_line_755);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_unwrap_tags_line_579);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Node_unwrap_tags_line_767);
   Py_VISIT(traverse_module_state->__pyx_n_s_Optional);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Optional_Parser);
   Py_VISIT(traverse_module_state->__pyx_n_s_Parser);
@@ -5126,6 +5132,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_u_body);
   Py_VISIT(traverse_module_state->__pyx_n_s_body_2);
   Py_VISIT(traverse_module_state->__pyx_n_u_body_2);
+  Py_VISIT(traverse_module_state->__pyx_n_s_bool);
   Py_VISIT(traverse_module_state->__pyx_n_s_bytes);
   Py_VISIT(traverse_module_state->__pyx_n_s_bytes_html);
   Py_VISIT(traverse_module_state->__pyx_n_s_bytes_val);
@@ -5149,6 +5156,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_deep);
   Py_VISIT(traverse_module_state->__pyx_n_s_default);
   Py_VISIT(traverse_module_state->__pyx_n_s_defaults);
+  Py_VISIT(traverse_module_state->__pyx_n_s_delete_empty);
   Py_VISIT(traverse_module_state->__pyx_n_s_detect_encoding);
   Py_VISIT(traverse_module_state->__pyx_n_s_dict);
   Py_VISIT(traverse_module_state->__pyx_n_s_dict_2);
@@ -5664,31 +5672,31 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_Node_decompose __pyx_mstate_global->__pyx_n_s_Node_decompose
 #define __pyx_kp_u_Node_decompose_line_493 __pyx_mstate_global->__pyx_kp_u_Node_decompose_line_493
 #define __pyx_n_s_Node_insert_after __pyx_mstate_global->__pyx_n_s_Node_insert_after
-#define __pyx_kp_u_Node_insert_after_line_675 __pyx_mstate_global->__pyx_kp_u_Node_insert_after_line_675
+#define __pyx_kp_u_Node_insert_after_line_687 __pyx_mstate_global->__pyx_kp_u_Node_insert_after_line_687
 #define __pyx_n_s_Node_insert_before __pyx_mstate_global->__pyx_n_s_Node_insert_before
-#define __pyx_kp_u_Node_insert_before_line_635 __pyx_mstate_global->__pyx_kp_u_Node_insert_before_line_635
+#define __pyx_kp_u_Node_insert_before_line_647 __pyx_mstate_global->__pyx_kp_u_Node_insert_before_line_647
 #define __pyx_n_s_Node_insert_child __pyx_mstate_global->__pyx_n_s_Node_insert_child
-#define __pyx_kp_u_Node_insert_child_line_715 __pyx_mstate_global->__pyx_kp_u_Node_insert_child_line_715
+#define __pyx_kp_u_Node_insert_child_line_727 __pyx_mstate_global->__pyx_kp_u_Node_insert_child_line_727
 #define __pyx_n_s_Node_iter __pyx_mstate_global->__pyx_n_s_Node_iter
 #define __pyx_n_s_Node_merge_text_nodes __pyx_mstate_global->__pyx_n_s_Node_merge_text_nodes
-#define __pyx_kp_u_Node_merge_text_nodes_line_902 __pyx_mstate_global->__pyx_kp_u_Node_merge_text_nodes_line_902
-#define __pyx_kp_u_Node_raw_value___get___line_778 __pyx_mstate_global->__pyx_kp_u_Node_raw_value___get___line_778
+#define __pyx_kp_u_Node_merge_text_nodes_line_918 __pyx_mstate_global->__pyx_kp_u_Node_merge_text_nodes_line_918
+#define __pyx_kp_u_Node_raw_value___get___line_794 __pyx_mstate_global->__pyx_kp_u_Node_raw_value___get___line_794
 #define __pyx_n_s_Node_remove __pyx_mstate_global->__pyx_n_s_Node_remove
 #define __pyx_n_s_Node_replace_with __pyx_mstate_global->__pyx_n_s_Node_replace_with
-#define __pyx_kp_u_Node_replace_with_line_594 __pyx_mstate_global->__pyx_kp_u_Node_replace_with_line_594
+#define __pyx_kp_u_Node_replace_with_line_606 __pyx_mstate_global->__pyx_kp_u_Node_replace_with_line_606
 #define __pyx_kp_u_Node_s __pyx_mstate_global->__pyx_kp_u_Node_s
 #define __pyx_n_s_Node_script_srcs_contain __pyx_mstate_global->__pyx_n_s_Node_script_srcs_contain
 #define __pyx_n_s_Node_scripts_contain __pyx_mstate_global->__pyx_n_s_Node_scripts_contain
 #define __pyx_n_s_Node_select __pyx_mstate_global->__pyx_n_s_Node_select
 #define __pyx_n_s_Node_strip_tags __pyx_mstate_global->__pyx_n_s_Node_strip_tags
-#define __pyx_kp_u_Node_strip_tags_line_547 __pyx_mstate_global->__pyx_kp_u_Node_strip_tags_line_547
+#define __pyx_kp_u_Node_strip_tags_line_555 __pyx_mstate_global->__pyx_kp_u_Node_strip_tags_line_555
 #define __pyx_n_s_Node_text __pyx_mstate_global->__pyx_n_s_Node_text
 #define __pyx_n_s_Node_traverse __pyx_mstate_global->__pyx_n_s_Node_traverse
 #define __pyx_n_s_Node_unwrap __pyx_mstate_global->__pyx_n_s_Node_unwrap
 #define __pyx_kp_u_Node_unwrap_line_518 __pyx_mstate_global->__pyx_kp_u_Node_unwrap_line_518
 #define __pyx_n_s_Node_unwrap_tags __pyx_mstate_global->__pyx_n_s_Node_unwrap_tags
-#define __pyx_kp_u_Node_unwrap_tags_line_571 __pyx_mstate_global->__pyx_kp_u_Node_unwrap_tags_line_571
-#define __pyx_kp_u_Node_unwrap_tags_line_755 __pyx_mstate_global->__pyx_kp_u_Node_unwrap_tags_line_755
+#define __pyx_kp_u_Node_unwrap_tags_line_579 __pyx_mstate_global->__pyx_kp_u_Node_unwrap_tags_line_579
+#define __pyx_kp_u_Node_unwrap_tags_line_767 __pyx_mstate_global->__pyx_kp_u_Node_unwrap_tags_line_767
 #define __pyx_n_s_Optional __pyx_mstate_global->__pyx_n_s_Optional
 #define __pyx_kp_s_Optional_Parser __pyx_mstate_global->__pyx_kp_s_Optional_Parser
 #define __pyx_n_s_Parser __pyx_mstate_global->__pyx_n_s_Parser
@@ -5748,6 +5756,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_u_body __pyx_mstate_global->__pyx_kp_u_body
 #define __pyx_n_s_body_2 __pyx_mstate_global->__pyx_n_s_body_2
 #define __pyx_n_u_body_2 __pyx_mstate_global->__pyx_n_u_body_2
+#define __pyx_n_s_bool __pyx_mstate_global->__pyx_n_s_bool
 #define __pyx_n_s_bytes __pyx_mstate_global->__pyx_n_s_bytes
 #define __pyx_n_s_bytes_html __pyx_mstate_global->__pyx_n_s_bytes_html
 #define __pyx_n_s_bytes_val __pyx_mstate_global->__pyx_n_s_bytes_val
@@ -5771,6 +5780,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_deep __pyx_mstate_global->__pyx_n_s_deep
 #define __pyx_n_s_default __pyx_mstate_global->__pyx_n_s_default
 #define __pyx_n_s_defaults __pyx_mstate_global->__pyx_n_s_defaults
+#define __pyx_n_s_delete_empty __pyx_mstate_global->__pyx_n_s_delete_empty
 #define __pyx_n_s_detect_encoding __pyx_mstate_global->__pyx_n_s_detect_encoding
 #define __pyx_n_s_dict __pyx_mstate_global->__pyx_n_s_dict
 #define __pyx_n_s_dict_2 __pyx_mstate_global->__pyx_n_s_dict_2
@@ -17979,7 +17989,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_20remove(struct __pyx_obj_1
  *         """An alias for the decompose method."""
  *         self.decompose(recursive)             # <<<<<<<<<<<<<<
  * 
- *     def unwrap(self):
+ *     def unwrap(self, delete_empty = False):
  */
   __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_decompose); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 516, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -18033,7 +18043,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_20remove(struct __pyx_obj_1
 /* "selectolax/modest/node.pxi":518
  *         self.decompose(recursive)
  * 
- *     def unwrap(self):             # <<<<<<<<<<<<<<
+ *     def unwrap(self, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Replace node with whatever is inside this node.
  * 
  */
@@ -18046,7 +18056,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_4Node_22unwrap, "Node.unwrap(self)\nReplace node with whatever is inside this node.\n\n        Examples\n        --------\n\n        >>>  tree = HTMLParser(\"<div>Hello <i>world</i>!</div>\")\n        >>>  tree.css_first('i').unwrap()\n        >>>  tree.html\n        '<html><head></head><body><div>Hello world!</div></body></html>'\n\n        ");
+PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_4Node_22unwrap, "Node.unwrap(self, delete_empty=False)\nReplace node with whatever is inside this node.\n\n        Parameters\n        ----------\n        delete_empty : bool, default False\n            Whenever to delete empty tags.\n\n        Examples\n        --------\n\n        >>>  tree = HTMLParser(\"<div>Hello <i>world</i>!</div>\")\n        >>>  tree.css_first('i').unwrap()\n        >>>  tree.html\n        '<html><head></head><body><div>Hello world!</div></body></html>'\n\n        Note: by default, empty tags are ignored, set \"delete_empty\" to \"True\" to change this.\n        ");
 static PyMethodDef __pyx_mdef_10selectolax_6parser_4Node_23unwrap = {"unwrap", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10selectolax_6parser_4Node_23unwrap, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_10selectolax_6parser_4Node_22unwrap};
 static PyObject *__pyx_pw_10selectolax_6parser_4Node_23unwrap(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -18055,10 +18065,15 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
+  PyObject *__pyx_v_delete_empty = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("unwrap (wrapper)", 0);
@@ -18070,38 +18085,122 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
-  if (unlikely(__pyx_nargs > 0)) {
-    __Pyx_RaiseArgtupleInvalid("unwrap", 1, 0, 0, __pyx_nargs); return NULL;}
-  if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "unwrap", 0))) return NULL;
-  __pyx_r = __pyx_pf_10selectolax_6parser_4Node_22unwrap(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self));
+  {
+    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_delete_empty,0};
+    values[0] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
+    if (__pyx_kwds) {
+      Py_ssize_t kw_args;
+      switch (__pyx_nargs) {
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = __Pyx_NumKwargs_FASTCALL(__pyx_kwds);
+      switch (__pyx_nargs) {
+        case  0:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_delete_empty);
+          if (value) { values[0] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 518, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        const Py_ssize_t kwd_pos_args = __pyx_nargs;
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "unwrap") < 0)) __PYX_ERR(2, 518, __pyx_L3_error)
+      }
+    } else {
+      switch (__pyx_nargs) {
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+    }
+    __pyx_v_delete_empty = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("unwrap", 0, 0, 1, __pyx_nargs); __PYX_ERR(2, 518, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  {
+    Py_ssize_t __pyx_temp;
+    for (__pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+      __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
+    }
+  }
+  __Pyx_AddTraceback("selectolax.parser.Node.unwrap", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_10selectolax_6parser_4Node_22unwrap(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_delete_empty);
 
   /* function exit code */
+  {
+    Py_ssize_t __pyx_temp;
+    for (__pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+      __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
+    }
+  }
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self) {
+static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_delete_empty) {
   myhtml_tree_node_t *__pyx_v_next_node;
   myhtml_tree_node_t *__pyx_v_current_node;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
   myhtml_tree_node_t *__pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("unwrap", 1);
 
-  /* "selectolax/modest/node.pxi":530
- * 
+  /* "selectolax/modest/node.pxi":536
+ *         Note: by default, empty tags are ignored, set "delete_empty" to "True" to change this.
  *         """
  *         if self.node.child == NULL:             # <<<<<<<<<<<<<<
- *             return
- *         cdef myhtml_tree_node_t* next_node;
+ *             if delete_empty:
+ *                 myhtml_node_delete(self.node)
  */
   __pyx_t_1 = (__pyx_v_self->node->child == NULL);
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":531
+    /* "selectolax/modest/node.pxi":537
  *         """
  *         if self.node.child == NULL:
+ *             if delete_empty:             # <<<<<<<<<<<<<<
+ *                 myhtml_node_delete(self.node)
+ *             return
+ */
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_delete_empty); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 537, __pyx_L1_error)
+    if (__pyx_t_1) {
+
+      /* "selectolax/modest/node.pxi":538
+ *         if self.node.child == NULL:
+ *             if delete_empty:
+ *                 myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
+ *             return
+ *         cdef myhtml_tree_node_t* next_node;
+ */
+      myhtml_node_delete(__pyx_v_self->node);
+
+      /* "selectolax/modest/node.pxi":537
+ *         """
+ *         if self.node.child == NULL:
+ *             if delete_empty:             # <<<<<<<<<<<<<<
+ *                 myhtml_node_delete(self.node)
+ *             return
+ */
+    }
+
+    /* "selectolax/modest/node.pxi":539
+ *             if delete_empty:
+ *                 myhtml_node_delete(self.node)
  *             return             # <<<<<<<<<<<<<<
  *         cdef myhtml_tree_node_t* next_node;
  *         cdef myhtml_tree_node_t* current_node;
@@ -18110,16 +18209,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "selectolax/modest/node.pxi":530
- * 
+    /* "selectolax/modest/node.pxi":536
+ *         Note: by default, empty tags are ignored, set "delete_empty" to "True" to change this.
  *         """
  *         if self.node.child == NULL:             # <<<<<<<<<<<<<<
- *             return
- *         cdef myhtml_tree_node_t* next_node;
+ *             if delete_empty:
+ *                 myhtml_node_delete(self.node)
  */
   }
 
-  /* "selectolax/modest/node.pxi":535
+  /* "selectolax/modest/node.pxi":543
  *         cdef myhtml_tree_node_t* current_node;
  * 
  *         if self.node.child.next != NULL:             # <<<<<<<<<<<<<<
@@ -18129,7 +18228,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
   __pyx_t_1 = (__pyx_v_self->node->child->next != NULL);
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":536
+    /* "selectolax/modest/node.pxi":544
  * 
  *         if self.node.child.next != NULL:
  *             current_node = self.node.child             # <<<<<<<<<<<<<<
@@ -18139,7 +18238,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
     __pyx_t_2 = __pyx_v_self->node->child;
     __pyx_v_current_node = __pyx_t_2;
 
-    /* "selectolax/modest/node.pxi":537
+    /* "selectolax/modest/node.pxi":545
  *         if self.node.child.next != NULL:
  *             current_node = self.node.child
  *             next_node = current_node.next             # <<<<<<<<<<<<<<
@@ -18149,7 +18248,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
     __pyx_t_2 = __pyx_v_current_node->next;
     __pyx_v_next_node = __pyx_t_2;
 
-    /* "selectolax/modest/node.pxi":539
+    /* "selectolax/modest/node.pxi":547
  *             next_node = current_node.next
  * 
  *             while next_node != NULL:             # <<<<<<<<<<<<<<
@@ -18160,7 +18259,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
       __pyx_t_1 = (__pyx_v_next_node != NULL);
       if (!__pyx_t_1) break;
 
-      /* "selectolax/modest/node.pxi":540
+      /* "selectolax/modest/node.pxi":548
  * 
  *             while next_node != NULL:
  *                 next_node = current_node.next             # <<<<<<<<<<<<<<
@@ -18170,7 +18269,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
       __pyx_t_2 = __pyx_v_current_node->next;
       __pyx_v_next_node = __pyx_t_2;
 
-      /* "selectolax/modest/node.pxi":541
+      /* "selectolax/modest/node.pxi":549
  *             while next_node != NULL:
  *                 next_node = current_node.next
  *                 myhtml_node_insert_before(self.node, current_node)             # <<<<<<<<<<<<<<
@@ -18179,7 +18278,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
  */
       (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_current_node));
 
-      /* "selectolax/modest/node.pxi":542
+      /* "selectolax/modest/node.pxi":550
  *                 next_node = current_node.next
  *                 myhtml_node_insert_before(self.node, current_node)
  *                 current_node = next_node             # <<<<<<<<<<<<<<
@@ -18189,17 +18288,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
       __pyx_v_current_node = __pyx_v_next_node;
     }
 
-    /* "selectolax/modest/node.pxi":535
+    /* "selectolax/modest/node.pxi":543
  *         cdef myhtml_tree_node_t* current_node;
  * 
  *         if self.node.child.next != NULL:             # <<<<<<<<<<<<<<
  *             current_node = self.node.child
  *             next_node = current_node.next
  */
-    goto __pyx_L4;
+    goto __pyx_L5;
   }
 
-  /* "selectolax/modest/node.pxi":544
+  /* "selectolax/modest/node.pxi":552
  *                 current_node = next_node
  *         else:
  *             myhtml_node_insert_before(self.node, self.node.child)             # <<<<<<<<<<<<<<
@@ -18209,9 +18308,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
   /*else*/ {
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_self->node->child));
   }
-  __pyx_L4:;
+  __pyx_L5:;
 
-  /* "selectolax/modest/node.pxi":545
+  /* "selectolax/modest/node.pxi":553
  *         else:
  *             myhtml_node_insert_before(self.node, self.node.child)
  *         myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
@@ -18223,20 +18322,24 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_22unwrap(struct __pyx_obj_1
   /* "selectolax/modest/node.pxi":518
  *         self.decompose(recursive)
  * 
- *     def unwrap(self):             # <<<<<<<<<<<<<<
+ *     def unwrap(self, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Replace node with whatever is inside this node.
  * 
  */
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_AddTraceback("selectolax.parser.Node.unwrap", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":547
+/* "selectolax/modest/node.pxi":555
  *         myhtml_node_delete(self.node)
  * 
  *     def strip_tags(self, list tags, bool recursive = False):             # <<<<<<<<<<<<<<
@@ -18302,19 +18405,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 547, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 555, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_recursive);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 547, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 555, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "strip_tags") < 0)) __PYX_ERR(2, 547, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "strip_tags") < 0)) __PYX_ERR(2, 555, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -18330,7 +18433,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("strip_tags", 0, 1, 2, __pyx_nargs); __PYX_ERR(2, 547, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("strip_tags", 0, 1, 2, __pyx_nargs); __PYX_ERR(2, 555, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18344,8 +18447,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tags), (&PyList_Type), 1, "tags", 1))) __PYX_ERR(2, 547, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_recursive), __pyx_ptype_7cpython_4bool_bool, 1, "recursive", 0))) __PYX_ERR(2, 547, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tags), (&PyList_Type), 1, "tags", 1))) __PYX_ERR(2, 555, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_recursive), __pyx_ptype_7cpython_4bool_bool, 1, "recursive", 0))) __PYX_ERR(2, 555, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_24strip_tags(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_tags, __pyx_v_recursive);
 
   /* function exit code */
@@ -18382,7 +18485,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("strip_tags", 1);
 
-  /* "selectolax/modest/node.pxi":567
+  /* "selectolax/modest/node.pxi":575
  * 
  *         """
  *         for tag in tags:             # <<<<<<<<<<<<<<
@@ -18391,7 +18494,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
  */
   if (unlikely(__pyx_v_tags == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(2, 567, __pyx_L1_error)
+    __PYX_ERR(2, 575, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_v_tags; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
@@ -18399,27 +18502,27 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 567, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 575, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(2, 567, __pyx_L1_error)
+    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(2, 575, __pyx_L1_error)
     #else
-    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 567, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 575, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_tag, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":568
+    /* "selectolax/modest/node.pxi":576
  *         """
  *         for tag in tags:
  *             for element in self.css(tag):             # <<<<<<<<<<<<<<
  *                 element.decompose(recursive=recursive)
  * 
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_css); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 568, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_css); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 576, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -18439,7 +18542,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_tag};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 568, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 576, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -18448,9 +18551,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
       __pyx_t_7 = 0;
       __pyx_t_8 = NULL;
     } else {
-      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 568, __pyx_L1_error)
+      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 576, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_8 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(2, 568, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(2, 576, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     for (;;) {
@@ -18459,28 +18562,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 568, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 576, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 568, __pyx_L1_error)
+          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 576, __pyx_L1_error)
           #else
-          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 568, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 576, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         } else {
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 568, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 576, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 568, __pyx_L1_error)
+          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 576, __pyx_L1_error)
           #else
-          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 568, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 576, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         }
@@ -18490,7 +18593,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(2, 568, __pyx_L1_error)
+            else __PYX_ERR(2, 576, __pyx_L1_error)
           }
           break;
         }
@@ -18499,25 +18602,25 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
       __Pyx_XDECREF_SET(__pyx_v_element, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "selectolax/modest/node.pxi":569
+      /* "selectolax/modest/node.pxi":577
  *         for tag in tags:
  *             for element in self.css(tag):
  *                 element.decompose(recursive=recursive)             # <<<<<<<<<<<<<<
  * 
- *     def unwrap_tags(self, list tags):
+ *     def unwrap_tags(self, list tags, delete_empty = False):
  */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_element, __pyx_n_s_decompose); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 569, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_element, __pyx_n_s_decompose); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 577, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 569, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 577, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_recursive, ((PyObject *)__pyx_v_recursive)) < 0) __PYX_ERR(2, 569, __pyx_L1_error)
-      __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_5); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 569, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_recursive, ((PyObject *)__pyx_v_recursive)) < 0) __PYX_ERR(2, 577, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_5); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 577, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "selectolax/modest/node.pxi":568
+      /* "selectolax/modest/node.pxi":576
  *         """
  *         for tag in tags:
  *             for element in self.css(tag):             # <<<<<<<<<<<<<<
@@ -18527,7 +18630,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "selectolax/modest/node.pxi":567
+    /* "selectolax/modest/node.pxi":575
  * 
  *         """
  *         for tag in tags:             # <<<<<<<<<<<<<<
@@ -18537,7 +18640,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "selectolax/modest/node.pxi":547
+  /* "selectolax/modest/node.pxi":555
  *         myhtml_node_delete(self.node)
  * 
  *     def strip_tags(self, list tags, bool recursive = False):             # <<<<<<<<<<<<<<
@@ -18564,10 +18667,10 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_24strip_tags(struct __pyx_o
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":571
+/* "selectolax/modest/node.pxi":579
  *                 element.decompose(recursive=recursive)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
@@ -18580,7 +18683,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_4Node_26unwrap_tags, "Node.unwrap_tags(self, list tags)\nUnwraps specified tags from the HTML tree.\n\n        Works the same as the ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        ");
+PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_4Node_26unwrap_tags, "Node.unwrap_tags(self, list tags, delete_empty=False)\nUnwraps specified tags from the HTML tree.\n\n        Works the same as the ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n        delete_empty : bool, default False\n            Whenever to delete empty tags.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        \n        Note: by default, empty tags are ignored, set \"delete_empty\" to \"True\" to change this.\n        ");
 static PyMethodDef __pyx_mdef_10selectolax_6parser_4Node_27unwrap_tags = {"unwrap_tags", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10selectolax_6parser_4Node_27unwrap_tags, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_10selectolax_6parser_4Node_26unwrap_tags};
 static PyObject *__pyx_pw_10selectolax_6parser_4Node_27unwrap_tags(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -18590,11 +18693,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
   PyObject *__pyx_v_tags = 0;
+  PyObject *__pyx_v_delete_empty = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[1] = {0};
+  PyObject* values[2] = {0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -18610,10 +18714,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tags,0};
+    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tags,&__pyx_n_s_delete_empty,0};
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
         case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
         CYTHON_FALLTHROUGH;
         case  0: break;
@@ -18626,23 +18733,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 571, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 579, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_delete_empty);
+          if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 579, __pyx_L3_error)
+        }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "unwrap_tags") < 0)) __PYX_ERR(2, 571, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "unwrap_tags") < 0)) __PYX_ERR(2, 579, __pyx_L3_error)
       }
-    } else if (unlikely(__pyx_nargs != 1)) {
-      goto __pyx_L5_argtuple_error;
     } else {
-      values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+      switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        break;
+        default: goto __pyx_L5_argtuple_error;
+      }
     }
     __pyx_v_tags = ((PyObject*)values[0]);
+    __pyx_v_delete_empty = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("unwrap_tags", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 571, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("unwrap_tags", 0, 1, 2, __pyx_nargs); __PYX_ERR(2, 579, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18656,8 +18775,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tags), (&PyList_Type), 1, "tags", 1))) __PYX_ERR(2, 571, __pyx_L1_error)
-  __pyx_r = __pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_tags);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tags), (&PyList_Type), 1, "tags", 1))) __PYX_ERR(2, 579, __pyx_L1_error)
+  __pyx_r = __pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_tags, __pyx_v_delete_empty);
 
   /* function exit code */
   goto __pyx_L0;
@@ -18674,7 +18793,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags) {
+static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags, PyObject *__pyx_v_delete_empty) {
   PyObject *__pyx_v_tag = NULL;
   PyObject *__pyx_v_element = NULL;
   PyObject *__pyx_r = NULL;
@@ -18693,16 +18812,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("unwrap_tags", 1);
 
-  /* "selectolax/modest/node.pxi":590
+  /* "selectolax/modest/node.pxi":602
  *         """
  * 
  *         for tag in tags:             # <<<<<<<<<<<<<<
  *             for element in self.css(tag):
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  */
   if (unlikely(__pyx_v_tags == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(2, 590, __pyx_L1_error)
+    __PYX_ERR(2, 602, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_v_tags; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
@@ -18710,27 +18829,27 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 590, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 602, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(2, 590, __pyx_L1_error)
+    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(2, 602, __pyx_L1_error)
     #else
-    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 590, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 602, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_tag, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":591
+    /* "selectolax/modest/node.pxi":603
  * 
  *         for tag in tags:
  *             for element in self.css(tag):             # <<<<<<<<<<<<<<
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  * 
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_css); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 591, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_css); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 603, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -18750,7 +18869,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_tag};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 591, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 603, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -18759,9 +18878,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
       __pyx_t_7 = 0;
       __pyx_t_8 = NULL;
     } else {
-      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 591, __pyx_L1_error)
+      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 603, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_8 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(2, 591, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(2, 603, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     for (;;) {
@@ -18770,28 +18889,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 591, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 603, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 591, __pyx_L1_error)
+          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 603, __pyx_L1_error)
           #else
-          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 591, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 603, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         } else {
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 591, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 603, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 591, __pyx_L1_error)
+          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 603, __pyx_L1_error)
           #else
-          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 591, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 603, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         }
@@ -18801,7 +18920,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(2, 591, __pyx_L1_error)
+            else __PYX_ERR(2, 603, __pyx_L1_error)
           }
           break;
         }
@@ -18810,14 +18929,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
       __Pyx_XDECREF_SET(__pyx_v_element, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "selectolax/modest/node.pxi":592
+      /* "selectolax/modest/node.pxi":604
  *         for tag in tags:
  *             for element in self.css(tag):
- *                 element.unwrap()             # <<<<<<<<<<<<<<
+ *                 element.unwrap(delete_empty)             # <<<<<<<<<<<<<<
  * 
  *     def replace_with(self, str_or_Node value):
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_element, __pyx_n_s_unwrap); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 592, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_element, __pyx_n_s_unwrap); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 604, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_9 = NULL;
       __pyx_t_6 = 0;
@@ -18834,39 +18953,39 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_9, NULL};
-        __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
+        PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_delete_empty};
+        __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 592, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 604, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "selectolax/modest/node.pxi":591
+      /* "selectolax/modest/node.pxi":603
  * 
  *         for tag in tags:
  *             for element in self.css(tag):             # <<<<<<<<<<<<<<
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  * 
  */
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "selectolax/modest/node.pxi":590
+    /* "selectolax/modest/node.pxi":602
  *         """
  * 
  *         for tag in tags:             # <<<<<<<<<<<<<<
  *             for element in self.css(tag):
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  */
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "selectolax/modest/node.pxi":571
+  /* "selectolax/modest/node.pxi":579
  *                 element.decompose(recursive=recursive)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
@@ -18890,8 +19009,8 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_26unwrap_tags(struct __pyx_
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":594
- *                 element.unwrap()
+/* "selectolax/modest/node.pxi":606
+ *                 element.unwrap(delete_empty)
  * 
  *     def replace_with(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """Replace current Node with specified value.
@@ -18946,7 +19065,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_29replace_with(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 594, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 606, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -18954,9 +19073,9 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_29replace_with(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 594, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 606, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 594, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 606, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -18964,21 +19083,21 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_29replace_with(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 594, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 606, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 594, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 606, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_fused_sigindex);
           if (value) { values[3] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 594, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 606, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 594, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 606, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -18998,7 +19117,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_29replace_with(PyObject *__
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 594, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 606, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19064,11 +19183,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("replace_with", 0);
   __Pyx_INCREF(__pyx_v_kwargs);
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 594, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 606, __pyx_L1_error);
   __pyx_v_dest_sig = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_3 = (__pyx_v_kwargs != Py_None);
@@ -19077,7 +19196,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_3);
   __pyx_t_2 = __pyx_t_4;
   __pyx_L4_bool_binop_done:;
@@ -19087,14 +19206,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
   }
   if (unlikely(__pyx_v_args == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(2, 594, __pyx_L1_error)
+    __PYX_ERR(2, 606, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_t_2 = (1 < __pyx_t_5);
   if (__pyx_t_2) {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 594, __pyx_L1_error)
+      __PYX_ERR(2, 606, __pyx_L1_error)
     }
     __pyx_t_1 = PyTuple_GET_ITEM(((PyObject*)__pyx_v_args), 1);
     __Pyx_INCREF(__pyx_t_1);
@@ -19110,17 +19229,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
   }
   if (unlikely(__pyx_v_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(2, 594, __pyx_L1_error)
+    __PYX_ERR(2, 606, __pyx_L1_error)
   }
-  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_4;
   __pyx_L7_bool_binop_done:;
   if (likely(__pyx_t_2)) {
     if (unlikely(__pyx_v_kwargs == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 594, __pyx_L1_error)
+      __PYX_ERR(2, 606, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arg = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -19129,88 +19248,88 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
   /*else*/ {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 594, __pyx_L1_error)
+      __PYX_ERR(2, 606, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 594, __pyx_L1_error)
-    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 606, __pyx_L1_error)
+    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_int_2);
     __Pyx_GIVEREF(__pyx_int_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 594, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 606, __pyx_L1_error);
     __Pyx_INCREF(__pyx_n_s_s);
     __Pyx_GIVEREF(__pyx_n_s_s);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 594, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 606, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_Raise(__pyx_t_6, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __PYX_ERR(2, 594, __pyx_L1_error)
+    __PYX_ERR(2, 606, __pyx_L1_error)
   }
   __pyx_L6:;
   while (1) {
     __pyx_t_2 = __Pyx_PyBaseString_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
       goto __pyx_L10_break;
     }
     __pyx_t_2 = PyBytes_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_kp_s__3);
     __Pyx_GIVEREF(__pyx_kp_s__3);
-    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 594, __pyx_L1_error);
-    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 606, __pyx_L1_error);
+    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_n_s_selectolax_parser);
     __Pyx_GIVEREF(__pyx_n_s_selectolax_parser);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 594, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 606, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 594, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 606, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 594, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 606, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
     goto __pyx_L10_break;
   }
   __pyx_L10_break:;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_2);
   if (__pyx_t_4) {
     __pyx_t_5 = 0;
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(2, 594, __pyx_L1_error)
+      __PYX_ERR(2, 606, __pyx_L1_error)
     }
-    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_1);
     __pyx_t_1 = __pyx_t_6;
@@ -19218,7 +19337,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
     while (1) {
       __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_7, &__pyx_t_5, &__pyx_t_6, NULL, NULL, __pyx_t_8);
       if (unlikely(__pyx_t_9 == 0)) break;
-      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 594, __pyx_L1_error)
+      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sig, __pyx_t_6);
       __pyx_t_6 = 0;
@@ -19226,7 +19345,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
       __Pyx_INCREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sigindex_node, ((PyObject*)__pyx_t_6));
       __pyx_t_6 = 0;
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 594, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __pyx_t_12 = NULL;
       __pyx_t_13 = 0;
@@ -19246,11 +19365,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
         PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_kp_s__11};
         __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 594, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 594, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_10 = NULL;
@@ -19271,16 +19390,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
         PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_kp_s__12};
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 594, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_14 = PyList_GET_SIZE(__pyx_t_11);
       if (unlikely(__pyx_t_14 < 1)) {
-        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 594, __pyx_L1_error)
+        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 606, __pyx_L1_error)
       }
       #if CYTHON_COMPILING_IN_CPYTHON
       __pyx_t_10 = PyList_GET_ITEM(__pyx_t_11, __pyx_t_14-1); 
@@ -19290,7 +19409,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
       #endif
       __Pyx_GOTREF(__pyx_t_10);
       #if !CYTHON_COMPILING_IN_CPYTHON
-      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 594, __pyx_L1_error)
+      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_11);
       __pyx_t_11 = __pyx_t_12; __pyx_t_12 = NULL;
@@ -19307,31 +19426,31 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
           #endif
           if (__pyx_t_14 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
         #else
-        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sig_type, __pyx_t_10);
         __pyx_t_10 = 0;
         if (unlikely(__pyx_v_sigindex_node == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 594, __pyx_L1_error)
+          __PYX_ERR(2, 606, __pyx_L1_error)
         }
-        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
         if (__pyx_t_4) {
-          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 594, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 606, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 594, __pyx_L1_error)
+            __PYX_ERR(2, 606, __pyx_L1_error)
           }
-          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
           __Pyx_INCREF(__pyx_t_10);
           __Pyx_DECREF_SET(__pyx_v_sigindex_node, __pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -19340,9 +19459,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
         /*else*/ {
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 594, __pyx_L1_error)
+            __PYX_ERR(2, 606, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 594, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 606, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __pyx_t_10;
           __Pyx_INCREF(__pyx_t_11);
@@ -19355,21 +19474,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (unlikely(__pyx_v_sigindex_node == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(2, 594, __pyx_L1_error)
+        __PYX_ERR(2, 606, __pyx_L1_error)
       }
-      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_sigindex_matches = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v__fused_sigindex);
   __Pyx_GIVEREF(__pyx_v__fused_sigindex);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 594, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 606, __pyx_L1_error);
   __pyx_v_sigindex_candidates = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_1 = __pyx_v_dest_sig; __Pyx_INCREF(__pyx_t_1);
@@ -19378,23 +19497,23 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
       #endif
       if (__pyx_t_7 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
     #else
-    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_dst_type, __pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_matches, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_candidates, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
@@ -19406,25 +19525,25 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 594, __pyx_L1_error)
+          __PYX_ERR(2, 606, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -19434,55 +19553,55 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 594, __pyx_L1_error)
+          __PYX_ERR(2, 606, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L23;
     }
     /*else*/ {
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_v_sigindex_matches);
       __Pyx_GIVEREF(__pyx_v_sigindex_matches);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 594, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 606, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v_sigindex_candidates);
       __Pyx_GIVEREF(__pyx_v_sigindex_candidates);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 594, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 606, __pyx_L1_error);
       __pyx_t_11 = __pyx_t_6; __Pyx_INCREF(__pyx_t_11);
       __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       for (;;) {
         if (__pyx_t_5 >= 2) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
         #else
-        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 594, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 606, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_search_list, ((PyObject*)__pyx_t_6));
         __pyx_t_6 = 0;
         if (unlikely(__pyx_v_search_list == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 594, __pyx_L1_error)
+          __PYX_ERR(2, 606, __pyx_L1_error)
         }
         __pyx_t_6 = __pyx_v_search_list; __Pyx_INCREF(__pyx_t_6);
         __pyx_t_14 = 0;
@@ -19490,29 +19609,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
             #endif
             if (__pyx_t_14 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 606, __pyx_L1_error)
           #else
-          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 594, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 606, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           #endif
           __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_10);
           __pyx_t_10 = 0;
           if (unlikely(__pyx_v_sn == Py_None)) {
             PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-            __PYX_ERR(2, 594, __pyx_L1_error)
+            __PYX_ERR(2, 606, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 594, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 606, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __Pyx_XDECREF_SET(__pyx_v_type_match, __pyx_t_10);
           __pyx_t_10 = 0;
           __pyx_t_4 = (__pyx_v_type_match != Py_None);
           if (__pyx_t_4) {
-            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 594, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 606, __pyx_L1_error)
           }
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -19549,28 +19668,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_28replace_with(struct __pyx
   __pyx_t_2 = (PyList_GET_SIZE(__pyx_v_candidates) != 0);
   __pyx_t_4 = (!__pyx_t_2);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 594, __pyx_L1_error)
+    __PYX_ERR(2, 606, __pyx_L1_error)
   }
-  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_t_4 = (__pyx_t_7 > 1);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 594, __pyx_L1_error)
+    __PYX_ERR(2, 606, __pyx_L1_error)
   }
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 594, __pyx_L1_error)
+      __PYX_ERR(2, 606, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 594, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -19646,12 +19765,12 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_51replace_with(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 594, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 606, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "replace_with") < 0)) __PYX_ERR(2, 594, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "replace_with") < 0)) __PYX_ERR(2, 606, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -19662,7 +19781,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_51replace_with(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("replace_with", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 594, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("replace_with", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 606, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19676,7 +19795,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_51replace_with(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 594, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_50replace_with(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -19710,7 +19829,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_0replace_with", 1);
 
-  /* "selectolax/modest/node.pxi":622
+  /* "selectolax/modest/node.pxi":634
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -19728,19 +19847,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":623
+    /* "selectolax/modest/node.pxi":635
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 623, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 635, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":624
+    /* "selectolax/modest/node.pxi":636
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -19749,7 +19868,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":625
+    /* "selectolax/modest/node.pxi":637
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -19758,17 +19877,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 625, __pyx_L1_error)
+      __PYX_ERR(2, 637, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 625, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 637, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 625, __pyx_L1_error)
+      __PYX_ERR(2, 637, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 625, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 637, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":626
+    /* "selectolax/modest/node.pxi":638
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -19777,7 +19896,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":627
+    /* "selectolax/modest/node.pxi":639
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
@@ -19786,7 +19905,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
  */
     myhtml_node_delete(__pyx_v_self->node);
 
-    /* "selectolax/modest/node.pxi":622
+    /* "selectolax/modest/node.pxi":634
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -19796,7 +19915,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":628
+  /* "selectolax/modest/node.pxi":640
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -19806,19 +19925,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":629
+    /* "selectolax/modest/node.pxi":641
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 629, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 641, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":630
+    /* "selectolax/modest/node.pxi":642
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -19827,7 +19946,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":631
+    /* "selectolax/modest/node.pxi":643
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
@@ -19836,7 +19955,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
  */
     myhtml_node_delete(__pyx_v_self->node);
 
-    /* "selectolax/modest/node.pxi":628
+    /* "selectolax/modest/node.pxi":640
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -19846,7 +19965,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":633
+  /* "selectolax/modest/node.pxi":645
  *             myhtml_node_delete(self.node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -19854,22 +19973,22 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_50replace_with(struct __pyx
  *     def insert_before(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 633, __pyx_L1_error)
+    __PYX_ERR(2, 645, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":594
- *                 element.unwrap()
+  /* "selectolax/modest/node.pxi":606
+ *                 element.unwrap(delete_empty)
  * 
  *     def replace_with(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """Replace current Node with specified value.
@@ -19928,12 +20047,12 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_53replace_with(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 594, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 606, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "replace_with") < 0)) __PYX_ERR(2, 594, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "replace_with") < 0)) __PYX_ERR(2, 606, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -19944,7 +20063,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_53replace_with(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("replace_with", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 594, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("replace_with", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 606, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19958,7 +20077,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_53replace_with(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 594, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_52replace_with(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -19992,7 +20111,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_1replace_with", 1);
 
-  /* "selectolax/modest/node.pxi":622
+  /* "selectolax/modest/node.pxi":634
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -20010,19 +20129,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":623
+    /* "selectolax/modest/node.pxi":635
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 623, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 635, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":624
+    /* "selectolax/modest/node.pxi":636
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -20031,7 +20150,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":625
+    /* "selectolax/modest/node.pxi":637
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -20040,17 +20159,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 625, __pyx_L1_error)
+      __PYX_ERR(2, 637, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 625, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 637, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 625, __pyx_L1_error)
+      __PYX_ERR(2, 637, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 625, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 637, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":626
+    /* "selectolax/modest/node.pxi":638
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -20059,7 +20178,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":627
+    /* "selectolax/modest/node.pxi":639
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
@@ -20068,7 +20187,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
  */
     myhtml_node_delete(__pyx_v_self->node);
 
-    /* "selectolax/modest/node.pxi":622
+    /* "selectolax/modest/node.pxi":634
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -20078,7 +20197,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":628
+  /* "selectolax/modest/node.pxi":640
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -20088,19 +20207,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":629
+    /* "selectolax/modest/node.pxi":641
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 629, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 641, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":630
+    /* "selectolax/modest/node.pxi":642
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -20109,7 +20228,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":631
+    /* "selectolax/modest/node.pxi":643
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
@@ -20118,7 +20237,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
  */
     myhtml_node_delete(__pyx_v_self->node);
 
-    /* "selectolax/modest/node.pxi":628
+    /* "selectolax/modest/node.pxi":640
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -20128,7 +20247,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":633
+  /* "selectolax/modest/node.pxi":645
  *             myhtml_node_delete(self.node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -20136,22 +20255,22 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_52replace_with(struct __pyx
  *     def insert_before(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 633, __pyx_L1_error)
+    __PYX_ERR(2, 645, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":594
- *                 element.unwrap()
+  /* "selectolax/modest/node.pxi":606
+ *                 element.unwrap(delete_empty)
  * 
  *     def replace_with(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """Replace current Node with specified value.
@@ -20210,12 +20329,12 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_55replace_with(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 594, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 606, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "replace_with") < 0)) __PYX_ERR(2, 594, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "replace_with") < 0)) __PYX_ERR(2, 606, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -20226,7 +20345,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_55replace_with(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("replace_with", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 594, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("replace_with", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 606, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20240,7 +20359,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_55replace_with(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 594, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 606, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_54replace_with(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -20274,7 +20393,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_2replace_with", 1);
 
-  /* "selectolax/modest/node.pxi":622
+  /* "selectolax/modest/node.pxi":634
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -20292,19 +20411,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":623
+    /* "selectolax/modest/node.pxi":635
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 623, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 635, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":624
+    /* "selectolax/modest/node.pxi":636
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -20313,7 +20432,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":625
+    /* "selectolax/modest/node.pxi":637
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -20322,17 +20441,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 625, __pyx_L1_error)
+      __PYX_ERR(2, 637, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 625, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 637, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 625, __pyx_L1_error)
+      __PYX_ERR(2, 637, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 625, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 637, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":626
+    /* "selectolax/modest/node.pxi":638
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -20341,7 +20460,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":627
+    /* "selectolax/modest/node.pxi":639
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
@@ -20350,7 +20469,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  */
     myhtml_node_delete(__pyx_v_self->node);
 
-    /* "selectolax/modest/node.pxi":622
+    /* "selectolax/modest/node.pxi":634
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -20360,7 +20479,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":628
+  /* "selectolax/modest/node.pxi":640
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -20370,7 +20489,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":629
+    /* "selectolax/modest/node.pxi":641
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
@@ -20379,7 +20498,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  */
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_v_value->node));
 
-    /* "selectolax/modest/node.pxi":630
+    /* "selectolax/modest/node.pxi":642
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -20388,7 +20507,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":631
+    /* "selectolax/modest/node.pxi":643
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)             # <<<<<<<<<<<<<<
@@ -20397,7 +20516,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  */
     myhtml_node_delete(__pyx_v_self->node);
 
-    /* "selectolax/modest/node.pxi":628
+    /* "selectolax/modest/node.pxi":640
  *             myhtml_node_insert_before(self.node, node)
  *             myhtml_node_delete(self.node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -20407,7 +20526,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":633
+  /* "selectolax/modest/node.pxi":645
  *             myhtml_node_delete(self.node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -20415,22 +20534,22 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
  *     def insert_before(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 633, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 645, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 633, __pyx_L1_error)
+    __PYX_ERR(2, 645, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":594
- *                 element.unwrap()
+  /* "selectolax/modest/node.pxi":606
+ *                 element.unwrap(delete_empty)
  * 
  *     def replace_with(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """Replace current Node with specified value.
@@ -20452,7 +20571,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_54replace_with(struct __pyx
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":635
+/* "selectolax/modest/node.pxi":647
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_before(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -20508,7 +20627,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_31insert_before(PyObject *_
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 635, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 647, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -20516,9 +20635,9 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_31insert_before(PyObject *_
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 635, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 647, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 635, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 647, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -20526,21 +20645,21 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_31insert_before(PyObject *_
           (void)__Pyx_Arg_NewRef_VARARGS(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 635, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 647, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 635, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 647, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_fused_sigindex);
           if (value) { values[3] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 635, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 647, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 635, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 647, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -20560,7 +20679,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_31insert_before(PyObject *_
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 635, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 647, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20626,11 +20745,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("insert_before", 0);
   __Pyx_INCREF(__pyx_v_kwargs);
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 635, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 647, __pyx_L1_error);
   __pyx_v_dest_sig = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_3 = (__pyx_v_kwargs != Py_None);
@@ -20639,7 +20758,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_3);
   __pyx_t_2 = __pyx_t_4;
   __pyx_L4_bool_binop_done:;
@@ -20649,14 +20768,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
   }
   if (unlikely(__pyx_v_args == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(2, 635, __pyx_L1_error)
+    __PYX_ERR(2, 647, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_t_2 = (1 < __pyx_t_5);
   if (__pyx_t_2) {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 635, __pyx_L1_error)
+      __PYX_ERR(2, 647, __pyx_L1_error)
     }
     __pyx_t_1 = PyTuple_GET_ITEM(((PyObject*)__pyx_v_args), 1);
     __Pyx_INCREF(__pyx_t_1);
@@ -20672,17 +20791,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
   }
   if (unlikely(__pyx_v_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(2, 635, __pyx_L1_error)
+    __PYX_ERR(2, 647, __pyx_L1_error)
   }
-  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_4;
   __pyx_L7_bool_binop_done:;
   if (likely(__pyx_t_2)) {
     if (unlikely(__pyx_v_kwargs == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 635, __pyx_L1_error)
+      __PYX_ERR(2, 647, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arg = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -20691,88 +20810,88 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
   /*else*/ {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 635, __pyx_L1_error)
+      __PYX_ERR(2, 647, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 635, __pyx_L1_error)
-    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 647, __pyx_L1_error)
+    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_int_2);
     __Pyx_GIVEREF(__pyx_int_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 635, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 647, __pyx_L1_error);
     __Pyx_INCREF(__pyx_n_s_s);
     __Pyx_GIVEREF(__pyx_n_s_s);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 635, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 647, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_Raise(__pyx_t_6, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __PYX_ERR(2, 635, __pyx_L1_error)
+    __PYX_ERR(2, 647, __pyx_L1_error)
   }
   __pyx_L6:;
   while (1) {
     __pyx_t_2 = __Pyx_PyBaseString_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
       goto __pyx_L10_break;
     }
     __pyx_t_2 = PyBytes_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_kp_s__3);
     __Pyx_GIVEREF(__pyx_kp_s__3);
-    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 635, __pyx_L1_error);
-    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 647, __pyx_L1_error);
+    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_n_s_selectolax_parser);
     __Pyx_GIVEREF(__pyx_n_s_selectolax_parser);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 635, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 647, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 635, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 647, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 635, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 647, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
     goto __pyx_L10_break;
   }
   __pyx_L10_break:;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_2);
   if (__pyx_t_4) {
     __pyx_t_5 = 0;
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(2, 635, __pyx_L1_error)
+      __PYX_ERR(2, 647, __pyx_L1_error)
     }
-    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_1);
     __pyx_t_1 = __pyx_t_6;
@@ -20780,7 +20899,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
     while (1) {
       __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_7, &__pyx_t_5, &__pyx_t_6, NULL, NULL, __pyx_t_8);
       if (unlikely(__pyx_t_9 == 0)) break;
-      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 635, __pyx_L1_error)
+      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 647, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sig, __pyx_t_6);
       __pyx_t_6 = 0;
@@ -20788,7 +20907,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
       __Pyx_INCREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sigindex_node, ((PyObject*)__pyx_t_6));
       __pyx_t_6 = 0;
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 635, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 647, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __pyx_t_12 = NULL;
       __pyx_t_13 = 0;
@@ -20808,11 +20927,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
         PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_kp_s__11};
         __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 635, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 635, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 647, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_10 = NULL;
@@ -20833,16 +20952,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
         PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_kp_s__12};
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 635, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 647, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_14 = PyList_GET_SIZE(__pyx_t_11);
       if (unlikely(__pyx_t_14 < 1)) {
-        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 635, __pyx_L1_error)
+        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 647, __pyx_L1_error)
       }
       #if CYTHON_COMPILING_IN_CPYTHON
       __pyx_t_10 = PyList_GET_ITEM(__pyx_t_11, __pyx_t_14-1); 
@@ -20852,7 +20971,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
       #endif
       __Pyx_GOTREF(__pyx_t_10);
       #if !CYTHON_COMPILING_IN_CPYTHON
-      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 635, __pyx_L1_error)
+      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 647, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_11);
       __pyx_t_11 = __pyx_t_12; __pyx_t_12 = NULL;
@@ -20869,31 +20988,31 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
           #endif
           if (__pyx_t_14 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
         #else
-        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sig_type, __pyx_t_10);
         __pyx_t_10 = 0;
         if (unlikely(__pyx_v_sigindex_node == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 635, __pyx_L1_error)
+          __PYX_ERR(2, 647, __pyx_L1_error)
         }
-        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
         if (__pyx_t_4) {
-          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 635, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 647, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 635, __pyx_L1_error)
+            __PYX_ERR(2, 647, __pyx_L1_error)
           }
-          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
           __Pyx_INCREF(__pyx_t_10);
           __Pyx_DECREF_SET(__pyx_v_sigindex_node, __pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -20902,9 +21021,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
         /*else*/ {
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 635, __pyx_L1_error)
+            __PYX_ERR(2, 647, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 635, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 647, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __pyx_t_10;
           __Pyx_INCREF(__pyx_t_11);
@@ -20917,21 +21036,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (unlikely(__pyx_v_sigindex_node == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(2, 635, __pyx_L1_error)
+        __PYX_ERR(2, 647, __pyx_L1_error)
       }
-      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_sigindex_matches = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v__fused_sigindex);
   __Pyx_GIVEREF(__pyx_v__fused_sigindex);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 635, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 647, __pyx_L1_error);
   __pyx_v_sigindex_candidates = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_1 = __pyx_v_dest_sig; __Pyx_INCREF(__pyx_t_1);
@@ -20940,23 +21059,23 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
       #endif
       if (__pyx_t_7 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
     #else
-    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_dst_type, __pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_matches, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_candidates, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
@@ -20968,25 +21087,25 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 635, __pyx_L1_error)
+          __PYX_ERR(2, 647, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -20996,55 +21115,55 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 635, __pyx_L1_error)
+          __PYX_ERR(2, 647, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L23;
     }
     /*else*/ {
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_v_sigindex_matches);
       __Pyx_GIVEREF(__pyx_v_sigindex_matches);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 635, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 647, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v_sigindex_candidates);
       __Pyx_GIVEREF(__pyx_v_sigindex_candidates);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 635, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 647, __pyx_L1_error);
       __pyx_t_11 = __pyx_t_6; __Pyx_INCREF(__pyx_t_11);
       __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       for (;;) {
         if (__pyx_t_5 >= 2) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
         #else
-        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 635, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_search_list, ((PyObject*)__pyx_t_6));
         __pyx_t_6 = 0;
         if (unlikely(__pyx_v_search_list == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 635, __pyx_L1_error)
+          __PYX_ERR(2, 647, __pyx_L1_error)
         }
         __pyx_t_6 = __pyx_v_search_list; __Pyx_INCREF(__pyx_t_6);
         __pyx_t_14 = 0;
@@ -21052,29 +21171,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
             #endif
             if (__pyx_t_14 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 647, __pyx_L1_error)
           #else
-          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 635, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 647, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           #endif
           __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_10);
           __pyx_t_10 = 0;
           if (unlikely(__pyx_v_sn == Py_None)) {
             PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-            __PYX_ERR(2, 635, __pyx_L1_error)
+            __PYX_ERR(2, 647, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 635, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 647, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __Pyx_XDECREF_SET(__pyx_v_type_match, __pyx_t_10);
           __pyx_t_10 = 0;
           __pyx_t_4 = (__pyx_v_type_match != Py_None);
           if (__pyx_t_4) {
-            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 635, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 647, __pyx_L1_error)
           }
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -21111,28 +21230,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_30insert_before(struct __py
   __pyx_t_2 = (PyList_GET_SIZE(__pyx_v_candidates) != 0);
   __pyx_t_4 = (!__pyx_t_2);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 635, __pyx_L1_error)
+    __PYX_ERR(2, 647, __pyx_L1_error)
   }
-  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_t_4 = (__pyx_t_7 > 1);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 635, __pyx_L1_error)
+    __PYX_ERR(2, 647, __pyx_L1_error)
   }
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 635, __pyx_L1_error)
+      __PYX_ERR(2, 647, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 635, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 647, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -21208,12 +21327,12 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_59insert_before
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 635, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 647, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_before") < 0)) __PYX_ERR(2, 635, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_before") < 0)) __PYX_ERR(2, 647, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -21224,7 +21343,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_59insert_before
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_before", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 635, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_before", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 647, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -21238,7 +21357,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_59insert_before
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 635, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_58insert_before(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -21272,7 +21391,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_0insert_before", 1);
 
-  /* "selectolax/modest/node.pxi":664
+  /* "selectolax/modest/node.pxi":676
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -21290,19 +21409,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":665
+    /* "selectolax/modest/node.pxi":677
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val =  to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 665, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 677, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":666
+    /* "selectolax/modest/node.pxi":678
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val =  to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -21311,7 +21430,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":667
+    /* "selectolax/modest/node.pxi":679
  *             bytes_val =  to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -21320,17 +21439,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 667, __pyx_L1_error)
+      __PYX_ERR(2, 679, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 667, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 679, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 667, __pyx_L1_error)
+      __PYX_ERR(2, 679, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 667, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 679, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":668
+    /* "selectolax/modest/node.pxi":680
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -21339,7 +21458,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":664
+    /* "selectolax/modest/node.pxi":676
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -21349,7 +21468,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":669
+  /* "selectolax/modest/node.pxi":681
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -21359,19 +21478,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":670
+    /* "selectolax/modest/node.pxi":682
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_insert_before(self.node, node)
  *         else:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 670, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 682, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":671
+    /* "selectolax/modest/node.pxi":683
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -21380,7 +21499,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":669
+    /* "selectolax/modest/node.pxi":681
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -21390,7 +21509,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":673
+  /* "selectolax/modest/node.pxi":685
  *             myhtml_node_insert_before(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -21398,21 +21517,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_58insert_before(struct __py
  *     def insert_after(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 673, __pyx_L1_error)
+    __PYX_ERR(2, 685, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":635
+  /* "selectolax/modest/node.pxi":647
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_before(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -21472,12 +21591,12 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_61insert_before
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 635, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 647, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_before") < 0)) __PYX_ERR(2, 635, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_before") < 0)) __PYX_ERR(2, 647, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -21488,7 +21607,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_61insert_before
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_before", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 635, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_before", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 647, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -21502,7 +21621,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_61insert_before
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 635, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_60insert_before(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -21536,7 +21655,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_1insert_before", 1);
 
-  /* "selectolax/modest/node.pxi":664
+  /* "selectolax/modest/node.pxi":676
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -21554,19 +21673,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":665
+    /* "selectolax/modest/node.pxi":677
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val =  to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 665, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 677, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":666
+    /* "selectolax/modest/node.pxi":678
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val =  to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -21575,7 +21694,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":667
+    /* "selectolax/modest/node.pxi":679
  *             bytes_val =  to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -21584,17 +21703,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 667, __pyx_L1_error)
+      __PYX_ERR(2, 679, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 667, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 679, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 667, __pyx_L1_error)
+      __PYX_ERR(2, 679, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 667, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 679, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":668
+    /* "selectolax/modest/node.pxi":680
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -21603,7 +21722,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":664
+    /* "selectolax/modest/node.pxi":676
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -21613,7 +21732,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":669
+  /* "selectolax/modest/node.pxi":681
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -21623,19 +21742,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":670
+    /* "selectolax/modest/node.pxi":682
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_insert_before(self.node, node)
  *         else:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 670, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 682, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":671
+    /* "selectolax/modest/node.pxi":683
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -21644,7 +21763,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":669
+    /* "selectolax/modest/node.pxi":681
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -21654,7 +21773,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":673
+  /* "selectolax/modest/node.pxi":685
  *             myhtml_node_insert_before(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -21662,21 +21781,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_60insert_before(struct __py
  *     def insert_after(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 673, __pyx_L1_error)
+    __PYX_ERR(2, 685, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":635
+  /* "selectolax/modest/node.pxi":647
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_before(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -21736,12 +21855,12 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_63insert_before
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 635, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 647, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_before") < 0)) __PYX_ERR(2, 635, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_before") < 0)) __PYX_ERR(2, 647, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -21752,7 +21871,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_63insert_before
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_before", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 635, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_before", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 647, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -21766,7 +21885,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_63insert_before
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 635, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 647, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_62insert_before(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -21800,7 +21919,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_2insert_before", 1);
 
-  /* "selectolax/modest/node.pxi":664
+  /* "selectolax/modest/node.pxi":676
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -21818,19 +21937,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":665
+    /* "selectolax/modest/node.pxi":677
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val =  to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 665, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 677, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":666
+    /* "selectolax/modest/node.pxi":678
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val =  to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -21839,7 +21958,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":667
+    /* "selectolax/modest/node.pxi":679
  *             bytes_val =  to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -21848,17 +21967,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 667, __pyx_L1_error)
+      __PYX_ERR(2, 679, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 667, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 679, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 667, __pyx_L1_error)
+      __PYX_ERR(2, 679, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 667, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 679, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":668
+    /* "selectolax/modest/node.pxi":680
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -21867,7 +21986,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":664
+    /* "selectolax/modest/node.pxi":676
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -21877,7 +21996,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":669
+  /* "selectolax/modest/node.pxi":681
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -21887,7 +22006,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
   __pyx_t_1 = __Pyx_TypeCheck(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":670
+    /* "selectolax/modest/node.pxi":682
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
@@ -21896,7 +22015,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
  */
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_v_value->node));
 
-    /* "selectolax/modest/node.pxi":671
+    /* "selectolax/modest/node.pxi":683
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_before(self.node, node)             # <<<<<<<<<<<<<<
@@ -21905,7 +22024,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
  */
     (void)(myhtml_node_insert_before(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":669
+    /* "selectolax/modest/node.pxi":681
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_before(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -21915,7 +22034,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":673
+  /* "selectolax/modest/node.pxi":685
  *             myhtml_node_insert_before(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -21923,21 +22042,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
  *     def insert_after(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 673, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 685, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 673, __pyx_L1_error)
+    __PYX_ERR(2, 685, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":635
+  /* "selectolax/modest/node.pxi":647
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_before(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -21960,7 +22079,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_62insert_before(struct __py
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":675
+/* "selectolax/modest/node.pxi":687
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_after(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -22016,7 +22135,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_33insert_after(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 675, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 687, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -22024,9 +22143,9 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_33insert_after(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 675, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 687, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 675, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 687, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -22034,21 +22153,21 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_33insert_after(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 675, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 687, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 675, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 687, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_fused_sigindex);
           if (value) { values[3] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 675, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 687, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 675, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 687, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -22068,7 +22187,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_33insert_after(PyObject *__
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 675, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 687, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -22134,11 +22253,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("insert_after", 0);
   __Pyx_INCREF(__pyx_v_kwargs);
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 675, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 687, __pyx_L1_error);
   __pyx_v_dest_sig = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_3 = (__pyx_v_kwargs != Py_None);
@@ -22147,7 +22266,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_3);
   __pyx_t_2 = __pyx_t_4;
   __pyx_L4_bool_binop_done:;
@@ -22157,14 +22276,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
   }
   if (unlikely(__pyx_v_args == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(2, 675, __pyx_L1_error)
+    __PYX_ERR(2, 687, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_t_2 = (1 < __pyx_t_5);
   if (__pyx_t_2) {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 675, __pyx_L1_error)
+      __PYX_ERR(2, 687, __pyx_L1_error)
     }
     __pyx_t_1 = PyTuple_GET_ITEM(((PyObject*)__pyx_v_args), 1);
     __Pyx_INCREF(__pyx_t_1);
@@ -22180,17 +22299,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
   }
   if (unlikely(__pyx_v_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(2, 675, __pyx_L1_error)
+    __PYX_ERR(2, 687, __pyx_L1_error)
   }
-  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_4;
   __pyx_L7_bool_binop_done:;
   if (likely(__pyx_t_2)) {
     if (unlikely(__pyx_v_kwargs == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 675, __pyx_L1_error)
+      __PYX_ERR(2, 687, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arg = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -22199,88 +22318,88 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
   /*else*/ {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 675, __pyx_L1_error)
+      __PYX_ERR(2, 687, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 675, __pyx_L1_error)
-    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 687, __pyx_L1_error)
+    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_int_2);
     __Pyx_GIVEREF(__pyx_int_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 675, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 687, __pyx_L1_error);
     __Pyx_INCREF(__pyx_n_s_s);
     __Pyx_GIVEREF(__pyx_n_s_s);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 675, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 687, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_Raise(__pyx_t_6, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __PYX_ERR(2, 675, __pyx_L1_error)
+    __PYX_ERR(2, 687, __pyx_L1_error)
   }
   __pyx_L6:;
   while (1) {
     __pyx_t_2 = __Pyx_PyBaseString_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
       goto __pyx_L10_break;
     }
     __pyx_t_2 = PyBytes_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_kp_s__3);
     __Pyx_GIVEREF(__pyx_kp_s__3);
-    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 675, __pyx_L1_error);
-    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 687, __pyx_L1_error);
+    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_n_s_selectolax_parser);
     __Pyx_GIVEREF(__pyx_n_s_selectolax_parser);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 675, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 687, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 675, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 687, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 675, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 687, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
     goto __pyx_L10_break;
   }
   __pyx_L10_break:;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_2);
   if (__pyx_t_4) {
     __pyx_t_5 = 0;
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(2, 675, __pyx_L1_error)
+      __PYX_ERR(2, 687, __pyx_L1_error)
     }
-    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_1);
     __pyx_t_1 = __pyx_t_6;
@@ -22288,7 +22407,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
     while (1) {
       __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_7, &__pyx_t_5, &__pyx_t_6, NULL, NULL, __pyx_t_8);
       if (unlikely(__pyx_t_9 == 0)) break;
-      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 675, __pyx_L1_error)
+      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 687, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sig, __pyx_t_6);
       __pyx_t_6 = 0;
@@ -22296,7 +22415,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
       __Pyx_INCREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sigindex_node, ((PyObject*)__pyx_t_6));
       __pyx_t_6 = 0;
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 675, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 687, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __pyx_t_12 = NULL;
       __pyx_t_13 = 0;
@@ -22316,11 +22435,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
         PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_kp_s__11};
         __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 675, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 675, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 687, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_10 = NULL;
@@ -22341,16 +22460,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
         PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_kp_s__12};
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 675, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 687, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_14 = PyList_GET_SIZE(__pyx_t_11);
       if (unlikely(__pyx_t_14 < 1)) {
-        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 675, __pyx_L1_error)
+        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 687, __pyx_L1_error)
       }
       #if CYTHON_COMPILING_IN_CPYTHON
       __pyx_t_10 = PyList_GET_ITEM(__pyx_t_11, __pyx_t_14-1); 
@@ -22360,7 +22479,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
       #endif
       __Pyx_GOTREF(__pyx_t_10);
       #if !CYTHON_COMPILING_IN_CPYTHON
-      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 675, __pyx_L1_error)
+      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 687, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_11);
       __pyx_t_11 = __pyx_t_12; __pyx_t_12 = NULL;
@@ -22377,31 +22496,31 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
           #endif
           if (__pyx_t_14 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
         #else
-        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sig_type, __pyx_t_10);
         __pyx_t_10 = 0;
         if (unlikely(__pyx_v_sigindex_node == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 675, __pyx_L1_error)
+          __PYX_ERR(2, 687, __pyx_L1_error)
         }
-        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
         if (__pyx_t_4) {
-          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 675, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 687, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 675, __pyx_L1_error)
+            __PYX_ERR(2, 687, __pyx_L1_error)
           }
-          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
           __Pyx_INCREF(__pyx_t_10);
           __Pyx_DECREF_SET(__pyx_v_sigindex_node, __pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -22410,9 +22529,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
         /*else*/ {
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 675, __pyx_L1_error)
+            __PYX_ERR(2, 687, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 675, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 687, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __pyx_t_10;
           __Pyx_INCREF(__pyx_t_11);
@@ -22425,21 +22544,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (unlikely(__pyx_v_sigindex_node == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(2, 675, __pyx_L1_error)
+        __PYX_ERR(2, 687, __pyx_L1_error)
       }
-      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_sigindex_matches = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v__fused_sigindex);
   __Pyx_GIVEREF(__pyx_v__fused_sigindex);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 675, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 687, __pyx_L1_error);
   __pyx_v_sigindex_candidates = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_1 = __pyx_v_dest_sig; __Pyx_INCREF(__pyx_t_1);
@@ -22448,23 +22567,23 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
       #endif
       if (__pyx_t_7 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
     #else
-    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_dst_type, __pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_matches, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_candidates, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
@@ -22476,25 +22595,25 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 675, __pyx_L1_error)
+          __PYX_ERR(2, 687, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -22504,55 +22623,55 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 675, __pyx_L1_error)
+          __PYX_ERR(2, 687, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L23;
     }
     /*else*/ {
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_v_sigindex_matches);
       __Pyx_GIVEREF(__pyx_v_sigindex_matches);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 675, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 687, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v_sigindex_candidates);
       __Pyx_GIVEREF(__pyx_v_sigindex_candidates);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 675, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 687, __pyx_L1_error);
       __pyx_t_11 = __pyx_t_6; __Pyx_INCREF(__pyx_t_11);
       __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       for (;;) {
         if (__pyx_t_5 >= 2) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
         #else
-        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 675, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 687, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_search_list, ((PyObject*)__pyx_t_6));
         __pyx_t_6 = 0;
         if (unlikely(__pyx_v_search_list == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 675, __pyx_L1_error)
+          __PYX_ERR(2, 687, __pyx_L1_error)
         }
         __pyx_t_6 = __pyx_v_search_list; __Pyx_INCREF(__pyx_t_6);
         __pyx_t_14 = 0;
@@ -22560,29 +22679,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
             #endif
             if (__pyx_t_14 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 687, __pyx_L1_error)
           #else
-          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 675, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 687, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           #endif
           __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_10);
           __pyx_t_10 = 0;
           if (unlikely(__pyx_v_sn == Py_None)) {
             PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-            __PYX_ERR(2, 675, __pyx_L1_error)
+            __PYX_ERR(2, 687, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 675, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 687, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __Pyx_XDECREF_SET(__pyx_v_type_match, __pyx_t_10);
           __pyx_t_10 = 0;
           __pyx_t_4 = (__pyx_v_type_match != Py_None);
           if (__pyx_t_4) {
-            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 675, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 687, __pyx_L1_error)
           }
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -22619,28 +22738,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_32insert_after(struct __pyx
   __pyx_t_2 = (PyList_GET_SIZE(__pyx_v_candidates) != 0);
   __pyx_t_4 = (!__pyx_t_2);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 675, __pyx_L1_error)
+    __PYX_ERR(2, 687, __pyx_L1_error)
   }
-  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_t_4 = (__pyx_t_7 > 1);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 675, __pyx_L1_error)
+    __PYX_ERR(2, 687, __pyx_L1_error)
   }
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 675, __pyx_L1_error)
+      __PYX_ERR(2, 687, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 675, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 687, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -22716,12 +22835,12 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_67insert_after(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 675, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 687, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_after") < 0)) __PYX_ERR(2, 675, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_after") < 0)) __PYX_ERR(2, 687, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -22732,7 +22851,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_67insert_after(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_after", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 675, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_after", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 687, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -22746,7 +22865,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_67insert_after(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 675, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_66insert_after(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -22780,7 +22899,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_0insert_after", 1);
 
-  /* "selectolax/modest/node.pxi":704
+  /* "selectolax/modest/node.pxi":716
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -22798,19 +22917,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":705
+    /* "selectolax/modest/node.pxi":717
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 705, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 717, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":706
+    /* "selectolax/modest/node.pxi":718
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -22819,7 +22938,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":707
+    /* "selectolax/modest/node.pxi":719
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -22828,17 +22947,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 707, __pyx_L1_error)
+      __PYX_ERR(2, 719, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 707, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 719, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 707, __pyx_L1_error)
+      __PYX_ERR(2, 719, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 707, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 719, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":708
+    /* "selectolax/modest/node.pxi":720
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)             # <<<<<<<<<<<<<<
@@ -22847,7 +22966,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
  */
     (void)(myhtml_node_insert_after(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":704
+    /* "selectolax/modest/node.pxi":716
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -22857,7 +22976,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":709
+  /* "selectolax/modest/node.pxi":721
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -22867,19 +22986,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":710
+    /* "selectolax/modest/node.pxi":722
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_insert_after(self.node, node)
  *         else:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 710, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 722, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":711
+    /* "selectolax/modest/node.pxi":723
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_after(self.node, node)             # <<<<<<<<<<<<<<
@@ -22888,7 +23007,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
  */
     (void)(myhtml_node_insert_after(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":709
+    /* "selectolax/modest/node.pxi":721
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -22898,7 +23017,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":713
+  /* "selectolax/modest/node.pxi":725
  *             myhtml_node_insert_after(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -22906,21 +23025,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_66insert_after(struct __pyx
  *     def insert_child(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 713, __pyx_L1_error)
+    __PYX_ERR(2, 725, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":675
+  /* "selectolax/modest/node.pxi":687
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_after(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -22980,12 +23099,12 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_69insert_after(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 675, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 687, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_after") < 0)) __PYX_ERR(2, 675, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_after") < 0)) __PYX_ERR(2, 687, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -22996,7 +23115,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_69insert_after(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_after", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 675, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_after", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 687, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -23010,7 +23129,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_69insert_after(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 675, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_68insert_after(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -23044,7 +23163,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_1insert_after", 1);
 
-  /* "selectolax/modest/node.pxi":704
+  /* "selectolax/modest/node.pxi":716
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -23062,19 +23181,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":705
+    /* "selectolax/modest/node.pxi":717
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 705, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 717, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":706
+    /* "selectolax/modest/node.pxi":718
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -23083,7 +23202,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":707
+    /* "selectolax/modest/node.pxi":719
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -23092,17 +23211,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 707, __pyx_L1_error)
+      __PYX_ERR(2, 719, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 707, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 719, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 707, __pyx_L1_error)
+      __PYX_ERR(2, 719, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 707, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 719, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":708
+    /* "selectolax/modest/node.pxi":720
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)             # <<<<<<<<<<<<<<
@@ -23111,7 +23230,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
  */
     (void)(myhtml_node_insert_after(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":704
+    /* "selectolax/modest/node.pxi":716
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -23121,7 +23240,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":709
+  /* "selectolax/modest/node.pxi":721
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -23131,19 +23250,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":710
+    /* "selectolax/modest/node.pxi":722
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_insert_after(self.node, node)
  *         else:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 710, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 722, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":711
+    /* "selectolax/modest/node.pxi":723
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_after(self.node, node)             # <<<<<<<<<<<<<<
@@ -23152,7 +23271,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
  */
     (void)(myhtml_node_insert_after(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":709
+    /* "selectolax/modest/node.pxi":721
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -23162,7 +23281,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":713
+  /* "selectolax/modest/node.pxi":725
  *             myhtml_node_insert_after(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -23170,21 +23289,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_68insert_after(struct __pyx
  *     def insert_child(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 713, __pyx_L1_error)
+    __PYX_ERR(2, 725, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":675
+  /* "selectolax/modest/node.pxi":687
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_after(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -23244,12 +23363,12 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_71insert_after(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 675, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 687, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_after") < 0)) __PYX_ERR(2, 675, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_after") < 0)) __PYX_ERR(2, 687, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -23260,7 +23379,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_71insert_after(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_after", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 675, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_after", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 687, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -23274,7 +23393,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_71insert_after(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 675, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 687, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_70insert_after(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -23308,7 +23427,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_2insert_after", 1);
 
-  /* "selectolax/modest/node.pxi":704
+  /* "selectolax/modest/node.pxi":716
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -23326,19 +23445,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":705
+    /* "selectolax/modest/node.pxi":717
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 705, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 717, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":706
+    /* "selectolax/modest/node.pxi":718
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -23347,7 +23466,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":707
+    /* "selectolax/modest/node.pxi":719
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -23356,17 +23475,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 707, __pyx_L1_error)
+      __PYX_ERR(2, 719, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 707, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 719, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 707, __pyx_L1_error)
+      __PYX_ERR(2, 719, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 707, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 719, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":708
+    /* "selectolax/modest/node.pxi":720
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)             # <<<<<<<<<<<<<<
@@ -23375,7 +23494,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
  */
     (void)(myhtml_node_insert_after(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":704
+    /* "selectolax/modest/node.pxi":716
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -23385,7 +23504,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":709
+  /* "selectolax/modest/node.pxi":721
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -23395,7 +23514,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":710
+    /* "selectolax/modest/node.pxi":722
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
@@ -23404,7 +23523,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
  */
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_v_value->node));
 
-    /* "selectolax/modest/node.pxi":711
+    /* "selectolax/modest/node.pxi":723
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_insert_after(self.node, node)             # <<<<<<<<<<<<<<
@@ -23413,7 +23532,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
  */
     (void)(myhtml_node_insert_after(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":709
+    /* "selectolax/modest/node.pxi":721
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_insert_after(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -23423,7 +23542,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":713
+  /* "selectolax/modest/node.pxi":725
  *             myhtml_node_insert_after(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
@@ -23431,21 +23550,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
  *     def insert_child(self, str_or_Node value):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 713, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 725, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 713, __pyx_L1_error)
+    __PYX_ERR(2, 725, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":675
+  /* "selectolax/modest/node.pxi":687
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_after(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -23468,7 +23587,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_70insert_after(struct __pyx
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":715
+/* "selectolax/modest/node.pxi":727
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_child(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -23524,7 +23643,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_35insert_child(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 715, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 727, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -23532,9 +23651,9 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_35insert_child(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 715, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 727, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 715, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 1); __PYX_ERR(2, 727, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -23542,21 +23661,21 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_35insert_child(PyObject *__
           (void)__Pyx_Arg_NewRef_VARARGS(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 715, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 727, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 715, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, 2); __PYX_ERR(2, 727, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_VARARGS(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_fused_sigindex);
           if (value) { values[3] = __Pyx_Arg_NewRef_VARARGS(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 715, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 727, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 715, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__pyx_fused_cpdef") < 0)) __PYX_ERR(2, 727, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -23576,7 +23695,7 @@ static PyObject *__pyx_pw_10selectolax_6parser_4Node_35insert_child(PyObject *__
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 715, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__pyx_fused_cpdef", 0, 3, 4, __pyx_nargs); __PYX_ERR(2, 727, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -23642,11 +23761,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("insert_child", 0);
   __Pyx_INCREF(__pyx_v_kwargs);
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 715, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None)) __PYX_ERR(2, 727, __pyx_L1_error);
   __pyx_v_dest_sig = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_3 = (__pyx_v_kwargs != Py_None);
@@ -23655,7 +23774,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_3);
   __pyx_t_2 = __pyx_t_4;
   __pyx_L4_bool_binop_done:;
@@ -23665,14 +23784,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
   }
   if (unlikely(__pyx_v_args == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(2, 715, __pyx_L1_error)
+    __PYX_ERR(2, 727, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_t_2 = (1 < __pyx_t_5);
   if (__pyx_t_2) {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 715, __pyx_L1_error)
+      __PYX_ERR(2, 727, __pyx_L1_error)
     }
     __pyx_t_1 = PyTuple_GET_ITEM(((PyObject*)__pyx_v_args), 1);
     __Pyx_INCREF(__pyx_t_1);
@@ -23688,17 +23807,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
   }
   if (unlikely(__pyx_v_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(2, 715, __pyx_L1_error)
+    __PYX_ERR(2, 727, __pyx_L1_error)
   }
-  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_n_s_value, ((PyObject*)__pyx_v_kwargs), Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_4;
   __pyx_L7_bool_binop_done:;
   if (likely(__pyx_t_2)) {
     if (unlikely(__pyx_v_kwargs == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 715, __pyx_L1_error)
+      __PYX_ERR(2, 727, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_kwargs), __pyx_n_s_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arg = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -23707,88 +23826,88 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
   /*else*/ {
     if (unlikely(__pyx_v_args == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 715, __pyx_L1_error)
+      __PYX_ERR(2, 727, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 715, __pyx_L1_error)
-    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(((PyObject*)__pyx_v_args)); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 727, __pyx_L1_error)
+    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_int_2);
     __Pyx_GIVEREF(__pyx_int_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 715, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_int_2)) __PYX_ERR(2, 727, __pyx_L1_error);
     __Pyx_INCREF(__pyx_n_s_s);
     __Pyx_GIVEREF(__pyx_n_s_s);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 715, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_s_s)) __PYX_ERR(2, 727, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyString_Format(__pyx_kp_s_Expected_at_least_d_argument_s_g, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_Raise(__pyx_t_6, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __PYX_ERR(2, 715, __pyx_L1_error)
+    __PYX_ERR(2, 727, __pyx_L1_error)
   }
   __pyx_L6:;
   while (1) {
     __pyx_t_2 = __Pyx_PyBaseString_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_basestring, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
       goto __pyx_L10_break;
     }
     __pyx_t_2 = PyBytes_Check(__pyx_v_arg); 
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_bytes, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_kp_s__3);
     __Pyx_GIVEREF(__pyx_kp_s__3);
-    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 715, __pyx_L1_error);
-    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_kp_s__3)) __PYX_ERR(2, 727, __pyx_L1_error);
+    __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_n_s_selectolax_parser);
     __Pyx_GIVEREF(__pyx_n_s_selectolax_parser);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 715, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_n_s_selectolax_parser)) __PYX_ERR(2, 727, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 715, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None)) __PYX_ERR(2, 727, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 715, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, Py_None)) __PYX_ERR(2, 727, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_builtin___import__, __pyx_t_1, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_2 = PyObject_IsInstance(__pyx_v_arg, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_2) {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_Node, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
     goto __pyx_L10_break;
   }
   __pyx_L10_break:;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v__fused_sigindex); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_2);
   if (__pyx_t_4) {
     __pyx_t_5 = 0;
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(2, 715, __pyx_L1_error)
+      __PYX_ERR(2, 727, __pyx_L1_error)
     }
-    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_dict_iterator(((PyObject*)__pyx_v_signatures), 1, ((PyObject *)NULL), (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_1);
     __pyx_t_1 = __pyx_t_6;
@@ -23796,7 +23915,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
     while (1) {
       __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_7, &__pyx_t_5, &__pyx_t_6, NULL, NULL, __pyx_t_8);
       if (unlikely(__pyx_t_9 == 0)) break;
-      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 715, __pyx_L1_error)
+      if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(2, 727, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sig, __pyx_t_6);
       __pyx_t_6 = 0;
@@ -23804,7 +23923,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
       __Pyx_INCREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_v_sigindex_node, ((PyObject*)__pyx_t_6));
       __pyx_t_6 = 0;
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 715, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_sig, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 727, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __pyx_t_12 = NULL;
       __pyx_t_13 = 0;
@@ -23824,11 +23943,11 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
         PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_kp_s__11};
         __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 715, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 715, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_split); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 727, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_10 = NULL;
@@ -23849,16 +23968,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
         PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_kp_s__12};
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_13, 1+__pyx_t_13);
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
-      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 715, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PySequence_ListKeepNew(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 727, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_14 = PyList_GET_SIZE(__pyx_t_11);
       if (unlikely(__pyx_t_14 < 1)) {
-        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 715, __pyx_L1_error)
+        __Pyx_RaiseNeedMoreValuesError(0+__pyx_t_14); __PYX_ERR(2, 727, __pyx_L1_error)
       }
       #if CYTHON_COMPILING_IN_CPYTHON
       __pyx_t_10 = PyList_GET_ITEM(__pyx_t_11, __pyx_t_14-1); 
@@ -23868,7 +23987,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
       #endif
       __Pyx_GOTREF(__pyx_t_10);
       #if !CYTHON_COMPILING_IN_CPYTHON
-      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 715, __pyx_L1_error)
+      __pyx_t_12 = PySequence_GetSlice(__pyx_t_11, 0, __pyx_t_14-1); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 727, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_11);
       __pyx_t_11 = __pyx_t_12; __pyx_t_12 = NULL;
@@ -23885,31 +24004,31 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
           #endif
           if (__pyx_t_14 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
         #else
-        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sig_type, __pyx_t_10);
         __pyx_t_10 = 0;
         if (unlikely(__pyx_v_sigindex_node == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 715, __pyx_L1_error)
+          __PYX_ERR(2, 727, __pyx_L1_error)
         }
-        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_v_sig_type, __pyx_v_sigindex_node, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
         if (__pyx_t_4) {
-          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 715, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 727, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 715, __pyx_L1_error)
+            __PYX_ERR(2, 727, __pyx_L1_error)
           }
-          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+          if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_sig_type, __pyx_t_10) < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
           __Pyx_INCREF(__pyx_t_10);
           __Pyx_DECREF_SET(__pyx_v_sigindex_node, __pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -23918,9 +24037,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
         /*else*/ {
           if (unlikely(__pyx_v_sigindex_node == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(2, 715, __pyx_L1_error)
+            __PYX_ERR(2, 727, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 715, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItem(__pyx_v_sigindex_node, __pyx_v_sig_type); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 727, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __pyx_t_10;
           __Pyx_INCREF(__pyx_t_11);
@@ -23933,21 +24052,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (unlikely(__pyx_v_sigindex_node == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(2, 715, __pyx_L1_error)
+        __PYX_ERR(2, 727, __pyx_L1_error)
       }
-      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_sigindex_node, __pyx_v_last_type, __pyx_v_sig) < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_sigindex_matches = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v__fused_sigindex);
   __Pyx_GIVEREF(__pyx_v__fused_sigindex);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 715, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_v__fused_sigindex)) __PYX_ERR(2, 727, __pyx_L1_error);
   __pyx_v_sigindex_candidates = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   __pyx_t_1 = __pyx_v_dest_sig; __Pyx_INCREF(__pyx_t_1);
@@ -23956,23 +24075,23 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
       #endif
       if (__pyx_t_7 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_7); __Pyx_INCREF(__pyx_t_6); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
     #else
-    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_dst_type, __pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_matches, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
-    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_found_candidates, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
@@ -23984,25 +24103,25 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 715, __pyx_L1_error)
+          __PYX_ERR(2, 727, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_matches, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -24012,55 +24131,55 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_11 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_5); __Pyx_INCREF(__pyx_t_11); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
         #else
-        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_11);
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_sn == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-          __PYX_ERR(2, 715, __pyx_L1_error)
+          __PYX_ERR(2, 727, __pyx_L1_error)
         }
-        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_PyDict_Values(((PyObject*)__pyx_v_sn)); if (unlikely(!__pyx_t_11)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_found_candidates, __pyx_t_11); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L23;
     }
     /*else*/ {
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_v_sigindex_matches);
       __Pyx_GIVEREF(__pyx_v_sigindex_matches);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 715, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_sigindex_matches)) __PYX_ERR(2, 727, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v_sigindex_candidates);
       __Pyx_GIVEREF(__pyx_v_sigindex_candidates);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 715, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_sigindex_candidates)) __PYX_ERR(2, 727, __pyx_L1_error);
       __pyx_t_11 = __pyx_t_6; __Pyx_INCREF(__pyx_t_11);
       __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       for (;;) {
         if (__pyx_t_5 >= 2) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_11, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
         #else
-        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 715, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_11, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 727, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         #endif
         __Pyx_XDECREF_SET(__pyx_v_search_list, ((PyObject*)__pyx_t_6));
         __pyx_t_6 = 0;
         if (unlikely(__pyx_v_search_list == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(2, 715, __pyx_L1_error)
+          __PYX_ERR(2, 727, __pyx_L1_error)
         }
         __pyx_t_6 = __pyx_v_search_list; __Pyx_INCREF(__pyx_t_6);
         __pyx_t_14 = 0;
@@ -24068,29 +24187,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
             #endif
             if (__pyx_t_14 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_14); __Pyx_INCREF(__pyx_t_10); __pyx_t_14++; if (unlikely((0 < 0))) __PYX_ERR(2, 727, __pyx_L1_error)
           #else
-          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 715, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 727, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           #endif
           __Pyx_XDECREF_SET(__pyx_v_sn, __pyx_t_10);
           __pyx_t_10 = 0;
           if (unlikely(__pyx_v_sn == Py_None)) {
             PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-            __PYX_ERR(2, 715, __pyx_L1_error)
+            __PYX_ERR(2, 727, __pyx_L1_error)
           }
-          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 715, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyDict_GetItemDefault(((PyObject*)__pyx_v_sn), __pyx_v_dst_type, Py_None); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 727, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           __Pyx_XDECREF_SET(__pyx_v_type_match, __pyx_t_10);
           __pyx_t_10 = 0;
           __pyx_t_4 = (__pyx_v_type_match != Py_None);
           if (__pyx_t_4) {
-            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 715, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_found_matches, __pyx_v_type_match); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(2, 727, __pyx_L1_error)
           }
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -24127,28 +24246,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_34insert_child(struct __pyx
   __pyx_t_2 = (PyList_GET_SIZE(__pyx_v_candidates) != 0);
   __pyx_t_4 = (!__pyx_t_2);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 715, __pyx_L1_error)
+    __PYX_ERR(2, 727, __pyx_L1_error)
   }
-  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyList_GET_SIZE(__pyx_v_candidates); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_t_4 = (__pyx_t_7 > 1);
   if (unlikely(__pyx_t_4)) {
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_TypeError, __pyx_tuple__14, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(2, 715, __pyx_L1_error)
+    __PYX_ERR(2, 727, __pyx_L1_error)
   }
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
     if (unlikely(((PyObject *)__pyx_v_signatures) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(2, 715, __pyx_L1_error)
+      __PYX_ERR(2, 727, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 715, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(((PyObject*)__pyx_v_signatures), PyList_GET_ITEM(__pyx_v_candidates, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 727, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
@@ -24224,12 +24343,12 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_75insert_child(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 715, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 727, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_child") < 0)) __PYX_ERR(2, 715, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_child") < 0)) __PYX_ERR(2, 727, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -24240,7 +24359,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_75insert_child(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_child", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 715, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_child", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 727, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -24254,7 +24373,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_10selectolax_6parser_4Node_75insert_child(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 715, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBaseString_Type), 1, "value", 1))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_74insert_child(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -24288,7 +24407,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_0insert_child", 1);
 
-  /* "selectolax/modest/node.pxi":744
+  /* "selectolax/modest/node.pxi":756
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -24306,19 +24425,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":745
+    /* "selectolax/modest/node.pxi":757
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 745, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 757, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":746
+    /* "selectolax/modest/node.pxi":758
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -24327,7 +24446,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":747
+    /* "selectolax/modest/node.pxi":759
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -24336,17 +24455,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 747, __pyx_L1_error)
+      __PYX_ERR(2, 759, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 747, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 759, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 747, __pyx_L1_error)
+      __PYX_ERR(2, 759, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 747, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 759, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":748
+    /* "selectolax/modest/node.pxi":760
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)             # <<<<<<<<<<<<<<
@@ -24355,7 +24474,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
  */
     (void)(myhtml_node_append_child(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":744
+    /* "selectolax/modest/node.pxi":756
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -24365,7 +24484,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":749
+  /* "selectolax/modest/node.pxi":761
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -24375,19 +24494,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":750
+    /* "selectolax/modest/node.pxi":762
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_append_child(self.node, node)
  *         else:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 750, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 762, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":751
+    /* "selectolax/modest/node.pxi":763
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_append_child(self.node, node)             # <<<<<<<<<<<<<<
@@ -24396,7 +24515,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
  */
     (void)(myhtml_node_append_child(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":749
+    /* "selectolax/modest/node.pxi":761
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -24406,29 +24525,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_74insert_child(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":753
+  /* "selectolax/modest/node.pxi":765
  *             myhtml_node_append_child(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
  * 
- *     def unwrap_tags(self, list tags):
+ *     def unwrap_tags(self, list tags, delete_empty = False):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 753, __pyx_L1_error)
+    __PYX_ERR(2, 765, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":715
+  /* "selectolax/modest/node.pxi":727
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_child(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -24488,12 +24607,12 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_77insert_child(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 715, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 727, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_child") < 0)) __PYX_ERR(2, 715, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_child") < 0)) __PYX_ERR(2, 727, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -24504,7 +24623,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_77insert_child(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_child", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 715, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_child", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 727, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -24518,7 +24637,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_10selectolax_6parser_4Node_77insert_child(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 715, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyBytes_Type), 1, "value", 1))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_76insert_child(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -24552,7 +24671,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_1insert_child", 1);
 
-  /* "selectolax/modest/node.pxi":744
+  /* "selectolax/modest/node.pxi":756
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -24570,19 +24689,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":745
+    /* "selectolax/modest/node.pxi":757
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 745, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 757, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":746
+    /* "selectolax/modest/node.pxi":758
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -24591,7 +24710,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":747
+    /* "selectolax/modest/node.pxi":759
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -24600,17 +24719,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 747, __pyx_L1_error)
+      __PYX_ERR(2, 759, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 747, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 759, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 747, __pyx_L1_error)
+      __PYX_ERR(2, 759, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 747, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 759, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":748
+    /* "selectolax/modest/node.pxi":760
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)             # <<<<<<<<<<<<<<
@@ -24619,7 +24738,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
  */
     (void)(myhtml_node_append_child(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":744
+    /* "selectolax/modest/node.pxi":756
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -24629,7 +24748,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":749
+  /* "selectolax/modest/node.pxi":761
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -24639,19 +24758,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_value, __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":750
+    /* "selectolax/modest/node.pxi":762
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
  *             myhtml_node_append_child(self.node, node)
  *         else:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 750, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_node); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 762, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_t_3));
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":751
+    /* "selectolax/modest/node.pxi":763
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_append_child(self.node, node)             # <<<<<<<<<<<<<<
@@ -24660,7 +24779,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
  */
     (void)(myhtml_node_append_child(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":749
+    /* "selectolax/modest/node.pxi":761
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -24670,29 +24789,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_76insert_child(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":753
+  /* "selectolax/modest/node.pxi":765
  *             myhtml_node_append_child(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
  * 
- *     def unwrap_tags(self, list tags):
+ *     def unwrap_tags(self, list tags, delete_empty = False):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 753, __pyx_L1_error)
+    __PYX_ERR(2, 765, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":715
+  /* "selectolax/modest/node.pxi":727
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_child(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -24752,12 +24871,12 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_79insert_child(
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 715, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 727, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_child") < 0)) __PYX_ERR(2, 715, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "insert_child") < 0)) __PYX_ERR(2, 727, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -24768,7 +24887,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_79insert_child(
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("insert_child", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 715, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("insert_child", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 727, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -24782,7 +24901,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_10selectolax_6parser_4Node_79insert_child(
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 715, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node, 1, "value", 0))) __PYX_ERR(2, 727, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_78insert_child(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_value);
 
   /* function exit code */
@@ -24816,7 +24935,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_2insert_child", 1);
 
-  /* "selectolax/modest/node.pxi":744
+  /* "selectolax/modest/node.pxi":756
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -24834,19 +24953,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":745
+    /* "selectolax/modest/node.pxi":757
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)             # <<<<<<<<<<<<<<
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  */
-    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 745, __pyx_L1_error)
+    __pyx_t_3 = __pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 757, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":746
+    /* "selectolax/modest/node.pxi":758
  *         if isinstance(value, (str, bytes, unicode)):
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)             # <<<<<<<<<<<<<<
@@ -24855,7 +24974,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
  */
     __pyx_v_node = myhtml_node_create(__pyx_v_self->parser->html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML);
 
-    /* "selectolax/modest/node.pxi":747
+    /* "selectolax/modest/node.pxi":759
  *             bytes_val = to_bytes(value)
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -24864,17 +24983,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
  */
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 747, __pyx_L1_error)
+      __PYX_ERR(2, 759, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 747, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_AsWritableString(__pyx_v_bytes_val); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(2, 759, __pyx_L1_error)
     if (unlikely(__pyx_v_bytes_val == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(2, 747, __pyx_L1_error)
+      __PYX_ERR(2, 759, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 747, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_bytes_val); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(2, 759, __pyx_L1_error)
     (void)(myhtml_node_text_set(__pyx_v_node, ((char *)__pyx_t_4), __pyx_t_5, MyENCODING_UTF_8));
 
-    /* "selectolax/modest/node.pxi":748
+    /* "selectolax/modest/node.pxi":760
  *             node = myhtml_node_create(self.parser.html_tree, MyHTML_TAG__TEXT, MyHTML_NAMESPACE_HTML)
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)             # <<<<<<<<<<<<<<
@@ -24883,7 +25002,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
  */
     (void)(myhtml_node_append_child(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":744
+    /* "selectolax/modest/node.pxi":756
  *         """
  *         cdef myhtml_tree_node_t *node
  *         if isinstance(value, (str, bytes, unicode)):             # <<<<<<<<<<<<<<
@@ -24893,7 +25012,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":749
+  /* "selectolax/modest/node.pxi":761
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -24903,7 +25022,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
   __pyx_t_1 = __Pyx_TypeCheck(((PyObject *)__pyx_v_value), __pyx_ptype_10selectolax_6parser_Node); 
   if (likely(__pyx_t_1)) {
 
-    /* "selectolax/modest/node.pxi":750
+    /* "selectolax/modest/node.pxi":762
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)             # <<<<<<<<<<<<<<
@@ -24912,7 +25031,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
  */
     __pyx_v_node = myhtml_node_clone_deep(__pyx_v_self->parser->html_tree, ((myhtml_tree_node_t *)__pyx_v_value->node));
 
-    /* "selectolax/modest/node.pxi":751
+    /* "selectolax/modest/node.pxi":763
  *         elif isinstance(value, Node):
  *             node = myhtml_node_clone_deep(self.parser.html_tree, <myhtml_tree_node_t *> value.node)
  *             myhtml_node_append_child(self.node, node)             # <<<<<<<<<<<<<<
@@ -24921,7 +25040,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
  */
     (void)(myhtml_node_append_child(__pyx_v_self->node, __pyx_v_node));
 
-    /* "selectolax/modest/node.pxi":749
+    /* "selectolax/modest/node.pxi":761
  *             myhtml_node_text_set(node, <char*> bytes_val, len(bytes_val), MyENCODING_UTF_8)
  *             myhtml_node_append_child(self.node, node)
  *         elif isinstance(value, Node):             # <<<<<<<<<<<<<<
@@ -24931,29 +25050,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":753
+  /* "selectolax/modest/node.pxi":765
  *             myhtml_node_append_child(self.node, node)
  *         else:
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)             # <<<<<<<<<<<<<<
  * 
- *     def unwrap_tags(self, list tags):
+ *     def unwrap_tags(self, list tags, delete_empty = False):
  */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_value))), __pyx_n_s_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Expected_a_string_or_Node_instan, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 753, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_TypeError, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 753, __pyx_L1_error)
+    __PYX_ERR(2, 765, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":715
+  /* "selectolax/modest/node.pxi":727
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_child(self, str_or_Node value):             # <<<<<<<<<<<<<<
@@ -24976,10 +25095,10 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_78insert_child(struct __pyx
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":755
+/* "selectolax/modest/node.pxi":767
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
@@ -24992,7 +25111,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_4Node_36unwrap_tags, "Node.unwrap_tags(self, list tags)\nUnwraps specified tags from the HTML tree.\n\n        Works the same as th ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        ");
+PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_4Node_36unwrap_tags, "Node.unwrap_tags(self, list tags, delete_empty=False)\nUnwraps specified tags from the HTML tree.\n\n        Works the same as th ``unwrap`` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n        delete_empty : bool, default False\n            Whenever to delete empty tags.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.body.unwrap_tags(['i','a'])\n        >>> tree.body.html\n        '<body><div>Hello world!</div></body>'\n        \n        Note: by default, empty tags are ignored, set \"delete_empty\" to \"True\" to change this.\n        ");
 static PyMethodDef __pyx_mdef_10selectolax_6parser_4Node_37unwrap_tags = {"unwrap_tags", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10selectolax_6parser_4Node_37unwrap_tags, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_10selectolax_6parser_4Node_36unwrap_tags};
 static PyObject *__pyx_pw_10selectolax_6parser_4Node_37unwrap_tags(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -25002,11 +25121,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
   PyObject *__pyx_v_tags = 0;
+  PyObject *__pyx_v_delete_empty = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[1] = {0};
+  PyObject* values[2] = {0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -25022,10 +25142,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tags,0};
+    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tags,&__pyx_n_s_delete_empty,0};
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
         case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
         CYTHON_FALLTHROUGH;
         case  0: break;
@@ -25038,23 +25161,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 755, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 767, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_delete_empty);
+          if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 767, __pyx_L3_error)
+        }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "unwrap_tags") < 0)) __PYX_ERR(2, 755, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "unwrap_tags") < 0)) __PYX_ERR(2, 767, __pyx_L3_error)
       }
-    } else if (unlikely(__pyx_nargs != 1)) {
-      goto __pyx_L5_argtuple_error;
     } else {
-      values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+      switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        break;
+        default: goto __pyx_L5_argtuple_error;
+      }
     }
     __pyx_v_tags = ((PyObject*)values[0]);
+    __pyx_v_delete_empty = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("unwrap_tags", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 755, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("unwrap_tags", 0, 1, 2, __pyx_nargs); __PYX_ERR(2, 767, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -25068,8 +25203,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tags), (&PyList_Type), 1, "tags", 1))) __PYX_ERR(2, 755, __pyx_L1_error)
-  __pyx_r = __pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_tags);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tags), (&PyList_Type), 1, "tags", 1))) __PYX_ERR(2, 767, __pyx_L1_error)
+  __pyx_r = __pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_tags, __pyx_v_delete_empty);
 
   /* function exit code */
   goto __pyx_L0;
@@ -25086,7 +25221,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags) {
+static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_obj_10selectolax_6parser_Node *__pyx_v_self, PyObject *__pyx_v_tags, PyObject *__pyx_v_delete_empty) {
   PyObject *__pyx_v_tag = NULL;
   PyObject *__pyx_v_element = NULL;
   PyObject *__pyx_r = NULL;
@@ -25105,16 +25240,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("unwrap_tags", 1);
 
-  /* "selectolax/modest/node.pxi":774
+  /* "selectolax/modest/node.pxi":790
  *         """
  * 
  *         for tag in tags:             # <<<<<<<<<<<<<<
  *             for element in self.css(tag):
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  */
   if (unlikely(__pyx_v_tags == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(2, 774, __pyx_L1_error)
+    __PYX_ERR(2, 790, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_v_tags; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
@@ -25122,27 +25257,27 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_MACROS
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 774, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 790, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(2, 774, __pyx_L1_error)
+    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely((0 < 0))) __PYX_ERR(2, 790, __pyx_L1_error)
     #else
-    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 774, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 790, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     #endif
     __Pyx_XDECREF_SET(__pyx_v_tag, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":775
+    /* "selectolax/modest/node.pxi":791
  * 
  *         for tag in tags:
  *             for element in self.css(tag):             # <<<<<<<<<<<<<<
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  * 
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_css); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 775, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_css); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 791, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -25162,7 +25297,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_tag};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 775, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 791, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -25171,9 +25306,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
       __pyx_t_7 = 0;
       __pyx_t_8 = NULL;
     } else {
-      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 775, __pyx_L1_error)
+      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 791, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_8 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(2, 775, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(2, 791, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     for (;;) {
@@ -25182,28 +25317,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 775, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 791, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 775, __pyx_L1_error)
+          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 791, __pyx_L1_error)
           #else
-          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 775, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 791, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         } else {
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 775, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 791, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 775, __pyx_L1_error)
+          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_7); __Pyx_INCREF(__pyx_t_3); __pyx_t_7++; if (unlikely((0 < 0))) __PYX_ERR(2, 791, __pyx_L1_error)
           #else
-          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 775, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_7); __pyx_t_7++; if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 791, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         }
@@ -25213,7 +25348,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(2, 775, __pyx_L1_error)
+            else __PYX_ERR(2, 791, __pyx_L1_error)
           }
           break;
         }
@@ -25222,14 +25357,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
       __Pyx_XDECREF_SET(__pyx_v_element, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "selectolax/modest/node.pxi":776
+      /* "selectolax/modest/node.pxi":792
  *         for tag in tags:
  *             for element in self.css(tag):
- *                 element.unwrap()             # <<<<<<<<<<<<<<
+ *                 element.unwrap(delete_empty)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_element, __pyx_n_s_unwrap); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 776, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_element, __pyx_n_s_unwrap); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 792, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_9 = NULL;
       __pyx_t_6 = 0;
@@ -25246,39 +25381,39 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_9, NULL};
-        __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
+        PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_delete_empty};
+        __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 776, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 792, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "selectolax/modest/node.pxi":775
+      /* "selectolax/modest/node.pxi":791
  * 
  *         for tag in tags:
  *             for element in self.css(tag):             # <<<<<<<<<<<<<<
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  * 
  */
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "selectolax/modest/node.pxi":774
+    /* "selectolax/modest/node.pxi":790
  *         """
  * 
  *         for tag in tags:             # <<<<<<<<<<<<<<
  *             for element in self.css(tag):
- *                 element.unwrap()
+ *                 element.unwrap(delete_empty)
  */
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "selectolax/modest/node.pxi":755
+  /* "selectolax/modest/node.pxi":767
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
@@ -25302,8 +25437,8 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_36unwrap_tags(struct __pyx_
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":778
- *                 element.unwrap()
+/* "selectolax/modest/node.pxi":794
+ *                 element.unwrap(delete_empty)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def raw_value(self):
@@ -25338,7 +25473,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct _
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "selectolax/modest/node.pxi":799
+  /* "selectolax/modest/node.pxi":815
  *         b'&#x3C;test&#x3E;'
  *         """
  *         cdef int begin = self.node.token.element_begin             # <<<<<<<<<<<<<<
@@ -25348,7 +25483,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct _
   __pyx_t_1 = __pyx_v_self->node->token->element_begin;
   __pyx_v_begin = __pyx_t_1;
 
-  /* "selectolax/modest/node.pxi":800
+  /* "selectolax/modest/node.pxi":816
  *         """
  *         cdef int begin = self.node.token.element_begin
  *         cdef int length = self.node.token.element_length             # <<<<<<<<<<<<<<
@@ -25358,7 +25493,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct _
   __pyx_t_1 = __pyx_v_self->node->token->element_length;
   __pyx_v_length = __pyx_t_1;
 
-  /* "selectolax/modest/node.pxi":801
+  /* "selectolax/modest/node.pxi":817
  *         cdef int begin = self.node.token.element_begin
  *         cdef int length = self.node.token.element_length
  *         if self.node.tag_id != MyHTML_TAG__TEXT:             # <<<<<<<<<<<<<<
@@ -25368,20 +25503,20 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct _
   __pyx_t_2 = (__pyx_v_self->node->tag_id != MyHTML_TAG__TEXT);
   if (unlikely(__pyx_t_2)) {
 
-    /* "selectolax/modest/node.pxi":802
+    /* "selectolax/modest/node.pxi":818
  *         cdef int length = self.node.token.element_length
  *         if self.node.tag_id != MyHTML_TAG__TEXT:
  *             raise ValueError("Can't obtain raw value for non-text node.")             # <<<<<<<<<<<<<<
  *         return self.parser.raw_html[begin:begin + length]
  * 
  */
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__18, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 802, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__18, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 818, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(2, 802, __pyx_L1_error)
+    __PYX_ERR(2, 818, __pyx_L1_error)
 
-    /* "selectolax/modest/node.pxi":801
+    /* "selectolax/modest/node.pxi":817
  *         cdef int begin = self.node.token.element_begin
  *         cdef int length = self.node.token.element_length
  *         if self.node.tag_id != MyHTML_TAG__TEXT:             # <<<<<<<<<<<<<<
@@ -25390,7 +25525,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct _
  */
   }
 
-  /* "selectolax/modest/node.pxi":803
+  /* "selectolax/modest/node.pxi":819
  *         if self.node.tag_id != MyHTML_TAG__TEXT:
  *             raise ValueError("Can't obtain raw value for non-text node.")
  *         return self.parser.raw_html[begin:begin + length]             # <<<<<<<<<<<<<<
@@ -25400,16 +25535,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct _
   __Pyx_XDECREF(__pyx_r);
   if (unlikely(__pyx_v_self->parser->raw_html == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(2, 803, __pyx_L1_error)
+    __PYX_ERR(2, 819, __pyx_L1_error)
   }
-  __pyx_t_3 = PySequence_GetSlice(__pyx_v_self->parser->raw_html, __pyx_v_begin, (__pyx_v_begin + __pyx_v_length)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 803, __pyx_L1_error)
+  __pyx_t_3 = PySequence_GetSlice(__pyx_v_self->parser->raw_html, __pyx_v_begin, (__pyx_v_begin + __pyx_v_length)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 819, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":778
- *                 element.unwrap()
+  /* "selectolax/modest/node.pxi":794
+ *                 element.unwrap(delete_empty)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def raw_value(self):
@@ -25427,7 +25562,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_9raw_value___get__(struct _
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":805
+/* "selectolax/modest/node.pxi":821
  *         return self.parser.raw_html[begin:begin + length]
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
@@ -25489,12 +25624,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_query);
           if (value) { values[0] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 805, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 821, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "select") < 0)) __PYX_ERR(2, 805, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "select") < 0)) __PYX_ERR(2, 821, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -25508,7 +25643,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("select", 0, 0, 1, __pyx_nargs); __PYX_ERR(2, 805, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("select", 0, 0, 1, __pyx_nargs); __PYX_ERR(2, 821, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -25545,7 +25680,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_38select(struct __pyx_obj_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("select", 1);
 
-  /* "selectolax/modest/node.pxi":819
+  /* "selectolax/modest/node.pxi":835
  *         selector : The `Selector` class.
  *         """
  *         return Selector(self, query)             # <<<<<<<<<<<<<<
@@ -25553,22 +25688,22 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_38select(struct __pyx_obj_1
  *     def scripts_contain(self, str query):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 819, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF((PyObject *)__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_v_self);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, ((PyObject *)__pyx_v_self))) __PYX_ERR(2, 819, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, ((PyObject *)__pyx_v_self))) __PYX_ERR(2, 835, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_query);
   __Pyx_GIVEREF(__pyx_v_query);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_query)) __PYX_ERR(2, 819, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_10selectolax_6parser_Selector), __pyx_t_1, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 819, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_query)) __PYX_ERR(2, 835, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_10selectolax_6parser_Selector), __pyx_t_1, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":805
+  /* "selectolax/modest/node.pxi":821
  *         return self.parser.raw_html[begin:begin + length]
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
@@ -25588,7 +25723,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_38select(struct __pyx_obj_1
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":821
+/* "selectolax/modest/node.pxi":837
  *         return Selector(self, query)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
@@ -25650,12 +25785,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 821, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 837, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scripts_contain") < 0)) __PYX_ERR(2, 821, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scripts_contain") < 0)) __PYX_ERR(2, 837, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -25666,7 +25801,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("scripts_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 821, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("scripts_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 837, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -25680,7 +25815,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_query), (&PyUnicode_Type), 1, "query", 1))) __PYX_ERR(2, 821, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_query), (&PyUnicode_Type), 1, "query", 1))) __PYX_ERR(2, 837, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_40scripts_contain(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_query);
 
   /* function exit code */
@@ -25719,7 +25854,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("scripts_contain", 1);
 
-  /* "selectolax/modest/node.pxi":832
+  /* "selectolax/modest/node.pxi":848
  * 
  *         """
  *         if self.parser.cached_script_texts is None:             # <<<<<<<<<<<<<<
@@ -25729,7 +25864,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
   __pyx_t_1 = (__pyx_v_self->parser->cached_script_texts == Py_None);
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":833
+    /* "selectolax/modest/node.pxi":849
  *         """
  *         if self.parser.cached_script_texts is None:
  *             nodes = find_nodes(self.parser, self.node, 'script')             # <<<<<<<<<<<<<<
@@ -25738,25 +25873,25 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
  */
     __pyx_t_2 = ((PyObject *)__pyx_v_self->parser);
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_3 = __pyx_f_10selectolax_6parser_find_nodes(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_t_2), __pyx_v_self->node, __pyx_n_u_script); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 833, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_10selectolax_6parser_find_nodes(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_t_2), __pyx_v_self->node, __pyx_n_u_script); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 849, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_nodes = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":834
+    /* "selectolax/modest/node.pxi":850
  *         if self.parser.cached_script_texts is None:
  *             nodes = find_nodes(self.parser, self.node, 'script')
  *             text_nodes = []             # <<<<<<<<<<<<<<
  *             for node in nodes:
  *                 node_text = node.text(deep=True)
  */
-    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 834, __pyx_L1_error)
+    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 850, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_text_nodes = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":835
+    /* "selectolax/modest/node.pxi":851
  *             nodes = find_nodes(self.parser, self.node, 'script')
  *             text_nodes = []
  *             for node in nodes:             # <<<<<<<<<<<<<<
@@ -25768,9 +25903,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
       __pyx_t_4 = 0;
       __pyx_t_5 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 835, __pyx_L1_error)
+      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 851, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 835, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 851, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_5)) {
@@ -25778,28 +25913,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 835, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 851, __pyx_L1_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 835, __pyx_L1_error)
+          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 851, __pyx_L1_error)
           #else
-          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 835, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 851, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         } else {
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 835, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 851, __pyx_L1_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 835, __pyx_L1_error)
+          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 851, __pyx_L1_error)
           #else
-          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 835, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 851, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         }
@@ -25809,7 +25944,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(2, 835, __pyx_L1_error)
+            else __PYX_ERR(2, 851, __pyx_L1_error)
           }
           break;
         }
@@ -25818,45 +25953,45 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
       __Pyx_XDECREF_SET(__pyx_v_node, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "selectolax/modest/node.pxi":836
+      /* "selectolax/modest/node.pxi":852
  *             text_nodes = []
  *             for node in nodes:
  *                 node_text = node.text(deep=True)             # <<<<<<<<<<<<<<
  *                 if node_text:
  *                     text_nodes.append(node_text)
  */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_text); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 836, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_text); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 852, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 836, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 852, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_deep, Py_True) < 0) __PYX_ERR(2, 836, __pyx_L1_error)
-      __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 836, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_deep, Py_True) < 0) __PYX_ERR(2, 852, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 852, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_XDECREF_SET(__pyx_v_node_text, __pyx_t_7);
       __pyx_t_7 = 0;
 
-      /* "selectolax/modest/node.pxi":837
+      /* "selectolax/modest/node.pxi":853
  *             for node in nodes:
  *                 node_text = node.text(deep=True)
  *                 if node_text:             # <<<<<<<<<<<<<<
  *                     text_nodes.append(node_text)
  *             self.parser.cached_script_texts = text_nodes
  */
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_node_text); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 837, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_node_text); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 853, __pyx_L1_error)
       if (__pyx_t_1) {
 
-        /* "selectolax/modest/node.pxi":838
+        /* "selectolax/modest/node.pxi":854
  *                 node_text = node.text(deep=True)
  *                 if node_text:
  *                     text_nodes.append(node_text)             # <<<<<<<<<<<<<<
  *             self.parser.cached_script_texts = text_nodes
  * 
  */
-        __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_text_nodes, __pyx_v_node_text); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(2, 838, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_text_nodes, __pyx_v_node_text); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(2, 854, __pyx_L1_error)
 
-        /* "selectolax/modest/node.pxi":837
+        /* "selectolax/modest/node.pxi":853
  *             for node in nodes:
  *                 node_text = node.text(deep=True)
  *                 if node_text:             # <<<<<<<<<<<<<<
@@ -25865,7 +26000,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
  */
       }
 
-      /* "selectolax/modest/node.pxi":835
+      /* "selectolax/modest/node.pxi":851
  *             nodes = find_nodes(self.parser, self.node, 'script')
  *             text_nodes = []
  *             for node in nodes:             # <<<<<<<<<<<<<<
@@ -25875,7 +26010,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":839
+    /* "selectolax/modest/node.pxi":855
  *                 if node_text:
  *                     text_nodes.append(node_text)
  *             self.parser.cached_script_texts = text_nodes             # <<<<<<<<<<<<<<
@@ -25888,7 +26023,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
     __Pyx_DECREF(__pyx_v_self->parser->cached_script_texts);
     __pyx_v_self->parser->cached_script_texts = __pyx_v_text_nodes;
 
-    /* "selectolax/modest/node.pxi":832
+    /* "selectolax/modest/node.pxi":848
  * 
  *         """
  *         if self.parser.cached_script_texts is None:             # <<<<<<<<<<<<<<
@@ -25897,7 +26032,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
  */
   }
 
-  /* "selectolax/modest/node.pxi":841
+  /* "selectolax/modest/node.pxi":857
  *             self.parser.cached_script_texts = text_nodes
  * 
  *         for text in self.parser.cached_script_texts:             # <<<<<<<<<<<<<<
@@ -25909,9 +26044,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
     __pyx_t_4 = 0;
     __pyx_t_5 = NULL;
   } else {
-    __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_self->parser->cached_script_texts); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 841, __pyx_L1_error)
+    __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_self->parser->cached_script_texts); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 857, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 841, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 857, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_5)) {
@@ -25919,28 +26054,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 841, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 857, __pyx_L1_error)
           #endif
           if (__pyx_t_4 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_7 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_7); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 841, __pyx_L1_error)
+        __pyx_t_7 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_7); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 857, __pyx_L1_error)
         #else
-        __pyx_t_7 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 841, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 857, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         #endif
       } else {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 841, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 857, __pyx_L1_error)
           #endif
           if (__pyx_t_4 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_7 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_7); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 841, __pyx_L1_error)
+        __pyx_t_7 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_7); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 857, __pyx_L1_error)
         #else
-        __pyx_t_7 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 841, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 857, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         #endif
       }
@@ -25950,7 +26085,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(2, 841, __pyx_L1_error)
+          else __PYX_ERR(2, 857, __pyx_L1_error)
         }
         break;
       }
@@ -25959,17 +26094,17 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
     __Pyx_XDECREF_SET(__pyx_v_text, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "selectolax/modest/node.pxi":842
+    /* "selectolax/modest/node.pxi":858
  * 
  *         for text in self.parser.cached_script_texts:
  *             if query in text:             # <<<<<<<<<<<<<<
  *                 return True
  *         return False
  */
-    __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_query, __pyx_v_text, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 842, __pyx_L1_error)
+    __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_query, __pyx_v_text, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 858, __pyx_L1_error)
     if (__pyx_t_1) {
 
-      /* "selectolax/modest/node.pxi":843
+      /* "selectolax/modest/node.pxi":859
  *         for text in self.parser.cached_script_texts:
  *             if query in text:
  *                 return True             # <<<<<<<<<<<<<<
@@ -25982,7 +26117,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "selectolax/modest/node.pxi":842
+      /* "selectolax/modest/node.pxi":858
  * 
  *         for text in self.parser.cached_script_texts:
  *             if query in text:             # <<<<<<<<<<<<<<
@@ -25991,7 +26126,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
  */
     }
 
-    /* "selectolax/modest/node.pxi":841
+    /* "selectolax/modest/node.pxi":857
  *             self.parser.cached_script_texts = text_nodes
  * 
  *         for text in self.parser.cached_script_texts:             # <<<<<<<<<<<<<<
@@ -26001,7 +26136,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "selectolax/modest/node.pxi":844
+  /* "selectolax/modest/node.pxi":860
  *             if query in text:
  *                 return True
  *         return False             # <<<<<<<<<<<<<<
@@ -26013,7 +26148,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
   __pyx_r = Py_False;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":821
+  /* "selectolax/modest/node.pxi":837
  *         return Selector(self, query)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
@@ -26040,7 +26175,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_40scripts_contain(struct __
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":846
+/* "selectolax/modest/node.pxi":862
  *         return False
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
@@ -26102,12 +26237,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 846, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 862, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "script_srcs_contain") < 0)) __PYX_ERR(2, 846, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "script_srcs_contain") < 0)) __PYX_ERR(2, 862, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -26118,7 +26253,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("script_srcs_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 846, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("script_srcs_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(2, 862, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26132,7 +26267,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_queries), (&PyTuple_Type), 1, "queries", 1))) __PYX_ERR(2, 846, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_queries), (&PyTuple_Type), 1, "queries", 1))) __PYX_ERR(2, 862, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_v_self), __pyx_v_queries);
 
   /* function exit code */
@@ -26174,7 +26309,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("script_srcs_contain", 1);
 
-  /* "selectolax/modest/node.pxi":856
+  /* "selectolax/modest/node.pxi":872
  * 
  *         """
  *         if self.parser.cached_script_srcs is None:             # <<<<<<<<<<<<<<
@@ -26184,7 +26319,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
   __pyx_t_1 = (__pyx_v_self->parser->cached_script_srcs == Py_None);
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":857
+    /* "selectolax/modest/node.pxi":873
  *         """
  *         if self.parser.cached_script_srcs is None:
  *             nodes = find_nodes(self.parser, self.node, 'script')             # <<<<<<<<<<<<<<
@@ -26193,25 +26328,25 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
  */
     __pyx_t_2 = ((PyObject *)__pyx_v_self->parser);
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_3 = __pyx_f_10selectolax_6parser_find_nodes(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_t_2), __pyx_v_self->node, __pyx_n_u_script); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 857, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_10selectolax_6parser_find_nodes(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_t_2), __pyx_v_self->node, __pyx_n_u_script); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 873, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_nodes = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":858
+    /* "selectolax/modest/node.pxi":874
  *         if self.parser.cached_script_srcs is None:
  *             nodes = find_nodes(self.parser, self.node, 'script')
  *             src_nodes = []             # <<<<<<<<<<<<<<
  *             for node in nodes:
  *                 node_src = node.attrs.get('src')
  */
-    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 858, __pyx_L1_error)
+    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 874, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_src_nodes = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":859
+    /* "selectolax/modest/node.pxi":875
  *             nodes = find_nodes(self.parser, self.node, 'script')
  *             src_nodes = []
  *             for node in nodes:             # <<<<<<<<<<<<<<
@@ -26223,9 +26358,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
       __pyx_t_4 = 0;
       __pyx_t_5 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 859, __pyx_L1_error)
+      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 875, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 859, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 875, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_5)) {
@@ -26233,28 +26368,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 859, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 875, __pyx_L1_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 859, __pyx_L1_error)
+          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 875, __pyx_L1_error)
           #else
-          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 859, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 875, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         } else {
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 859, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 875, __pyx_L1_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 859, __pyx_L1_error)
+          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 875, __pyx_L1_error)
           #else
-          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 859, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 875, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         }
@@ -26264,7 +26399,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(2, 859, __pyx_L1_error)
+            else __PYX_ERR(2, 875, __pyx_L1_error)
           }
           break;
         }
@@ -26273,16 +26408,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
       __Pyx_XDECREF_SET(__pyx_v_node, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "selectolax/modest/node.pxi":860
+      /* "selectolax/modest/node.pxi":876
  *             src_nodes = []
  *             for node in nodes:
  *                 node_src = node.attrs.get('src')             # <<<<<<<<<<<<<<
  *                 if node_src:
  *                     src_nodes.append(node_src)
  */
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_attrs); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 860, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_attrs); if (unlikely(!__pyx_t_6)) __PYX_ERR(2, 876, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_get); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 860, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_get); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 876, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_6 = NULL;
@@ -26303,33 +26438,33 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
         PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_n_u_src};
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 860, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 876, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       }
       __Pyx_XDECREF_SET(__pyx_v_node_src, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "selectolax/modest/node.pxi":861
+      /* "selectolax/modest/node.pxi":877
  *             for node in nodes:
  *                 node_src = node.attrs.get('src')
  *                 if node_src:             # <<<<<<<<<<<<<<
  *                     src_nodes.append(node_src)
  *             self.parser.cached_script_srcs = src_nodes
  */
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_node_src); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 861, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_node_src); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 877, __pyx_L1_error)
       if (__pyx_t_1) {
 
-        /* "selectolax/modest/node.pxi":862
+        /* "selectolax/modest/node.pxi":878
  *                 node_src = node.attrs.get('src')
  *                 if node_src:
  *                     src_nodes.append(node_src)             # <<<<<<<<<<<<<<
  *             self.parser.cached_script_srcs = src_nodes
  * 
  */
-        __pyx_t_9 = __Pyx_PyList_Append(__pyx_v_src_nodes, __pyx_v_node_src); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(2, 862, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyList_Append(__pyx_v_src_nodes, __pyx_v_node_src); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(2, 878, __pyx_L1_error)
 
-        /* "selectolax/modest/node.pxi":861
+        /* "selectolax/modest/node.pxi":877
  *             for node in nodes:
  *                 node_src = node.attrs.get('src')
  *                 if node_src:             # <<<<<<<<<<<<<<
@@ -26338,7 +26473,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
  */
       }
 
-      /* "selectolax/modest/node.pxi":859
+      /* "selectolax/modest/node.pxi":875
  *             nodes = find_nodes(self.parser, self.node, 'script')
  *             src_nodes = []
  *             for node in nodes:             # <<<<<<<<<<<<<<
@@ -26348,7 +26483,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/modest/node.pxi":863
+    /* "selectolax/modest/node.pxi":879
  *                 if node_src:
  *                     src_nodes.append(node_src)
  *             self.parser.cached_script_srcs = src_nodes             # <<<<<<<<<<<<<<
@@ -26361,7 +26496,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
     __Pyx_DECREF(__pyx_v_self->parser->cached_script_srcs);
     __pyx_v_self->parser->cached_script_srcs = __pyx_v_src_nodes;
 
-    /* "selectolax/modest/node.pxi":856
+    /* "selectolax/modest/node.pxi":872
  * 
  *         """
  *         if self.parser.cached_script_srcs is None:             # <<<<<<<<<<<<<<
@@ -26370,7 +26505,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
  */
   }
 
-  /* "selectolax/modest/node.pxi":865
+  /* "selectolax/modest/node.pxi":881
  *             self.parser.cached_script_srcs = src_nodes
  * 
  *         for text in self.parser.cached_script_srcs:             # <<<<<<<<<<<<<<
@@ -26382,9 +26517,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
     __pyx_t_4 = 0;
     __pyx_t_5 = NULL;
   } else {
-    __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_self->parser->cached_script_srcs); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 865, __pyx_L1_error)
+    __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_self->parser->cached_script_srcs); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 881, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 865, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 881, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_5)) {
@@ -26392,28 +26527,28 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 865, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 881, __pyx_L1_error)
           #endif
           if (__pyx_t_4 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_2 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 865, __pyx_L1_error)
+        __pyx_t_2 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 881, __pyx_L1_error)
         #else
-        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 865, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 881, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         #endif
       } else {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 865, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 881, __pyx_L1_error)
           #endif
           if (__pyx_t_4 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 865, __pyx_L1_error)
+        __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(2, 881, __pyx_L1_error)
         #else
-        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 865, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 881, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         #endif
       }
@@ -26423,7 +26558,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(2, 865, __pyx_L1_error)
+          else __PYX_ERR(2, 881, __pyx_L1_error)
         }
         break;
       }
@@ -26432,7 +26567,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
     __Pyx_XDECREF_SET(__pyx_v_text, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":866
+    /* "selectolax/modest/node.pxi":882
  * 
  *         for text in self.parser.cached_script_srcs:
  *             for query in queries:             # <<<<<<<<<<<<<<
@@ -26441,7 +26576,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
  */
     if (unlikely(__pyx_v_queries == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(2, 866, __pyx_L1_error)
+      __PYX_ERR(2, 882, __pyx_L1_error)
     }
     __pyx_t_2 = __pyx_v_queries; __Pyx_INCREF(__pyx_t_2);
     __pyx_t_10 = 0;
@@ -26449,30 +26584,30 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
       {
         Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_2);
         #if !CYTHON_ASSUME_SAFE_MACROS
-        if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 866, __pyx_L1_error)
+        if (unlikely((__pyx_temp < 0))) __PYX_ERR(2, 882, __pyx_L1_error)
         #endif
         if (__pyx_t_10 >= __pyx_temp) break;
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-      __pyx_t_7 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_10); __Pyx_INCREF(__pyx_t_7); __pyx_t_10++; if (unlikely((0 < 0))) __PYX_ERR(2, 866, __pyx_L1_error)
+      __pyx_t_7 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_10); __Pyx_INCREF(__pyx_t_7); __pyx_t_10++; if (unlikely((0 < 0))) __PYX_ERR(2, 882, __pyx_L1_error)
       #else
-      __pyx_t_7 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_10); __pyx_t_10++; if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 866, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_10); __pyx_t_10++; if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 882, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       #endif
       __Pyx_XDECREF_SET(__pyx_v_query, __pyx_t_7);
       __pyx_t_7 = 0;
 
-      /* "selectolax/modest/node.pxi":867
+      /* "selectolax/modest/node.pxi":883
  *         for text in self.parser.cached_script_srcs:
  *             for query in queries:
  *                 if query in text:             # <<<<<<<<<<<<<<
  *                     return True
  *         return False
  */
-      __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_query, __pyx_v_text, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 867, __pyx_L1_error)
+      __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_query, __pyx_v_text, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(2, 883, __pyx_L1_error)
       if (__pyx_t_1) {
 
-        /* "selectolax/modest/node.pxi":868
+        /* "selectolax/modest/node.pxi":884
  *             for query in queries:
  *                 if query in text:
  *                     return True             # <<<<<<<<<<<<<<
@@ -26486,7 +26621,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         goto __pyx_L0;
 
-        /* "selectolax/modest/node.pxi":867
+        /* "selectolax/modest/node.pxi":883
  *         for text in self.parser.cached_script_srcs:
  *             for query in queries:
  *                 if query in text:             # <<<<<<<<<<<<<<
@@ -26495,7 +26630,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
  */
       }
 
-      /* "selectolax/modest/node.pxi":866
+      /* "selectolax/modest/node.pxi":882
  * 
  *         for text in self.parser.cached_script_srcs:
  *             for query in queries:             # <<<<<<<<<<<<<<
@@ -26505,7 +26640,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":865
+    /* "selectolax/modest/node.pxi":881
  *             self.parser.cached_script_srcs = src_nodes
  * 
  *         for text in self.parser.cached_script_srcs:             # <<<<<<<<<<<<<<
@@ -26515,7 +26650,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "selectolax/modest/node.pxi":869
+  /* "selectolax/modest/node.pxi":885
  *                 if query in text:
  *                     return True
  *         return False             # <<<<<<<<<<<<<<
@@ -26527,7 +26662,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
   __pyx_r = Py_False;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":846
+  /* "selectolax/modest/node.pxi":862
  *         return False
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
@@ -26555,7 +26690,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_42script_srcs_contain(struc
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":871
+/* "selectolax/modest/node.pxi":887
  *         return False
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -26588,7 +26723,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_44__repr__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "selectolax/modest/node.pxi":872
+  /* "selectolax/modest/node.pxi":888
  * 
  *     def __repr__(self):
  *         return '<Node %s>' % self.tag             # <<<<<<<<<<<<<<
@@ -26596,16 +26731,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_44__repr__(struct __pyx_obj
  *     def __eq__(self, other):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_tag); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 872, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_tag); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Node_s, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 872, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Node_s, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":871
+  /* "selectolax/modest/node.pxi":887
  *         return False
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -26625,7 +26760,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_44__repr__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":874
+/* "selectolax/modest/node.pxi":890
  *         return '<Node %s>' % self.tag
  * 
  *     def __eq__(self, other):             # <<<<<<<<<<<<<<
@@ -26661,7 +26796,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__eq__", 1);
 
-  /* "selectolax/modest/node.pxi":875
+  /* "selectolax/modest/node.pxi":891
  * 
  *     def __eq__(self, other):
  *         if isinstance(other, str):             # <<<<<<<<<<<<<<
@@ -26671,7 +26806,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
   __pyx_t_1 = PyUnicode_Check(__pyx_v_other); 
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":876
+    /* "selectolax/modest/node.pxi":892
  *     def __eq__(self, other):
  *         if isinstance(other, str):
  *             return self.html == other             # <<<<<<<<<<<<<<
@@ -26679,15 +26814,15 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
  *             return False
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_html); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 876, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_html); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 892, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_v_other, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 876, __pyx_L1_error)
+    __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_v_other, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 892, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "selectolax/modest/node.pxi":875
+    /* "selectolax/modest/node.pxi":891
  * 
  *     def __eq__(self, other):
  *         if isinstance(other, str):             # <<<<<<<<<<<<<<
@@ -26696,7 +26831,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
  */
   }
 
-  /* "selectolax/modest/node.pxi":877
+  /* "selectolax/modest/node.pxi":893
  *         if isinstance(other, str):
  *             return self.html == other
  *         if not isinstance(other, Node):             # <<<<<<<<<<<<<<
@@ -26707,7 +26842,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
   __pyx_t_4 = (!__pyx_t_1);
   if (__pyx_t_4) {
 
-    /* "selectolax/modest/node.pxi":878
+    /* "selectolax/modest/node.pxi":894
  *             return self.html == other
  *         if not isinstance(other, Node):
  *             return False             # <<<<<<<<<<<<<<
@@ -26719,7 +26854,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
     __pyx_r = Py_False;
     goto __pyx_L0;
 
-    /* "selectolax/modest/node.pxi":877
+    /* "selectolax/modest/node.pxi":893
  *         if isinstance(other, str):
  *             return self.html == other
  *         if not isinstance(other, Node):             # <<<<<<<<<<<<<<
@@ -26728,7 +26863,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
  */
   }
 
-  /* "selectolax/modest/node.pxi":879
+  /* "selectolax/modest/node.pxi":895
  *         if not isinstance(other, Node):
  *             return False
  *         return self.html == other.html             # <<<<<<<<<<<<<<
@@ -26736,18 +26871,18 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
  *     def text_content(self):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_html); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 879, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_html); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_n_s_html); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 879, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_n_s_html); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 879, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 895, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_5;
   __pyx_t_5 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":874
+  /* "selectolax/modest/node.pxi":890
  *         return '<Node %s>' % self.tag
  * 
  *     def __eq__(self, other):             # <<<<<<<<<<<<<<
@@ -26768,7 +26903,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_46__eq__(struct __pyx_obj_1
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":880
+/* "selectolax/modest/node.pxi":896
  *             return False
  *         return self.html == other.html
  *     @property             # <<<<<<<<<<<<<<
@@ -26809,7 +26944,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "selectolax/modest/node.pxi":891
+  /* "selectolax/modest/node.pxi":907
  *         text : str or None.
  *         """
  *         text = ""             # <<<<<<<<<<<<<<
@@ -26819,7 +26954,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
   __Pyx_INCREF(__pyx_kp_u__3);
   __pyx_v_text = __pyx_kp_u__3;
 
-  /* "selectolax/modest/node.pxi":893
+  /* "selectolax/modest/node.pxi":909
  *         text = ""
  *         cdef const char* c_text
  *         cdef myhtml_tree_node_t *node = self.node.child             # <<<<<<<<<<<<<<
@@ -26829,7 +26964,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
   __pyx_t_1 = __pyx_v_self->node->child;
   __pyx_v_node = __pyx_t_1;
 
-  /* "selectolax/modest/node.pxi":895
+  /* "selectolax/modest/node.pxi":911
  *         cdef myhtml_tree_node_t *node = self.node.child
  * 
  *         if self.node.tag_id == MyHTML_TAG__TEXT:             # <<<<<<<<<<<<<<
@@ -26839,7 +26974,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
   __pyx_t_2 = (__pyx_v_self->node->tag_id == MyHTML_TAG__TEXT);
   if (__pyx_t_2) {
 
-    /* "selectolax/modest/node.pxi":896
+    /* "selectolax/modest/node.pxi":912
  * 
  *         if self.node.tag_id == MyHTML_TAG__TEXT:
  *             c_text = myhtml_node_text(self.node, NULL)             # <<<<<<<<<<<<<<
@@ -26848,7 +26983,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
  */
     __pyx_v_c_text = myhtml_node_text(__pyx_v_self->node, NULL);
 
-    /* "selectolax/modest/node.pxi":897
+    /* "selectolax/modest/node.pxi":913
  *         if self.node.tag_id == MyHTML_TAG__TEXT:
  *             c_text = myhtml_node_text(self.node, NULL)
  *             if c_text != NULL:             # <<<<<<<<<<<<<<
@@ -26858,16 +26993,16 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
     __pyx_t_2 = (__pyx_v_c_text != NULL);
     if (__pyx_t_2) {
 
-      /* "selectolax/modest/node.pxi":898
+      /* "selectolax/modest/node.pxi":914
  *             c_text = myhtml_node_text(self.node, NULL)
  *             if c_text != NULL:
  *                 node_text = c_text.decode(_ENCODING, self.parser.decode_errors)             # <<<<<<<<<<<<<<
  *                 return append_text(text, node_text)
  *         return None
  */
-      __pyx_t_4 = __Pyx_PyBytes_FromString(__pyx_v_c_text); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 898, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyBytes_FromString(__pyx_v_c_text); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 914, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_decode); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 898, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_decode); if (unlikely(!__pyx_t_5)) __PYX_ERR(2, 914, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_4 = NULL;
@@ -26888,14 +27023,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
         PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_kp_u_UTF_8, __pyx_v_self->parser->decode_errors};
         __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_6, 2+__pyx_t_6);
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 898, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 914, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __pyx_v_node_text = __pyx_t_3;
       __pyx_t_3 = 0;
 
-      /* "selectolax/modest/node.pxi":899
+      /* "selectolax/modest/node.pxi":915
  *             if c_text != NULL:
  *                 node_text = c_text.decode(_ENCODING, self.parser.decode_errors)
  *                 return append_text(text, node_text)             # <<<<<<<<<<<<<<
@@ -26903,14 +27038,14 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
  * 
  */
       __Pyx_XDECREF(__pyx_r);
-      if (!(likely(PyUnicode_CheckExact(__pyx_v_node_text))||((__pyx_v_node_text) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_node_text))) __PYX_ERR(2, 899, __pyx_L1_error)
-      __pyx_t_3 = __pyx_f_10selectolax_6parser_append_text(__pyx_v_text, ((PyObject*)__pyx_v_node_text), NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 899, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_v_node_text))||((__pyx_v_node_text) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_node_text))) __PYX_ERR(2, 915, __pyx_L1_error)
+      __pyx_t_3 = __pyx_f_10selectolax_6parser_append_text(__pyx_v_text, ((PyObject*)__pyx_v_node_text), NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 915, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_r = __pyx_t_3;
       __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "selectolax/modest/node.pxi":897
+      /* "selectolax/modest/node.pxi":913
  *         if self.node.tag_id == MyHTML_TAG__TEXT:
  *             c_text = myhtml_node_text(self.node, NULL)
  *             if c_text != NULL:             # <<<<<<<<<<<<<<
@@ -26919,7 +27054,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
  */
     }
 
-    /* "selectolax/modest/node.pxi":895
+    /* "selectolax/modest/node.pxi":911
  *         cdef myhtml_tree_node_t *node = self.node.child
  * 
  *         if self.node.tag_id == MyHTML_TAG__TEXT:             # <<<<<<<<<<<<<<
@@ -26928,7 +27063,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
  */
   }
 
-  /* "selectolax/modest/node.pxi":900
+  /* "selectolax/modest/node.pxi":916
  *                 node_text = c_text.decode(_ENCODING, self.parser.decode_errors)
  *                 return append_text(text, node_text)
  *         return None             # <<<<<<<<<<<<<<
@@ -26939,7 +27074,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":880
+  /* "selectolax/modest/node.pxi":896
  *             return False
  *         return self.html == other.html
  *     @property             # <<<<<<<<<<<<<<
@@ -26962,7 +27097,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_12text_content___get__(stru
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":902
+/* "selectolax/modest/node.pxi":918
  *         return None
  * 
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
@@ -27032,19 +27167,19 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("merge_text_nodes", 1);
 
-  /* "selectolax/modest/node.pxi":920
+  /* "selectolax/modest/node.pxi":936
  *         "John Doe"
  *         """
  *         cdef Stack stack = Stack(_STACK_SIZE)             # <<<<<<<<<<<<<<
  *         cdef myhtml_tree_node_t * current_node = NULL
  *         cdef Node next_node
  */
-  __pyx_t_1 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_10selectolax_6parser_Stack), __pyx_tuple__7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 920, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_10selectolax_6parser_Stack), __pyx_tuple__7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 936, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_stack = ((struct __pyx_obj_10selectolax_6parser_Stack *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "selectolax/modest/node.pxi":921
+  /* "selectolax/modest/node.pxi":937
  *         """
  *         cdef Stack stack = Stack(_STACK_SIZE)
  *         cdef myhtml_tree_node_t * current_node = NULL             # <<<<<<<<<<<<<<
@@ -27053,18 +27188,18 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
   __pyx_v_current_node = NULL;
 
-  /* "selectolax/modest/node.pxi":928
+  /* "selectolax/modest/node.pxi":944
  *         cdef size_t left_length, right_length, final_length
  * 
  *         stack.push(self.node)             # <<<<<<<<<<<<<<
  * 
  *         while not stack.is_empty():
  */
-  __pyx_t_1 = __pyx_f_10selectolax_6parser_5Stack_push(__pyx_v_stack, __pyx_v_self->node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 928, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_10selectolax_6parser_5Stack_push(__pyx_v_stack, __pyx_v_self->node); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 944, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "selectolax/modest/node.pxi":930
+  /* "selectolax/modest/node.pxi":946
  *         stack.push(self.node)
  * 
  *         while not stack.is_empty():             # <<<<<<<<<<<<<<
@@ -27072,21 +27207,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  * 
  */
   while (1) {
-    __pyx_t_2 = __pyx_f_10selectolax_6parser_5Stack_is_empty(__pyx_v_stack); if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 930, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_10selectolax_6parser_5Stack_is_empty(__pyx_v_stack); if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 946, __pyx_L1_error)
     __pyx_t_3 = (!__pyx_t_2);
     if (!__pyx_t_3) break;
 
-    /* "selectolax/modest/node.pxi":931
+    /* "selectolax/modest/node.pxi":947
  * 
  *         while not stack.is_empty():
  *             current_node = stack.pop()             # <<<<<<<<<<<<<<
  * 
  *             if current_node.tag_id == MyHTML_TAG__TEXT and current_node.prev and \
  */
-    __pyx_t_4 = __pyx_f_10selectolax_6parser_5Stack_pop(__pyx_v_stack); if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 931, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_10selectolax_6parser_5Stack_pop(__pyx_v_stack); if (unlikely(PyErr_Occurred())) __PYX_ERR(2, 947, __pyx_L1_error)
     __pyx_v_current_node = __pyx_t_4;
 
-    /* "selectolax/modest/node.pxi":933
+    /* "selectolax/modest/node.pxi":949
  *             current_node = stack.pop()
  * 
  *             if current_node.tag_id == MyHTML_TAG__TEXT and current_node.prev and \             # <<<<<<<<<<<<<<
@@ -27106,7 +27241,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
       goto __pyx_L6_bool_binop_done;
     }
 
-    /* "selectolax/modest/node.pxi":934
+    /* "selectolax/modest/node.pxi":950
  * 
  *             if current_node.tag_id == MyHTML_TAG__TEXT and current_node.prev and \
  *                 current_node.prev.tag_id == MyHTML_TAG__TEXT:             # <<<<<<<<<<<<<<
@@ -27117,7 +27252,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
     __pyx_t_3 = __pyx_t_2;
     __pyx_L6_bool_binop_done:;
 
-    /* "selectolax/modest/node.pxi":933
+    /* "selectolax/modest/node.pxi":949
  *             current_node = stack.pop()
  * 
  *             if current_node.tag_id == MyHTML_TAG__TEXT and current_node.prev and \             # <<<<<<<<<<<<<<
@@ -27126,7 +27261,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
     if (__pyx_t_3) {
 
-      /* "selectolax/modest/node.pxi":935
+      /* "selectolax/modest/node.pxi":951
  *             if current_node.tag_id == MyHTML_TAG__TEXT and current_node.prev and \
  *                 current_node.prev.tag_id == MyHTML_TAG__TEXT:
  *                 left_text = myhtml_node_text(current_node.prev, &left_length)             # <<<<<<<<<<<<<<
@@ -27135,7 +27270,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
       __pyx_v_left_text = myhtml_node_text(__pyx_v_current_node->prev, (&__pyx_v_left_length));
 
-      /* "selectolax/modest/node.pxi":936
+      /* "selectolax/modest/node.pxi":952
  *                 current_node.prev.tag_id == MyHTML_TAG__TEXT:
  *                 left_text = myhtml_node_text(current_node.prev, &left_length)
  *                 right_text = myhtml_node_text(current_node, &right_length)             # <<<<<<<<<<<<<<
@@ -27144,7 +27279,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
       __pyx_v_right_text = myhtml_node_text(__pyx_v_current_node, (&__pyx_v_right_length));
 
-      /* "selectolax/modest/node.pxi":937
+      /* "selectolax/modest/node.pxi":953
  *                 left_text = myhtml_node_text(current_node.prev, &left_length)
  *                 right_text = myhtml_node_text(current_node, &right_length)
  *                 if left_text and right_text:             # <<<<<<<<<<<<<<
@@ -27162,7 +27297,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
       __pyx_L10_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "selectolax/modest/node.pxi":938
+        /* "selectolax/modest/node.pxi":954
  *                 right_text = myhtml_node_text(current_node, &right_length)
  *                 if left_text and right_text:
  *                     final_length = left_length + right_length             # <<<<<<<<<<<<<<
@@ -27171,7 +27306,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         __pyx_v_final_length = (__pyx_v_left_length + __pyx_v_right_length);
 
-        /* "selectolax/modest/node.pxi":939
+        /* "selectolax/modest/node.pxi":955
  *                 if left_text and right_text:
  *                     final_length = left_length + right_length
  *                     final_text = <char *>malloc(final_length + 1)             # <<<<<<<<<<<<<<
@@ -27180,7 +27315,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         __pyx_v_final_text = ((char *)malloc((__pyx_v_final_length + 1)));
 
-        /* "selectolax/modest/node.pxi":940
+        /* "selectolax/modest/node.pxi":956
  *                     final_length = left_length + right_length
  *                     final_text = <char *>malloc(final_length + 1)
  *                     if final_text == NULL:             # <<<<<<<<<<<<<<
@@ -27190,20 +27325,20 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
         __pyx_t_3 = (__pyx_v_final_text == NULL);
         if (unlikely(__pyx_t_3)) {
 
-          /* "selectolax/modest/node.pxi":941
+          /* "selectolax/modest/node.pxi":957
  *                     final_text = <char *>malloc(final_length + 1)
  *                     if final_text == NULL:
  *                         raise MemoryError("Can't allocate memory for a new node.")             # <<<<<<<<<<<<<<
  *                     memcpy(final_text, left_text, left_length)
  *                     memcpy(final_text + left_length, right_text, right_length + 1)
  */
-          __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_MemoryError, __pyx_tuple__19, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 941, __pyx_L1_error)
+          __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_MemoryError, __pyx_tuple__19, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 957, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
           __Pyx_Raise(__pyx_t_1, 0, 0, 0);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __PYX_ERR(2, 941, __pyx_L1_error)
+          __PYX_ERR(2, 957, __pyx_L1_error)
 
-          /* "selectolax/modest/node.pxi":940
+          /* "selectolax/modest/node.pxi":956
  *                     final_length = left_length + right_length
  *                     final_text = <char *>malloc(final_length + 1)
  *                     if final_text == NULL:             # <<<<<<<<<<<<<<
@@ -27212,7 +27347,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         }
 
-        /* "selectolax/modest/node.pxi":942
+        /* "selectolax/modest/node.pxi":958
  *                     if final_text == NULL:
  *                         raise MemoryError("Can't allocate memory for a new node.")
  *                     memcpy(final_text, left_text, left_length)             # <<<<<<<<<<<<<<
@@ -27221,7 +27356,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         (void)(memcpy(__pyx_v_final_text, __pyx_v_left_text, __pyx_v_left_length));
 
-        /* "selectolax/modest/node.pxi":943
+        /* "selectolax/modest/node.pxi":959
  *                         raise MemoryError("Can't allocate memory for a new node.")
  *                     memcpy(final_text, left_text, left_length)
  *                     memcpy(final_text + left_length, right_text, right_length + 1)             # <<<<<<<<<<<<<<
@@ -27230,7 +27365,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         (void)(memcpy((__pyx_v_final_text + __pyx_v_left_length), __pyx_v_right_text, (__pyx_v_right_length + 1)));
 
-        /* "selectolax/modest/node.pxi":944
+        /* "selectolax/modest/node.pxi":960
  *                     memcpy(final_text, left_text, left_length)
  *                     memcpy(final_text + left_length, right_text, right_length + 1)
  *                     myhtml_node_text_set(current_node, <const char *>final_text, final_length, MyENCODING_UTF_8)             # <<<<<<<<<<<<<<
@@ -27239,7 +27374,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         (void)(myhtml_node_text_set(__pyx_v_current_node, ((char const *)__pyx_v_final_text), __pyx_v_final_length, MyENCODING_UTF_8));
 
-        /* "selectolax/modest/node.pxi":945
+        /* "selectolax/modest/node.pxi":961
  *                     memcpy(final_text + left_length, right_text, right_length + 1)
  *                     myhtml_node_text_set(current_node, <const char *>final_text, final_length, MyENCODING_UTF_8)
  *                     myhtml_node_delete(current_node.prev)             # <<<<<<<<<<<<<<
@@ -27248,7 +27383,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         myhtml_node_delete(__pyx_v_current_node->prev);
 
-        /* "selectolax/modest/node.pxi":946
+        /* "selectolax/modest/node.pxi":962
  *                     myhtml_node_text_set(current_node, <const char *>final_text, final_length, MyENCODING_UTF_8)
  *                     myhtml_node_delete(current_node.prev)
  *                     free(final_text)             # <<<<<<<<<<<<<<
@@ -27257,7 +27392,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
         free(__pyx_v_final_text);
 
-        /* "selectolax/modest/node.pxi":937
+        /* "selectolax/modest/node.pxi":953
  *                 left_text = myhtml_node_text(current_node.prev, &left_length)
  *                 right_text = myhtml_node_text(current_node, &right_length)
  *                 if left_text and right_text:             # <<<<<<<<<<<<<<
@@ -27266,7 +27401,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
       }
 
-      /* "selectolax/modest/node.pxi":933
+      /* "selectolax/modest/node.pxi":949
  *             current_node = stack.pop()
  * 
  *             if current_node.tag_id == MyHTML_TAG__TEXT and current_node.prev and \             # <<<<<<<<<<<<<<
@@ -27275,7 +27410,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
     }
 
-    /* "selectolax/modest/node.pxi":948
+    /* "selectolax/modest/node.pxi":964
  *                     free(final_text)
  * 
  *             if current_node.next is not NULL:             # <<<<<<<<<<<<<<
@@ -27285,18 +27420,18 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
     __pyx_t_3 = (__pyx_v_current_node->next != NULL);
     if (__pyx_t_3) {
 
-      /* "selectolax/modest/node.pxi":949
+      /* "selectolax/modest/node.pxi":965
  * 
  *             if current_node.next is not NULL:
  *                 stack.push(current_node.next)             # <<<<<<<<<<<<<<
  * 
  *             if current_node.child is not NULL:
  */
-      __pyx_t_1 = __pyx_f_10selectolax_6parser_5Stack_push(__pyx_v_stack, __pyx_v_current_node->next); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 949, __pyx_L1_error)
+      __pyx_t_1 = __pyx_f_10selectolax_6parser_5Stack_push(__pyx_v_stack, __pyx_v_current_node->next); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 965, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "selectolax/modest/node.pxi":948
+      /* "selectolax/modest/node.pxi":964
  *                     free(final_text)
  * 
  *             if current_node.next is not NULL:             # <<<<<<<<<<<<<<
@@ -27305,7 +27440,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
  */
     }
 
-    /* "selectolax/modest/node.pxi":951
+    /* "selectolax/modest/node.pxi":967
  *                 stack.push(current_node.next)
  * 
  *             if current_node.child is not NULL:             # <<<<<<<<<<<<<<
@@ -27315,18 +27450,18 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
     __pyx_t_3 = (__pyx_v_current_node->child != NULL);
     if (__pyx_t_3) {
 
-      /* "selectolax/modest/node.pxi":952
+      /* "selectolax/modest/node.pxi":968
  * 
  *             if current_node.child is not NULL:
  *                 stack.push(current_node.child)             # <<<<<<<<<<<<<<
  * 
  * cdef inline str append_text(str text, str node_text, str separator='', bint strip=False):
  */
-      __pyx_t_1 = __pyx_f_10selectolax_6parser_5Stack_push(__pyx_v_stack, __pyx_v_current_node->child); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 952, __pyx_L1_error)
+      __pyx_t_1 = __pyx_f_10selectolax_6parser_5Stack_push(__pyx_v_stack, __pyx_v_current_node->child); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 968, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "selectolax/modest/node.pxi":951
+      /* "selectolax/modest/node.pxi":967
  *                 stack.push(current_node.next)
  * 
  *             if current_node.child is not NULL:             # <<<<<<<<<<<<<<
@@ -27336,7 +27471,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_48merge_text_nodes(struct _
     }
   }
 
-  /* "selectolax/modest/node.pxi":902
+  /* "selectolax/modest/node.pxi":918
  *         return None
  * 
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
@@ -27688,7 +27823,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_4Node_84__setstate_cython__(CYTHO
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":954
+/* "selectolax/modest/node.pxi":970
  *                 stack.push(current_node.child)
  * 
  * cdef inline str append_text(str text, str node_text, str separator='', bint strip=False):             # <<<<<<<<<<<<<<
@@ -27717,7 +27852,7 @@ static CYTHON_INLINE PyObject *__pyx_f_10selectolax_6parser_append_text(PyObject
   }
   __Pyx_INCREF(__pyx_v_text);
 
-  /* "selectolax/modest/node.pxi":955
+  /* "selectolax/modest/node.pxi":971
  * 
  * cdef inline str append_text(str text, str node_text, str separator='', bint strip=False):
  *     if strip:             # <<<<<<<<<<<<<<
@@ -27726,26 +27861,26 @@ static CYTHON_INLINE PyObject *__pyx_f_10selectolax_6parser_append_text(PyObject
  */
   if (__pyx_v_strip) {
 
-    /* "selectolax/modest/node.pxi":956
+    /* "selectolax/modest/node.pxi":972
  * cdef inline str append_text(str text, str node_text, str separator='', bint strip=False):
  *     if strip:
  *         text += node_text.strip() + separator             # <<<<<<<<<<<<<<
  *     else:
  *         text += node_text + separator
  */
-    __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_strip, __pyx_v_node_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 956, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_strip, __pyx_v_node_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 972, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = PyNumber_Add(__pyx_t_1, __pyx_v_separator); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 956, __pyx_L1_error)
+    __pyx_t_2 = PyNumber_Add(__pyx_t_1, __pyx_v_separator); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 972, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyNumber_InPlaceAdd(__pyx_v_text, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 956, __pyx_L1_error)
+    __pyx_t_1 = PyNumber_InPlaceAdd(__pyx_v_text, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 972, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(2, 956, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(2, 972, __pyx_L1_error)
     __Pyx_DECREF_SET(__pyx_v_text, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "selectolax/modest/node.pxi":955
+    /* "selectolax/modest/node.pxi":971
  * 
  * cdef inline str append_text(str text, str node_text, str separator='', bint strip=False):
  *     if strip:             # <<<<<<<<<<<<<<
@@ -27755,7 +27890,7 @@ static CYTHON_INLINE PyObject *__pyx_f_10selectolax_6parser_append_text(PyObject
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":958
+  /* "selectolax/modest/node.pxi":974
  *         text += node_text.strip() + separator
  *     else:
  *         text += node_text + separator             # <<<<<<<<<<<<<<
@@ -27763,9 +27898,9 @@ static CYTHON_INLINE PyObject *__pyx_f_10selectolax_6parser_append_text(PyObject
  *     return text
  */
   /*else*/ {
-    __pyx_t_1 = __Pyx_PyUnicode_ConcatSafe(__pyx_v_node_text, __pyx_v_separator); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 958, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_ConcatSafe(__pyx_v_node_text, __pyx_v_separator); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 974, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyUnicode_ConcatInPlaceSafe(__pyx_v_text, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 958, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_ConcatInPlaceSafe(__pyx_v_text, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 974, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF_SET(__pyx_v_text, ((PyObject*)__pyx_t_2));
@@ -27773,7 +27908,7 @@ static CYTHON_INLINE PyObject *__pyx_f_10selectolax_6parser_append_text(PyObject
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":960
+  /* "selectolax/modest/node.pxi":976
  *         text += node_text + separator
  * 
  *     return text             # <<<<<<<<<<<<<<
@@ -27785,7 +27920,7 @@ static CYTHON_INLINE PyObject *__pyx_f_10selectolax_6parser_append_text(PyObject
   __pyx_r = __pyx_v_text;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":954
+  /* "selectolax/modest/node.pxi":970
  *                 stack.push(current_node.child)
  * 
  * cdef inline str append_text(str text, str node_text, str separator='', bint strip=False):             # <<<<<<<<<<<<<<
@@ -27806,7 +27941,7 @@ static CYTHON_INLINE PyObject *__pyx_f_10selectolax_6parser_append_text(PyObject
   return __pyx_r;
 }
 
-/* "selectolax/modest/node.pxi":963
+/* "selectolax/modest/node.pxi":979
  * 
  * 
  * cdef inline bytes to_bytes(str_or_Node value):             # <<<<<<<<<<<<<<
@@ -27829,7 +27964,7 @@ static CYTHON_INLINE PyObject *__pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_0to_bytes", 1);
 
-  /* "selectolax/modest/node.pxi":965
+  /* "selectolax/modest/node.pxi":981
  * cdef inline bytes to_bytes(str_or_Node value):
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):             # <<<<<<<<<<<<<<
@@ -27839,14 +27974,14 @@ static CYTHON_INLINE PyObject *__pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes
   __pyx_t_1 = PyUnicode_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":966
+    /* "selectolax/modest/node.pxi":982
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)             # <<<<<<<<<<<<<<
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_encode); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 966, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_encode); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 982, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -27866,15 +28001,15 @@ static CYTHON_INLINE PyObject *__pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_kp_u_UTF_8};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 966, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 982, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
-    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(2, 966, __pyx_L1_error)
+    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(2, 982, __pyx_L1_error)
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":965
+    /* "selectolax/modest/node.pxi":981
  * cdef inline bytes to_bytes(str_or_Node value):
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):             # <<<<<<<<<<<<<<
@@ -27884,7 +28019,7 @@ static CYTHON_INLINE PyObject *__pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":967
+  /* "selectolax/modest/node.pxi":983
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -27894,19 +28029,19 @@ static CYTHON_INLINE PyObject *__pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes
   __pyx_t_1 = PyBytes_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":968
+    /* "selectolax/modest/node.pxi":984
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value             # <<<<<<<<<<<<<<
  *     return bytes_val
  */
-    __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(2, 968, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyBytes_FromString(((char *)__pyx_t_6)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 968, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(2, 984, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyBytes_FromString(((char *)__pyx_t_6)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 984, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":967
+    /* "selectolax/modest/node.pxi":983
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -27916,18 +28051,18 @@ static CYTHON_INLINE PyObject *__pyx_fuse_0__pyx_f_10selectolax_6parser_to_bytes
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":969
+  /* "selectolax/modest/node.pxi":985
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value
  *     return bytes_val             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_bytes_val)) { __Pyx_RaiseUnboundLocalError("bytes_val"); __PYX_ERR(2, 969, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_bytes_val)) { __Pyx_RaiseUnboundLocalError("bytes_val"); __PYX_ERR(2, 985, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_v_bytes_val);
   __pyx_r = __pyx_v_bytes_val;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":963
+  /* "selectolax/modest/node.pxi":979
  * 
  * 
  * cdef inline bytes to_bytes(str_or_Node value):             # <<<<<<<<<<<<<<
@@ -27961,7 +28096,7 @@ static CYTHON_INLINE PyObject *__pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_1to_bytes", 1);
 
-  /* "selectolax/modest/node.pxi":965
+  /* "selectolax/modest/node.pxi":981
  * cdef inline bytes to_bytes(str_or_Node value):
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):             # <<<<<<<<<<<<<<
@@ -27971,20 +28106,20 @@ static CYTHON_INLINE PyObject *__pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes
   __pyx_t_1 = PyUnicode_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":966
+    /* "selectolax/modest/node.pxi":982
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)             # <<<<<<<<<<<<<<
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value
  */
-    __pyx_t_2 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyBytes_Type_encode, __pyx_v_value, __pyx_kp_u_UTF_8); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 966, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyBytes_Type_encode, __pyx_v_value, __pyx_kp_u_UTF_8); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 982, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(2, 966, __pyx_L1_error)
+    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(2, 982, __pyx_L1_error)
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":965
+    /* "selectolax/modest/node.pxi":981
  * cdef inline bytes to_bytes(str_or_Node value):
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):             # <<<<<<<<<<<<<<
@@ -27994,7 +28129,7 @@ static CYTHON_INLINE PyObject *__pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":967
+  /* "selectolax/modest/node.pxi":983
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -28004,7 +28139,7 @@ static CYTHON_INLINE PyObject *__pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes
   __pyx_t_1 = PyBytes_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":968
+    /* "selectolax/modest/node.pxi":984
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value             # <<<<<<<<<<<<<<
@@ -28012,15 +28147,15 @@ static CYTHON_INLINE PyObject *__pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes
  */
     if (unlikely(__pyx_v_value == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(2, 968, __pyx_L1_error)
+      __PYX_ERR(2, 984, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_PyBytes_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_3) && PyErr_Occurred())) __PYX_ERR(2, 968, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyBytes_FromString(((char *)__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 968, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBytes_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_3) && PyErr_Occurred())) __PYX_ERR(2, 984, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyBytes_FromString(((char *)__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 984, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":967
+    /* "selectolax/modest/node.pxi":983
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -28030,18 +28165,18 @@ static CYTHON_INLINE PyObject *__pyx_fuse_1__pyx_f_10selectolax_6parser_to_bytes
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":969
+  /* "selectolax/modest/node.pxi":985
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value
  *     return bytes_val             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_bytes_val)) { __Pyx_RaiseUnboundLocalError("bytes_val"); __PYX_ERR(2, 969, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_bytes_val)) { __Pyx_RaiseUnboundLocalError("bytes_val"); __PYX_ERR(2, 985, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_v_bytes_val);
   __pyx_r = __pyx_v_bytes_val;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":963
+  /* "selectolax/modest/node.pxi":979
  * 
  * 
  * cdef inline bytes to_bytes(str_or_Node value):             # <<<<<<<<<<<<<<
@@ -28076,7 +28211,7 @@ static CYTHON_INLINE PyObject *__pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__pyx_fuse_2to_bytes", 1);
 
-  /* "selectolax/modest/node.pxi":965
+  /* "selectolax/modest/node.pxi":981
  * cdef inline bytes to_bytes(str_or_Node value):
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):             # <<<<<<<<<<<<<<
@@ -28086,14 +28221,14 @@ static CYTHON_INLINE PyObject *__pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes
   __pyx_t_1 = PyUnicode_Check(((PyObject *)__pyx_v_value)); 
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":966
+    /* "selectolax/modest/node.pxi":982
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)             # <<<<<<<<<<<<<<
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_value), __pyx_n_s_encode); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 966, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_value), __pyx_n_s_encode); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 982, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -28113,15 +28248,15 @@ static CYTHON_INLINE PyObject *__pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_kp_u_UTF_8};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 966, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 982, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
-    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(2, 966, __pyx_L1_error)
+    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(2, 982, __pyx_L1_error)
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":965
+    /* "selectolax/modest/node.pxi":981
  * cdef inline bytes to_bytes(str_or_Node value):
  *     cdef bytes bytes_val
  *     if isinstance(value, (str, unicode)):             # <<<<<<<<<<<<<<
@@ -28131,7 +28266,7 @@ static CYTHON_INLINE PyObject *__pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes
     goto __pyx_L3;
   }
 
-  /* "selectolax/modest/node.pxi":967
+  /* "selectolax/modest/node.pxi":983
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -28141,19 +28276,19 @@ static CYTHON_INLINE PyObject *__pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes
   __pyx_t_1 = PyBytes_Check(((PyObject *)__pyx_v_value)); 
   if (__pyx_t_1) {
 
-    /* "selectolax/modest/node.pxi":968
+    /* "selectolax/modest/node.pxi":984
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value             # <<<<<<<<<<<<<<
  *     return bytes_val
  */
-    __pyx_t_6 = __Pyx_PyObject_AsWritableString(((PyObject *)__pyx_v_value)); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(2, 968, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyBytes_FromString(((char *)__pyx_t_6)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 968, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_AsWritableString(((PyObject *)__pyx_v_value)); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(2, 984, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyBytes_FromString(((char *)__pyx_t_6)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 984, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_bytes_val = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "selectolax/modest/node.pxi":967
+    /* "selectolax/modest/node.pxi":983
  *     if isinstance(value, (str, unicode)):
  *         bytes_val = value.encode(_ENCODING)
  *     elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -28163,18 +28298,18 @@ static CYTHON_INLINE PyObject *__pyx_fuse_2__pyx_f_10selectolax_6parser_to_bytes
   }
   __pyx_L3:;
 
-  /* "selectolax/modest/node.pxi":969
+  /* "selectolax/modest/node.pxi":985
  *     elif isinstance(value, bytes):
  *         bytes_val =  <char*> value
  *     return bytes_val             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_bytes_val)) { __Pyx_RaiseUnboundLocalError("bytes_val"); __PYX_ERR(2, 969, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_bytes_val)) { __Pyx_RaiseUnboundLocalError("bytes_val"); __PYX_ERR(2, 985, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_v_bytes_val);
   __pyx_r = __pyx_v_bytes_val;
   goto __pyx_L0;
 
-  /* "selectolax/modest/node.pxi":963
+  /* "selectolax/modest/node.pxi":979
  * 
  * 
  * cdef inline bytes to_bytes(str_or_Node value):             # <<<<<<<<<<<<<<
@@ -35657,7 +35792,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_10strip_tags(struct 
 /* "selectolax/parser.pyx":272
  * 
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty : bool = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
@@ -35670,7 +35805,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_10HTMLParser_12unwrap_tags, "HTMLParser.unwrap_tags(self, list tags)\nUnwraps specified tags from the HTML tree.\n\n        Works the same as th `unwrap` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.head.unwrap_tags(['i','a'])\n        >>> tree.head.html\n        '<body><div>Hello world!</div></body>'\n        ");
+PyDoc_STRVAR(__pyx_doc_10selectolax_6parser_10HTMLParser_12unwrap_tags, "HTMLParser.unwrap_tags(self, list tags, delete_empty: bool = False)\nUnwraps specified tags from the HTML tree.\n\n        Works the same as th `unwrap` method, but applied to a list of tags.\n\n        Parameters\n        ----------\n        tags : list\n            List of tags to remove.\n        delete_empty : bool, default False\n            If True, removes empty tags.\n\n        Examples\n        --------\n\n        >>> tree = HTMLParser(\"<div><a href=\"\">Hello</a> <i>world</i>!</div>\")\n        >>> tree.head.unwrap_tags(['i','a'])\n        >>> tree.head.html\n        '<body><div>Hello world!</div></body>'\n        ");
 static PyMethodDef __pyx_mdef_10selectolax_6parser_10HTMLParser_13unwrap_tags = {"unwrap_tags", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10selectolax_6parser_10HTMLParser_13unwrap_tags, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_10selectolax_6parser_10HTMLParser_12unwrap_tags};
 static PyObject *__pyx_pw_10selectolax_6parser_10HTMLParser_13unwrap_tags(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -35680,11 +35815,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
   PyObject *__pyx_v_tags = 0;
+  PyObject *__pyx_v_delete_empty = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[1] = {0};
+  PyObject* values[2] = {0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -35700,10 +35836,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tags,0};
+    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tags,&__pyx_n_s_delete_empty,0};
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)Py_False));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
         case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
         CYTHON_FALLTHROUGH;
         case  0: break;
@@ -35718,21 +35857,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         }
         else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 272, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_delete_empty);
+          if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 272, __pyx_L3_error)
+        }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
         if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "unwrap_tags") < 0)) __PYX_ERR(3, 272, __pyx_L3_error)
       }
-    } else if (unlikely(__pyx_nargs != 1)) {
-      goto __pyx_L5_argtuple_error;
     } else {
-      values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+      switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        break;
+        default: goto __pyx_L5_argtuple_error;
+      }
     }
     __pyx_v_tags = ((PyObject*)values[0]);
+    __pyx_v_delete_empty = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("unwrap_tags", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 272, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("unwrap_tags", 0, 1, 2, __pyx_nargs); __PYX_ERR(3, 272, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -35747,7 +35898,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tags), (&PyList_Type), 1, "tags", 1))) __PYX_ERR(3, 272, __pyx_L1_error)
-  __pyx_r = __pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_v_self), __pyx_v_tags);
+  __pyx_r = __pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_v_self), __pyx_v_tags, __pyx_v_delete_empty);
 
   /* function exit code */
   goto __pyx_L0;
@@ -35764,73 +35915,64 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_tags) {
+static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_v_self, PyObject *__pyx_v_tags, PyObject *__pyx_v_delete_empty) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   int __pyx_t_2;
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
-  unsigned int __pyx_t_5;
+  PyObject *__pyx_t_5 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("unwrap_tags", 1);
 
-  /* "selectolax/parser.pyx":290
+  /* "selectolax/parser.pyx":292
  *         '<body><div>Hello world!</div></body>'
  *         """
  *         if self.root is not None:             # <<<<<<<<<<<<<<
- *             self.root.unwrap_tags(tags)
+ *             self.root.unwrap_tags(tags, delete_empty=delete_empty)
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 290, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 292, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "selectolax/parser.pyx":291
+    /* "selectolax/parser.pyx":293
  *         """
  *         if self.root is not None:
- *             self.root.unwrap_tags(tags)             # <<<<<<<<<<<<<<
+ *             self.root.unwrap_tags(tags, delete_empty=delete_empty)             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 291, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 293, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_unwrap_tags); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 293, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_unwrap_tags); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 291, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = NULL;
-    __pyx_t_5 = 0;
-    #if CYTHON_UNPACK_METHODS
-    if (likely(PyMethod_Check(__pyx_t_4))) {
-      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
-      if (likely(__pyx_t_3)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
-        __Pyx_INCREF(__pyx_t_3);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_4, function);
-        __pyx_t_5 = 1;
-      }
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_tags};
-      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 291, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 293, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_INCREF(__pyx_v_tags);
+    __Pyx_GIVEREF(__pyx_v_tags);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_tags)) __PYX_ERR(3, 293, __pyx_L1_error);
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 293, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_delete_empty, __pyx_v_delete_empty) < 0) __PYX_ERR(3, 293, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_1, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 293, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "selectolax/parser.pyx":290
+    /* "selectolax/parser.pyx":292
  *         '<body><div>Hello world!</div></body>'
  *         """
  *         if self.root is not None:             # <<<<<<<<<<<<<<
- *             self.root.unwrap_tags(tags)
+ *             self.root.unwrap_tags(tags, delete_empty=delete_empty)
  * 
  */
   }
@@ -35838,7 +35980,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(struct
   /* "selectolax/parser.pyx":272
  * 
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty : bool = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
@@ -35850,6 +35992,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(struct
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
   __Pyx_AddTraceback("selectolax.parser.HTMLParser.unwrap_tags", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -35858,8 +36001,8 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_12unwrap_tags(struct
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":293
- *             self.root.unwrap_tags(tags)
+/* "selectolax/parser.pyx":295
+ *             self.root.unwrap_tags(tags, delete_empty=delete_empty)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def html(self):
@@ -35893,7 +36036,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4html___get__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "selectolax/parser.pyx":296
+  /* "selectolax/parser.pyx":298
  *     def html(self):
  *         """Return HTML representation of the page."""
  *         if self.html_tree and self.html_tree.document:             # <<<<<<<<<<<<<<
@@ -35911,30 +36054,30 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4html___get__(struct
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "selectolax/parser.pyx":297
+    /* "selectolax/parser.pyx":299
  *         """Return HTML representation of the page."""
  *         if self.html_tree and self.html_tree.document:
  *             node = Node()             # <<<<<<<<<<<<<<
  *             node._init(self.html_tree.document, self)
  *             return node.html
  */
-    __pyx_t_3 = __Pyx_PyObject_CallNoArg(((PyObject *)__pyx_ptype_10selectolax_6parser_Node)); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 297, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallNoArg(((PyObject *)__pyx_ptype_10selectolax_6parser_Node)); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 299, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_node = ((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "selectolax/parser.pyx":298
+    /* "selectolax/parser.pyx":300
  *         if self.html_tree and self.html_tree.document:
  *             node = Node()
  *             node._init(self.html_tree.document, self)             # <<<<<<<<<<<<<<
  *             return node.html
  *         return None
  */
-    __pyx_t_3 = ((struct __pyx_vtabstruct_10selectolax_6parser_Node *)__pyx_v_node->__pyx_vtab)->_init(__pyx_v_node, __pyx_v_self->html_tree->document, __pyx_v_self); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 298, __pyx_L1_error)
+    __pyx_t_3 = ((struct __pyx_vtabstruct_10selectolax_6parser_Node *)__pyx_v_node->__pyx_vtab)->_init(__pyx_v_node, __pyx_v_self->html_tree->document, __pyx_v_self); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 300, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "selectolax/parser.pyx":299
+    /* "selectolax/parser.pyx":301
  *             node = Node()
  *             node._init(self.html_tree.document, self)
  *             return node.html             # <<<<<<<<<<<<<<
@@ -35942,13 +36085,13 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4html___get__(struct
  * 
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_node), __pyx_n_s_html); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 299, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_node), __pyx_n_s_html); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 301, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "selectolax/parser.pyx":296
+    /* "selectolax/parser.pyx":298
  *     def html(self):
  *         """Return HTML representation of the page."""
  *         if self.html_tree and self.html_tree.document:             # <<<<<<<<<<<<<<
@@ -35957,7 +36100,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4html___get__(struct
  */
   }
 
-  /* "selectolax/parser.pyx":300
+  /* "selectolax/parser.pyx":302
  *             node._init(self.html_tree.document, self)
  *             return node.html
  *         return None             # <<<<<<<<<<<<<<
@@ -35968,8 +36111,8 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4html___get__(struct
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":293
- *             self.root.unwrap_tags(tags)
+  /* "selectolax/parser.pyx":295
+ *             self.root.unwrap_tags(tags, delete_empty=delete_empty)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def html(self):
@@ -35988,7 +36131,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_4html___get__(struct
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":302
+/* "selectolax/parser.pyx":304
  *         return None
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
@@ -36050,12 +36193,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_query);
           if (value) { values[0] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 302, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 304, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "select") < 0)) __PYX_ERR(3, 302, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "select") < 0)) __PYX_ERR(3, 304, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -36069,7 +36212,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("select", 0, 0, 1, __pyx_nargs); __PYX_ERR(3, 302, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("select", 0, 0, 1, __pyx_nargs); __PYX_ERR(3, 304, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -36108,30 +36251,30 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_14select(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("select", 1);
 
-  /* "selectolax/parser.pyx":317
+  /* "selectolax/parser.pyx":319
  *         """
  *         cdef Node node
  *         node = self.root             # <<<<<<<<<<<<<<
  *         if node:
  *             return Selector(node, query)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 317, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 319, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_10selectolax_6parser_Node))))) __PYX_ERR(3, 317, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_10selectolax_6parser_Node))))) __PYX_ERR(3, 319, __pyx_L1_error)
   __pyx_v_node = ((struct __pyx_obj_10selectolax_6parser_Node *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "selectolax/parser.pyx":318
+  /* "selectolax/parser.pyx":320
  *         cdef Node node
  *         node = self.root
  *         if node:             # <<<<<<<<<<<<<<
  *             return Selector(node, query)
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_node)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(3, 318, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_node)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(3, 320, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "selectolax/parser.pyx":319
+    /* "selectolax/parser.pyx":321
  *         node = self.root
  *         if node:
  *             return Selector(node, query)             # <<<<<<<<<<<<<<
@@ -36139,22 +36282,22 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_14select(struct __py
  *     def any_css_matches(self, tuple selectors):
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 319, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 321, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF((PyObject *)__pyx_v_node);
     __Pyx_GIVEREF((PyObject *)__pyx_v_node);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, ((PyObject *)__pyx_v_node))) __PYX_ERR(3, 319, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, ((PyObject *)__pyx_v_node))) __PYX_ERR(3, 321, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_query);
     __Pyx_GIVEREF(__pyx_v_query);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_query)) __PYX_ERR(3, 319, __pyx_L1_error);
-    __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_10selectolax_6parser_Selector), __pyx_t_1, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 319, __pyx_L1_error)
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_query)) __PYX_ERR(3, 321, __pyx_L1_error);
+    __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_10selectolax_6parser_Selector), __pyx_t_1, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 321, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "selectolax/parser.pyx":318
+    /* "selectolax/parser.pyx":320
  *         cdef Node node
  *         node = self.root
  *         if node:             # <<<<<<<<<<<<<<
@@ -36163,7 +36306,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_14select(struct __py
  */
   }
 
-  /* "selectolax/parser.pyx":302
+  /* "selectolax/parser.pyx":304
  *         return None
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
@@ -36186,7 +36329,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_14select(struct __py
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":321
+/* "selectolax/parser.pyx":323
  *             return Selector(node, query)
  * 
  *     def any_css_matches(self, tuple selectors):             # <<<<<<<<<<<<<<
@@ -36248,12 +36391,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 321, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 323, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "any_css_matches") < 0)) __PYX_ERR(3, 321, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "any_css_matches") < 0)) __PYX_ERR(3, 323, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -36264,7 +36407,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("any_css_matches", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 321, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("any_css_matches", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 323, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -36278,7 +36421,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_selectors), (&PyTuple_Type), 1, "selectors", 1))) __PYX_ERR(3, 321, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_selectors), (&PyTuple_Type), 1, "selectors", 1))) __PYX_ERR(3, 323, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_10HTMLParser_16any_css_matches(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_v_self), __pyx_v_selectors);
 
   /* function exit code */
@@ -36308,7 +36451,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_16any_css_matches(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("any_css_matches", 1);
 
-  /* "selectolax/parser.pyx":323
+  /* "selectolax/parser.pyx":325
  *     def any_css_matches(self, tuple selectors):
  *         """Returns True if any of the specified CSS selectors matches a node."""
  *         return self.root.any_css_matches(selectors)             # <<<<<<<<<<<<<<
@@ -36316,9 +36459,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_16any_css_matches(st
  *     def scripts_contain(self, str query):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 323, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 325, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_any_css_matches); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 323, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_any_css_matches); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 325, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -36339,7 +36482,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_16any_css_matches(st
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_selectors};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 323, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 325, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -36347,7 +36490,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_16any_css_matches(st
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":321
+  /* "selectolax/parser.pyx":323
  *             return Selector(node, query)
  * 
  *     def any_css_matches(self, tuple selectors):             # <<<<<<<<<<<<<<
@@ -36368,7 +36511,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_16any_css_matches(st
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":325
+/* "selectolax/parser.pyx":327
  *         return self.root.any_css_matches(selectors)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
@@ -36430,12 +36573,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 325, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 327, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scripts_contain") < 0)) __PYX_ERR(3, 325, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "scripts_contain") < 0)) __PYX_ERR(3, 327, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -36446,7 +36589,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("scripts_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 325, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("scripts_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 327, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -36460,7 +36603,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_query), (&PyUnicode_Type), 1, "query", 1))) __PYX_ERR(3, 325, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_query), (&PyUnicode_Type), 1, "query", 1))) __PYX_ERR(3, 327, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_10HTMLParser_18scripts_contain(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_v_self), __pyx_v_query);
 
   /* function exit code */
@@ -36490,7 +36633,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_18scripts_contain(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("scripts_contain", 1);
 
-  /* "selectolax/parser.pyx":336
+  /* "selectolax/parser.pyx":338
  * 
  *         """
  *         return self.root.scripts_contain(query)             # <<<<<<<<<<<<<<
@@ -36498,9 +36641,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_18scripts_contain(st
  *     def script_srcs_contain(self, tuple queries):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 336, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_scripts_contain); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 336, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_scripts_contain); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -36521,7 +36664,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_18scripts_contain(st
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_query};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 336, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 338, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -36529,7 +36672,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_18scripts_contain(st
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":325
+  /* "selectolax/parser.pyx":327
  *         return self.root.any_css_matches(selectors)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
@@ -36550,7 +36693,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_18scripts_contain(st
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":338
+/* "selectolax/parser.pyx":340
  *         return self.root.scripts_contain(query)
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
@@ -36612,12 +36755,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 338, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 340, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "script_srcs_contain") < 0)) __PYX_ERR(3, 338, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "script_srcs_contain") < 0)) __PYX_ERR(3, 340, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -36628,7 +36771,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("script_srcs_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 338, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("script_srcs_contain", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 340, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -36642,7 +36785,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_queries), (&PyTuple_Type), 1, "queries", 1))) __PYX_ERR(3, 338, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_queries), (&PyTuple_Type), 1, "queries", 1))) __PYX_ERR(3, 340, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_10HTMLParser_20script_srcs_contain(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_v_self), __pyx_v_queries);
 
   /* function exit code */
@@ -36672,7 +36815,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_20script_srcs_contai
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("script_srcs_contain", 1);
 
-  /* "selectolax/parser.pyx":348
+  /* "selectolax/parser.pyx":350
  * 
  *         """
  *         return self.root.script_srcs_contain(queries)             # <<<<<<<<<<<<<<
@@ -36680,9 +36823,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_20script_srcs_contai
  *     def css_matches(self, str selector):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 348, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 350, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_script_srcs_contain); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 348, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_script_srcs_contain); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 350, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -36703,7 +36846,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_20script_srcs_contai
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_queries};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 348, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 350, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -36711,7 +36854,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_20script_srcs_contai
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":338
+  /* "selectolax/parser.pyx":340
  *         return self.root.scripts_contain(query)
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
@@ -36732,7 +36875,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_20script_srcs_contai
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":350
+/* "selectolax/parser.pyx":352
  *         return self.root.script_srcs_contain(queries)
  * 
  *     def css_matches(self, str selector):             # <<<<<<<<<<<<<<
@@ -36794,12 +36937,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 350, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(3, 352, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "css_matches") < 0)) __PYX_ERR(3, 350, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "css_matches") < 0)) __PYX_ERR(3, 352, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -36810,7 +36953,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("css_matches", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 350, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("css_matches", 1, 1, 1, __pyx_nargs); __PYX_ERR(3, 352, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -36824,7 +36967,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_selector), (&PyUnicode_Type), 1, "selector", 1))) __PYX_ERR(3, 350, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_selector), (&PyUnicode_Type), 1, "selector", 1))) __PYX_ERR(3, 352, __pyx_L1_error)
   __pyx_r = __pyx_pf_10selectolax_6parser_10HTMLParser_22css_matches(((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_v_self), __pyx_v_selector);
 
   /* function exit code */
@@ -36854,7 +36997,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_22css_matches(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("css_matches", 1);
 
-  /* "selectolax/parser.pyx":351
+  /* "selectolax/parser.pyx":353
  * 
  *     def css_matches(self, str selector):
  *         return self.root.css_matches(selector)             # <<<<<<<<<<<<<<
@@ -36862,9 +37005,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_22css_matches(struct
  *         """Iterates over all text nodes and merges all text nodes that are close to each other.
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 351, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 353, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_css_matches); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 351, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_css_matches); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 353, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -36885,7 +37028,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_22css_matches(struct
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_selector};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 351, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 353, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -36893,7 +37036,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_22css_matches(struct
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":350
+  /* "selectolax/parser.pyx":352
  *         return self.root.script_srcs_contain(queries)
  * 
  *     def css_matches(self, str selector):             # <<<<<<<<<<<<<<
@@ -36914,7 +37057,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_22css_matches(struct
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":352
+/* "selectolax/parser.pyx":354
  *     def css_matches(self, str selector):
  *         return self.root.css_matches(selector)
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
@@ -36976,7 +37119,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_24merge_text_nodes(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("merge_text_nodes", 1);
 
-  /* "selectolax/parser.pyx":370
+  /* "selectolax/parser.pyx":372
  *         "John Doe"
  *         """
  *         return self.root.merge_text_nodes()             # <<<<<<<<<<<<<<
@@ -36984,9 +37127,9 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_24merge_text_nodes(s
  *     cdef HTMLParser from_tree(
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 370, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 372, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_merge_text_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 370, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_merge_text_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 372, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -37007,7 +37150,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_24merge_text_nodes(s
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 370, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 372, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -37015,7 +37158,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_24merge_text_nodes(s
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":352
+  /* "selectolax/parser.pyx":354
  *     def css_matches(self, str selector):
  *         return self.root.css_matches(selector)
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
@@ -37036,7 +37179,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_24merge_text_nodes(s
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":372
+/* "selectolax/parser.pyx":374
  *         return self.root.merge_text_nodes()
  *     @staticmethod
  *     cdef HTMLParser from_tree(             # <<<<<<<<<<<<<<
@@ -37055,14 +37198,14 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("from_tree", 1);
 
-  /* "selectolax/parser.pyx":376
+  /* "selectolax/parser.pyx":378
  *             myencoding_t encoding
  *     ):
  *         obj = <HTMLParser> HTMLParser.__new__(HTMLParser)             # <<<<<<<<<<<<<<
  *         obj.html_tree = tree
  *         obj.raw_html = raw_html
  */
-  __pyx_t_1 = ((PyObject *)__pyx_tp_new_10selectolax_6parser_HTMLParser(((PyTypeObject *)__pyx_ptype_10selectolax_6parser_HTMLParser), __pyx_empty_tuple, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 376, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_tp_new_10selectolax_6parser_HTMLParser(((PyTypeObject *)__pyx_ptype_10selectolax_6parser_HTMLParser), __pyx_empty_tuple, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 378, __pyx_L1_error)
   __Pyx_GOTREF((PyObject *)__pyx_t_1);
   __pyx_t_2 = ((PyObject *)__pyx_t_1);
   __Pyx_INCREF(__pyx_t_2);
@@ -37070,7 +37213,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   __pyx_v_obj = ((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "selectolax/parser.pyx":377
+  /* "selectolax/parser.pyx":379
  *     ):
  *         obj = <HTMLParser> HTMLParser.__new__(HTMLParser)
  *         obj.html_tree = tree             # <<<<<<<<<<<<<<
@@ -37079,7 +37222,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
  */
   __pyx_v_obj->html_tree = __pyx_v_tree;
 
-  /* "selectolax/parser.pyx":378
+  /* "selectolax/parser.pyx":380
  *         obj = <HTMLParser> HTMLParser.__new__(HTMLParser)
  *         obj.html_tree = tree
  *         obj.raw_html = raw_html             # <<<<<<<<<<<<<<
@@ -37092,7 +37235,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   __Pyx_DECREF(__pyx_v_obj->raw_html);
   __pyx_v_obj->raw_html = __pyx_v_raw_html;
 
-  /* "selectolax/parser.pyx":379
+  /* "selectolax/parser.pyx":381
  *         obj.html_tree = tree
  *         obj.raw_html = raw_html
  *         obj.detect_encoding = detect_encoding             # <<<<<<<<<<<<<<
@@ -37101,7 +37244,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
  */
   __pyx_v_obj->detect_encoding = __pyx_v_detect_encoding;
 
-  /* "selectolax/parser.pyx":380
+  /* "selectolax/parser.pyx":382
  *         obj.raw_html = raw_html
  *         obj.detect_encoding = detect_encoding
  *         obj.use_meta_tags = use_meta_tags             # <<<<<<<<<<<<<<
@@ -37110,7 +37253,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
  */
   __pyx_v_obj->use_meta_tags = __pyx_v_use_meta_tags;
 
-  /* "selectolax/parser.pyx":381
+  /* "selectolax/parser.pyx":383
  *         obj.detect_encoding = detect_encoding
  *         obj.use_meta_tags = use_meta_tags
  *         obj.decode_errors = decode_errors             # <<<<<<<<<<<<<<
@@ -37123,7 +37266,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   __Pyx_DECREF(__pyx_v_obj->decode_errors);
   __pyx_v_obj->decode_errors = __pyx_v_decode_errors;
 
-  /* "selectolax/parser.pyx":382
+  /* "selectolax/parser.pyx":384
  *         obj.use_meta_tags = use_meta_tags
  *         obj.decode_errors = decode_errors
  *         obj._encoding = encoding             # <<<<<<<<<<<<<<
@@ -37132,7 +37275,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
  */
   __pyx_v_obj->_encoding = __pyx_v_encoding;
 
-  /* "selectolax/parser.pyx":383
+  /* "selectolax/parser.pyx":385
  *         obj.decode_errors = decode_errors
  *         obj._encoding = encoding
  *         obj.cached_script_texts = None             # <<<<<<<<<<<<<<
@@ -37145,7 +37288,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   __Pyx_DECREF(__pyx_v_obj->cached_script_texts);
   __pyx_v_obj->cached_script_texts = Py_None;
 
-  /* "selectolax/parser.pyx":384
+  /* "selectolax/parser.pyx":386
  *         obj._encoding = encoding
  *         obj.cached_script_texts = None
  *         obj.cached_script_srcs = None             # <<<<<<<<<<<<<<
@@ -37158,7 +37301,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   __Pyx_DECREF(__pyx_v_obj->cached_script_srcs);
   __pyx_v_obj->cached_script_srcs = Py_None;
 
-  /* "selectolax/parser.pyx":385
+  /* "selectolax/parser.pyx":387
  *         obj.cached_script_texts = None
  *         obj.cached_script_srcs = None
  *         return obj             # <<<<<<<<<<<<<<
@@ -37170,7 +37313,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   __pyx_r = __pyx_v_obj;
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":372
+  /* "selectolax/parser.pyx":374
  *         return self.root.merge_text_nodes()
  *     @staticmethod
  *     cdef HTMLParser from_tree(             # <<<<<<<<<<<<<<
@@ -37191,7 +37334,7 @@ static struct __pyx_obj_10selectolax_6parser_HTMLParser *__pyx_f_10selectolax_6p
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":388
+/* "selectolax/parser.pyx":390
  * 
  * 
  *     def clone(self):             # <<<<<<<<<<<<<<
@@ -37258,7 +37401,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("clone", 1);
 
-  /* "selectolax/parser.pyx":395
+  /* "selectolax/parser.pyx":397
  *         cdef myhtml_tree_node_t* node
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -37274,7 +37417,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
       #endif
       /*try:*/ {
 
-        /* "selectolax/parser.pyx":396
+        /* "selectolax/parser.pyx":398
  * 
  *         with nogil:
  *             myhtml = myhtml_create()             # <<<<<<<<<<<<<<
@@ -37283,7 +37426,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
  */
         __pyx_v_myhtml = myhtml_create();
 
-        /* "selectolax/parser.pyx":397
+        /* "selectolax/parser.pyx":399
  *         with nogil:
  *             myhtml = myhtml_create()
  *             status = myhtml_init(myhtml, MyHTML_OPTIONS_DEFAULT, 1, 0)             # <<<<<<<<<<<<<<
@@ -37293,7 +37436,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
         __pyx_v_status = myhtml_init(__pyx_v_myhtml, MyHTML_OPTIONS_DEFAULT, 1, 0);
       }
 
-      /* "selectolax/parser.pyx":395
+      /* "selectolax/parser.pyx":397
  *         cdef myhtml_tree_node_t* node
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -37312,7 +37455,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
       }
   }
 
-  /* "selectolax/parser.pyx":399
+  /* "selectolax/parser.pyx":401
  *             status = myhtml_init(myhtml, MyHTML_OPTIONS_DEFAULT, 1, 0)
  * 
  *         if status != 0:             # <<<<<<<<<<<<<<
@@ -37322,20 +37465,20 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
   __pyx_t_1 = (__pyx_v_status != 0);
   if (unlikely(__pyx_t_1)) {
 
-    /* "selectolax/parser.pyx":400
+    /* "selectolax/parser.pyx":402
  * 
  *         if status != 0:
  *             raise RuntimeError("Can't init MyHTML object.")             # <<<<<<<<<<<<<<
  * 
  *         with nogil:
  */
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__25, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 400, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__25, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 402, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(3, 400, __pyx_L1_error)
+    __PYX_ERR(3, 402, __pyx_L1_error)
 
-    /* "selectolax/parser.pyx":399
+    /* "selectolax/parser.pyx":401
  *             status = myhtml_init(myhtml, MyHTML_OPTIONS_DEFAULT, 1, 0)
  * 
  *         if status != 0:             # <<<<<<<<<<<<<<
@@ -37344,7 +37487,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
  */
   }
 
-  /* "selectolax/parser.pyx":402
+  /* "selectolax/parser.pyx":404
  *             raise RuntimeError("Can't init MyHTML object.")
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -37360,7 +37503,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
       #endif
       /*try:*/ {
 
-        /* "selectolax/parser.pyx":403
+        /* "selectolax/parser.pyx":405
  * 
  *         with nogil:
  *             html_tree = myhtml_tree_create()             # <<<<<<<<<<<<<<
@@ -37369,7 +37512,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
  */
         __pyx_v_html_tree = myhtml_tree_create();
 
-        /* "selectolax/parser.pyx":404
+        /* "selectolax/parser.pyx":406
  *         with nogil:
  *             html_tree = myhtml_tree_create()
  *             status = myhtml_tree_init(html_tree, myhtml)             # <<<<<<<<<<<<<<
@@ -37379,7 +37522,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
         __pyx_v_status = myhtml_tree_init(__pyx_v_html_tree, __pyx_v_myhtml);
       }
 
-      /* "selectolax/parser.pyx":402
+      /* "selectolax/parser.pyx":404
  *             raise RuntimeError("Can't init MyHTML object.")
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -37398,7 +37541,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
       }
   }
 
-  /* "selectolax/parser.pyx":406
+  /* "selectolax/parser.pyx":408
  *             status = myhtml_tree_init(html_tree, myhtml)
  * 
  *         if status != 0:             # <<<<<<<<<<<<<<
@@ -37408,20 +37551,20 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
   __pyx_t_1 = (__pyx_v_status != 0);
   if (unlikely(__pyx_t_1)) {
 
-    /* "selectolax/parser.pyx":407
+    /* "selectolax/parser.pyx":409
  * 
  *         if status != 0:
  *             raise RuntimeError("Can't init MyHTML Tree object.")             # <<<<<<<<<<<<<<
  * 
  *         node = myhtml_node_clone_deep(html_tree, self.html_tree.node_html)
  */
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__26, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 407, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_RuntimeError, __pyx_tuple__26, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 409, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(3, 407, __pyx_L1_error)
+    __PYX_ERR(3, 409, __pyx_L1_error)
 
-    /* "selectolax/parser.pyx":406
+    /* "selectolax/parser.pyx":408
  *             status = myhtml_tree_init(html_tree, myhtml)
  * 
  *         if status != 0:             # <<<<<<<<<<<<<<
@@ -37430,7 +37573,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
  */
   }
 
-  /* "selectolax/parser.pyx":409
+  /* "selectolax/parser.pyx":411
  *             raise RuntimeError("Can't init MyHTML Tree object.")
  * 
  *         node = myhtml_node_clone_deep(html_tree, self.html_tree.node_html)             # <<<<<<<<<<<<<<
@@ -37439,7 +37582,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
  */
   __pyx_v_node = myhtml_node_clone_deep(__pyx_v_html_tree, __pyx_v_self->html_tree->node_html);
 
-  /* "selectolax/parser.pyx":410
+  /* "selectolax/parser.pyx":412
  * 
  *         node = myhtml_node_clone_deep(html_tree, self.html_tree.node_html)
  *         myhtml_tree_node_add_child(html_tree.document, node)             # <<<<<<<<<<<<<<
@@ -37448,7 +37591,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
  */
   myhtml_tree_node_add_child(__pyx_v_html_tree->document, __pyx_v_node);
 
-  /* "selectolax/parser.pyx":411
+  /* "selectolax/parser.pyx":413
  *         node = myhtml_node_clone_deep(html_tree, self.html_tree.node_html)
  *         myhtml_tree_node_add_child(html_tree.document, node)
  *         html_tree.node_html = node             # <<<<<<<<<<<<<<
@@ -37457,7 +37600,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
  */
   __pyx_v_html_tree->node_html = __pyx_v_node;
 
-  /* "selectolax/parser.pyx":415
+  /* "selectolax/parser.pyx":417
  *         cls = HTMLParser.from_tree(
  *             html_tree,
  *             self.raw_html,             # <<<<<<<<<<<<<<
@@ -37467,7 +37610,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
   __pyx_t_2 = __pyx_v_self->raw_html;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "selectolax/parser.pyx":418
+  /* "selectolax/parser.pyx":420
  *             self.detect_encoding,
  *             self.use_meta_tags,
  *             self.decode_errors,             # <<<<<<<<<<<<<<
@@ -37477,21 +37620,21 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
   __pyx_t_3 = __pyx_v_self->decode_errors;
   __Pyx_INCREF(__pyx_t_3);
 
-  /* "selectolax/parser.pyx":413
+  /* "selectolax/parser.pyx":415
  *         html_tree.node_html = node
  * 
  *         cls = HTMLParser.from_tree(             # <<<<<<<<<<<<<<
  *             html_tree,
  *             self.raw_html,
  */
-  __pyx_t_4 = ((PyObject *)__pyx_f_10selectolax_6parser_10HTMLParser_from_tree(__pyx_v_html_tree, ((PyObject*)__pyx_t_2), __pyx_v_self->detect_encoding, __pyx_v_self->use_meta_tags, ((PyObject*)__pyx_t_3), __pyx_v_self->_encoding)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 413, __pyx_L1_error)
+  __pyx_t_4 = ((PyObject *)__pyx_f_10selectolax_6parser_10HTMLParser_from_tree(__pyx_v_html_tree, ((PyObject*)__pyx_t_2), __pyx_v_self->detect_encoding, __pyx_v_self->use_meta_tags, ((PyObject*)__pyx_t_3), __pyx_v_self->_encoding)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 415, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_cls = ((struct __pyx_obj_10selectolax_6parser_HTMLParser *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "selectolax/parser.pyx":421
+  /* "selectolax/parser.pyx":423
  *             self._encoding
  *         )
  *         return cls             # <<<<<<<<<<<<<<
@@ -37503,7 +37646,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
   __pyx_r = ((PyObject *)__pyx_v_cls);
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":388
+  /* "selectolax/parser.pyx":390
  * 
  * 
  *     def clone(self):             # <<<<<<<<<<<<<<
@@ -37525,7 +37668,7 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_26clone(struct __pyx
   return __pyx_r;
 }
 
-/* "selectolax/parser.pyx":423
+/* "selectolax/parser.pyx":425
  *         return cls
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -37551,7 +37694,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
   int __pyx_t_1;
   myhtml_t *__pyx_t_2;
 
-  /* "selectolax/parser.pyx":426
+  /* "selectolax/parser.pyx":428
  *         cdef myhtml_t* myhtml
  * 
  *         if self.html_tree != NULL:             # <<<<<<<<<<<<<<
@@ -37561,7 +37704,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
   __pyx_t_1 = (__pyx_v_self->html_tree != NULL);
   if (__pyx_t_1) {
 
-    /* "selectolax/parser.pyx":427
+    /* "selectolax/parser.pyx":429
  * 
  *         if self.html_tree != NULL:
  *             myhtml = self.html_tree.myhtml             # <<<<<<<<<<<<<<
@@ -37571,7 +37714,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
     __pyx_t_2 = __pyx_v_self->html_tree->myhtml;
     __pyx_v_myhtml = __pyx_t_2;
 
-    /* "selectolax/parser.pyx":428
+    /* "selectolax/parser.pyx":430
  *         if self.html_tree != NULL:
  *             myhtml = self.html_tree.myhtml
  *             myhtml_tree_destroy(self.html_tree)             # <<<<<<<<<<<<<<
@@ -37580,7 +37723,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
  */
     (void)(myhtml_tree_destroy(__pyx_v_self->html_tree));
 
-    /* "selectolax/parser.pyx":429
+    /* "selectolax/parser.pyx":431
  *             myhtml = self.html_tree.myhtml
  *             myhtml_tree_destroy(self.html_tree)
  *             if myhtml != NULL:             # <<<<<<<<<<<<<<
@@ -37590,7 +37733,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
     __pyx_t_1 = (__pyx_v_myhtml != NULL);
     if (__pyx_t_1) {
 
-      /* "selectolax/parser.pyx":430
+      /* "selectolax/parser.pyx":432
  *             myhtml_tree_destroy(self.html_tree)
  *             if myhtml != NULL:
  *                 myhtml_destroy(myhtml)             # <<<<<<<<<<<<<<
@@ -37599,7 +37742,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
  */
       (void)(myhtml_destroy(__pyx_v_myhtml));
 
-      /* "selectolax/parser.pyx":429
+      /* "selectolax/parser.pyx":431
  *             myhtml = self.html_tree.myhtml
  *             myhtml_tree_destroy(self.html_tree)
  *             if myhtml != NULL:             # <<<<<<<<<<<<<<
@@ -37608,7 +37751,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
  */
     }
 
-    /* "selectolax/parser.pyx":426
+    /* "selectolax/parser.pyx":428
  *         cdef myhtml_t* myhtml
  * 
  *         if self.html_tree != NULL:             # <<<<<<<<<<<<<<
@@ -37617,7 +37760,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
  */
   }
 
-  /* "selectolax/parser.pyx":423
+  /* "selectolax/parser.pyx":425
  *         return cls
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -37628,7 +37771,7 @@ static void __pyx_pf_10selectolax_6parser_10HTMLParser_28__dealloc__(struct __py
   /* function exit code */
 }
 
-/* "selectolax/parser.pyx":432
+/* "selectolax/parser.pyx":434
  *                 myhtml_destroy(myhtml)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -37661,29 +37804,29 @@ static PyObject *__pyx_pf_10selectolax_6parser_10HTMLParser_30__repr__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "selectolax/parser.pyx":433
+  /* "selectolax/parser.pyx":435
  * 
  *     def __repr__(self):
  *         return '<HTMLParser chars=%s>' % len(self.root.html)             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 433, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_root); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 435, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_html); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 433, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_html); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 435, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(3, 433, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(3, 435, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyInt_FromSsize_t(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 433, __pyx_L1_error)
+  __pyx_t_2 = PyInt_FromSsize_t(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(3, 435, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_HTMLParser_chars_s, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 433, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_HTMLParser_chars_s, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 435, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "selectolax/parser.pyx":432
+  /* "selectolax/parser.pyx":434
  *                 myhtml_destroy(myhtml)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -41073,31 +41216,31 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_Node_decompose, __pyx_k_Node_decompose, sizeof(__pyx_k_Node_decompose), 0, 0, 1, 1},
     {&__pyx_kp_u_Node_decompose_line_493, __pyx_k_Node_decompose_line_493, sizeof(__pyx_k_Node_decompose_line_493), 0, 1, 0, 0},
     {&__pyx_n_s_Node_insert_after, __pyx_k_Node_insert_after, sizeof(__pyx_k_Node_insert_after), 0, 0, 1, 1},
-    {&__pyx_kp_u_Node_insert_after_line_675, __pyx_k_Node_insert_after_line_675, sizeof(__pyx_k_Node_insert_after_line_675), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_insert_after_line_687, __pyx_k_Node_insert_after_line_687, sizeof(__pyx_k_Node_insert_after_line_687), 0, 1, 0, 0},
     {&__pyx_n_s_Node_insert_before, __pyx_k_Node_insert_before, sizeof(__pyx_k_Node_insert_before), 0, 0, 1, 1},
-    {&__pyx_kp_u_Node_insert_before_line_635, __pyx_k_Node_insert_before_line_635, sizeof(__pyx_k_Node_insert_before_line_635), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_insert_before_line_647, __pyx_k_Node_insert_before_line_647, sizeof(__pyx_k_Node_insert_before_line_647), 0, 1, 0, 0},
     {&__pyx_n_s_Node_insert_child, __pyx_k_Node_insert_child, sizeof(__pyx_k_Node_insert_child), 0, 0, 1, 1},
-    {&__pyx_kp_u_Node_insert_child_line_715, __pyx_k_Node_insert_child_line_715, sizeof(__pyx_k_Node_insert_child_line_715), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_insert_child_line_727, __pyx_k_Node_insert_child_line_727, sizeof(__pyx_k_Node_insert_child_line_727), 0, 1, 0, 0},
     {&__pyx_n_s_Node_iter, __pyx_k_Node_iter, sizeof(__pyx_k_Node_iter), 0, 0, 1, 1},
     {&__pyx_n_s_Node_merge_text_nodes, __pyx_k_Node_merge_text_nodes, sizeof(__pyx_k_Node_merge_text_nodes), 0, 0, 1, 1},
-    {&__pyx_kp_u_Node_merge_text_nodes_line_902, __pyx_k_Node_merge_text_nodes_line_902, sizeof(__pyx_k_Node_merge_text_nodes_line_902), 0, 1, 0, 0},
-    {&__pyx_kp_u_Node_raw_value___get___line_778, __pyx_k_Node_raw_value___get___line_778, sizeof(__pyx_k_Node_raw_value___get___line_778), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_merge_text_nodes_line_918, __pyx_k_Node_merge_text_nodes_line_918, sizeof(__pyx_k_Node_merge_text_nodes_line_918), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_raw_value___get___line_794, __pyx_k_Node_raw_value___get___line_794, sizeof(__pyx_k_Node_raw_value___get___line_794), 0, 1, 0, 0},
     {&__pyx_n_s_Node_remove, __pyx_k_Node_remove, sizeof(__pyx_k_Node_remove), 0, 0, 1, 1},
     {&__pyx_n_s_Node_replace_with, __pyx_k_Node_replace_with, sizeof(__pyx_k_Node_replace_with), 0, 0, 1, 1},
-    {&__pyx_kp_u_Node_replace_with_line_594, __pyx_k_Node_replace_with_line_594, sizeof(__pyx_k_Node_replace_with_line_594), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_replace_with_line_606, __pyx_k_Node_replace_with_line_606, sizeof(__pyx_k_Node_replace_with_line_606), 0, 1, 0, 0},
     {&__pyx_kp_u_Node_s, __pyx_k_Node_s, sizeof(__pyx_k_Node_s), 0, 1, 0, 0},
     {&__pyx_n_s_Node_script_srcs_contain, __pyx_k_Node_script_srcs_contain, sizeof(__pyx_k_Node_script_srcs_contain), 0, 0, 1, 1},
     {&__pyx_n_s_Node_scripts_contain, __pyx_k_Node_scripts_contain, sizeof(__pyx_k_Node_scripts_contain), 0, 0, 1, 1},
     {&__pyx_n_s_Node_select, __pyx_k_Node_select, sizeof(__pyx_k_Node_select), 0, 0, 1, 1},
     {&__pyx_n_s_Node_strip_tags, __pyx_k_Node_strip_tags, sizeof(__pyx_k_Node_strip_tags), 0, 0, 1, 1},
-    {&__pyx_kp_u_Node_strip_tags_line_547, __pyx_k_Node_strip_tags_line_547, sizeof(__pyx_k_Node_strip_tags_line_547), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_strip_tags_line_555, __pyx_k_Node_strip_tags_line_555, sizeof(__pyx_k_Node_strip_tags_line_555), 0, 1, 0, 0},
     {&__pyx_n_s_Node_text, __pyx_k_Node_text, sizeof(__pyx_k_Node_text), 0, 0, 1, 1},
     {&__pyx_n_s_Node_traverse, __pyx_k_Node_traverse, sizeof(__pyx_k_Node_traverse), 0, 0, 1, 1},
     {&__pyx_n_s_Node_unwrap, __pyx_k_Node_unwrap, sizeof(__pyx_k_Node_unwrap), 0, 0, 1, 1},
     {&__pyx_kp_u_Node_unwrap_line_518, __pyx_k_Node_unwrap_line_518, sizeof(__pyx_k_Node_unwrap_line_518), 0, 1, 0, 0},
     {&__pyx_n_s_Node_unwrap_tags, __pyx_k_Node_unwrap_tags, sizeof(__pyx_k_Node_unwrap_tags), 0, 0, 1, 1},
-    {&__pyx_kp_u_Node_unwrap_tags_line_571, __pyx_k_Node_unwrap_tags_line_571, sizeof(__pyx_k_Node_unwrap_tags_line_571), 0, 1, 0, 0},
-    {&__pyx_kp_u_Node_unwrap_tags_line_755, __pyx_k_Node_unwrap_tags_line_755, sizeof(__pyx_k_Node_unwrap_tags_line_755), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_unwrap_tags_line_579, __pyx_k_Node_unwrap_tags_line_579, sizeof(__pyx_k_Node_unwrap_tags_line_579), 0, 1, 0, 0},
+    {&__pyx_kp_u_Node_unwrap_tags_line_767, __pyx_k_Node_unwrap_tags_line_767, sizeof(__pyx_k_Node_unwrap_tags_line_767), 0, 1, 0, 0},
     {&__pyx_n_s_Optional, __pyx_k_Optional, sizeof(__pyx_k_Optional), 0, 0, 1, 1},
     {&__pyx_kp_s_Optional_Parser, __pyx_k_Optional_Parser, sizeof(__pyx_k_Optional_Parser), 0, 0, 1, 0},
     {&__pyx_n_s_Parser, __pyx_k_Parser, sizeof(__pyx_k_Parser), 0, 0, 1, 1},
@@ -41157,6 +41300,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_u_body, __pyx_k_body, sizeof(__pyx_k_body), 0, 1, 0, 0},
     {&__pyx_n_s_body_2, __pyx_k_body_2, sizeof(__pyx_k_body_2), 0, 0, 1, 1},
     {&__pyx_n_u_body_2, __pyx_k_body_2, sizeof(__pyx_k_body_2), 0, 1, 0, 1},
+    {&__pyx_n_s_bool, __pyx_k_bool, sizeof(__pyx_k_bool), 0, 0, 1, 1},
     {&__pyx_n_s_bytes, __pyx_k_bytes, sizeof(__pyx_k_bytes), 0, 0, 1, 1},
     {&__pyx_n_s_bytes_html, __pyx_k_bytes_html, sizeof(__pyx_k_bytes_html), 0, 0, 1, 1},
     {&__pyx_n_s_bytes_val, __pyx_k_bytes_val, sizeof(__pyx_k_bytes_val), 0, 0, 1, 1},
@@ -41180,6 +41324,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_deep, __pyx_k_deep, sizeof(__pyx_k_deep), 0, 0, 1, 1},
     {&__pyx_n_s_default, __pyx_k_default, sizeof(__pyx_k_default), 0, 0, 1, 1},
     {&__pyx_n_s_defaults, __pyx_k_defaults, sizeof(__pyx_k_defaults), 0, 0, 1, 1},
+    {&__pyx_n_s_delete_empty, __pyx_k_delete_empty, sizeof(__pyx_k_delete_empty), 0, 0, 1, 1},
     {&__pyx_n_s_detect_encoding, __pyx_k_detect_encoding, sizeof(__pyx_k_detect_encoding), 0, 0, 1, 1},
     {&__pyx_n_s_dict, __pyx_k_dict, sizeof(__pyx_k_dict), 0, 0, 1, 1},
     {&__pyx_n_s_dict_2, __pyx_k_dict_2, sizeof(__pyx_k_dict_2), 0, 0, 1, 1},
@@ -41350,8 +41495,8 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(1, 2, __pyx_L1_error)
   __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 167, __pyx_L1_error)
   __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(2, 72, __pyx_L1_error)
-  __pyx_builtin___import__ = __Pyx_GetBuiltinName(__pyx_n_s_import); if (!__pyx_builtin___import__) __PYX_ERR(2, 594, __pyx_L1_error)
-  __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_n_s_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(2, 941, __pyx_L1_error)
+  __pyx_builtin___import__ = __Pyx_GetBuiltinName(__pyx_n_s_import); if (!__pyx_builtin___import__) __PYX_ERR(2, 606, __pyx_L1_error)
+  __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_n_s_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(2, 957, __pyx_L1_error)
   __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_n_s_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(3, 129, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
@@ -41396,39 +41541,39 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__7);
   __Pyx_GIVEREF(__pyx_tuple__7);
 
-  /* "selectolax/modest/node.pxi":594
- *                 element.unwrap()
+  /* "selectolax/modest/node.pxi":606
+ *                 element.unwrap(delete_empty)
  * 
  *     def replace_with(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """Replace current Node with specified value.
  * 
  */
-  __pyx_tuple__13 = PyTuple_Pack(1, __pyx_kp_s_No_matching_signature_found); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_tuple__13 = PyTuple_Pack(1, __pyx_kp_s_No_matching_signature_found); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__13);
   __Pyx_GIVEREF(__pyx_tuple__13);
-  __pyx_tuple__14 = PyTuple_Pack(1, __pyx_kp_s_Function_call_with_ambiguous_arg); if (unlikely(!__pyx_tuple__14)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_tuple__14 = PyTuple_Pack(1, __pyx_kp_s_Function_call_with_ambiguous_arg); if (unlikely(!__pyx_tuple__14)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__14);
   __Pyx_GIVEREF(__pyx_tuple__14);
 
-  /* "selectolax/modest/node.pxi":802
+  /* "selectolax/modest/node.pxi":818
  *         cdef int length = self.node.token.element_length
  *         if self.node.tag_id != MyHTML_TAG__TEXT:
  *             raise ValueError("Can't obtain raw value for non-text node.")             # <<<<<<<<<<<<<<
  *         return self.parser.raw_html[begin:begin + length]
  * 
  */
-  __pyx_tuple__18 = PyTuple_Pack(1, __pyx_kp_u_Can_t_obtain_raw_value_for_non_t); if (unlikely(!__pyx_tuple__18)) __PYX_ERR(2, 802, __pyx_L1_error)
+  __pyx_tuple__18 = PyTuple_Pack(1, __pyx_kp_u_Can_t_obtain_raw_value_for_non_t); if (unlikely(!__pyx_tuple__18)) __PYX_ERR(2, 818, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__18);
   __Pyx_GIVEREF(__pyx_tuple__18);
 
-  /* "selectolax/modest/node.pxi":941
+  /* "selectolax/modest/node.pxi":957
  *                     final_text = <char *>malloc(final_length + 1)
  *                     if final_text == NULL:
  *                         raise MemoryError("Can't allocate memory for a new node.")             # <<<<<<<<<<<<<<
  *                     memcpy(final_text, left_text, left_length)
  *                     memcpy(final_text + left_length, right_text, right_length + 1)
  */
-  __pyx_tuple__19 = PyTuple_Pack(1, __pyx_kp_u_Can_t_allocate_memory_for_a_new); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(2, 941, __pyx_L1_error)
+  __pyx_tuple__19 = PyTuple_Pack(1, __pyx_kp_u_Can_t_allocate_memory_for_a_new); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(2, 957, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__19);
   __Pyx_GIVEREF(__pyx_tuple__19);
 
@@ -41787,131 +41932,131 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   /* "selectolax/modest/node.pxi":518
  *         self.decompose(recursive)
  * 
- *     def unwrap(self):             # <<<<<<<<<<<<<<
+ *     def unwrap(self, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Replace node with whatever is inside this node.
  * 
  */
-  __pyx_tuple__74 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_next_node, __pyx_n_s_current_node); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(2, 518, __pyx_L1_error)
+  __pyx_tuple__74 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_delete_empty, __pyx_n_s_next_node, __pyx_n_s_current_node); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(2, 518, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__74);
   __Pyx_GIVEREF(__pyx_tuple__74);
-  __pyx_codeobj__75 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__74, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_unwrap, 518, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__75)) __PYX_ERR(2, 518, __pyx_L1_error)
+  __pyx_codeobj__75 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__74, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_unwrap, 518, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__75)) __PYX_ERR(2, 518, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":547
+  /* "selectolax/modest/node.pxi":555
  *         myhtml_node_delete(self.node)
  * 
  *     def strip_tags(self, list tags, bool recursive = False):             # <<<<<<<<<<<<<<
  *         """Remove specified tags from the HTML tree.
  * 
  */
-  __pyx_tuple__76 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_tags, __pyx_n_s_recursive, __pyx_n_s_tag, __pyx_n_s_element); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(2, 547, __pyx_L1_error)
+  __pyx_tuple__76 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_tags, __pyx_n_s_recursive, __pyx_n_s_tag, __pyx_n_s_element); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(2, 555, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__76);
   __Pyx_GIVEREF(__pyx_tuple__76);
-  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__76, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_strip_tags, 547, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(2, 547, __pyx_L1_error)
+  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__76, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_strip_tags, 555, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(2, 555, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":571
+  /* "selectolax/modest/node.pxi":579
  *                 element.decompose(recursive=recursive)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
-  __pyx_tuple__78 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_tags, __pyx_n_s_tag, __pyx_n_s_element); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(2, 571, __pyx_L1_error)
+  __pyx_tuple__78 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_tags, __pyx_n_s_delete_empty, __pyx_n_s_tag, __pyx_n_s_element); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(2, 579, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__78);
   __Pyx_GIVEREF(__pyx_tuple__78);
-  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_unwrap_tags, 571, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(2, 571, __pyx_L1_error)
+  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_unwrap_tags, 579, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(2, 579, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":594
- *                 element.unwrap()
+  /* "selectolax/modest/node.pxi":606
+ *                 element.unwrap(delete_empty)
  * 
  *     def replace_with(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """Replace current Node with specified value.
  * 
  */
-  __pyx_tuple__80 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_value, __pyx_n_s_node, __pyx_n_s_bytes_val); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_tuple__80 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_value, __pyx_n_s_node, __pyx_n_s_bytes_val); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__80);
   __Pyx_GIVEREF(__pyx_tuple__80);
-  __pyx_codeobj__81 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_replace_with, 594, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__81)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_codeobj__81 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_replace_with, 606, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__81)) __PYX_ERR(2, 606, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":635
+  /* "selectolax/modest/node.pxi":647
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_before(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """
  *         Insert a node before the current Node.
  */
-  __pyx_codeobj__82 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_insert_before, 635, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__82)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_codeobj__82 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_insert_before, 647, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__82)) __PYX_ERR(2, 647, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":675
+  /* "selectolax/modest/node.pxi":687
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_after(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """
  *         Insert a node after the current Node.
  */
-  __pyx_codeobj__83 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_insert_after, 675, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__83)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_codeobj__83 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_insert_after, 687, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__83)) __PYX_ERR(2, 687, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":715
+  /* "selectolax/modest/node.pxi":727
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_child(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """
  *         Insert a node inside (at the end of) the current Node.
  */
-  __pyx_codeobj__84 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_insert_child, 715, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__84)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_codeobj__84 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_insert_child, 727, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__84)) __PYX_ERR(2, 727, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":755
+  /* "selectolax/modest/node.pxi":767
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
-  __pyx_codeobj__85 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_unwrap_tags, 755, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__85)) __PYX_ERR(2, 755, __pyx_L1_error)
+  __pyx_codeobj__85 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_unwrap_tags, 767, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__85)) __PYX_ERR(2, 767, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":805
+  /* "selectolax/modest/node.pxi":821
  *         return self.parser.raw_html[begin:begin + length]
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
  *         """Select nodes given a CSS selector.
  * 
  */
-  __pyx_codeobj__86 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_select, 805, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__86)) __PYX_ERR(2, 805, __pyx_L1_error)
+  __pyx_codeobj__86 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_select, 821, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__86)) __PYX_ERR(2, 821, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":821
+  /* "selectolax/modest/node.pxi":837
  *         return Selector(self, query)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script tags contain specified text.
  * 
  */
-  __pyx_tuple__87 = PyTuple_Pack(7, __pyx_n_s_self, __pyx_n_s_query, __pyx_n_s_nodes, __pyx_n_s_text_nodes, __pyx_n_s_node, __pyx_n_s_node_text, __pyx_n_s_text); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(2, 821, __pyx_L1_error)
+  __pyx_tuple__87 = PyTuple_Pack(7, __pyx_n_s_self, __pyx_n_s_query, __pyx_n_s_nodes, __pyx_n_s_text_nodes, __pyx_n_s_node, __pyx_n_s_node_text, __pyx_n_s_text); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(2, 837, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__87);
   __Pyx_GIVEREF(__pyx_tuple__87);
-  __pyx_codeobj__88 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__87, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_scripts_contain, 821, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__88)) __PYX_ERR(2, 821, __pyx_L1_error)
+  __pyx_codeobj__88 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__87, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_scripts_contain, 837, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__88)) __PYX_ERR(2, 837, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":846
+  /* "selectolax/modest/node.pxi":862
  *         return False
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script SRCs attributes contain on of the specified text.
  * 
  */
-  __pyx_tuple__89 = PyTuple_Pack(8, __pyx_n_s_self, __pyx_n_s_queries, __pyx_n_s_nodes, __pyx_n_s_src_nodes, __pyx_n_s_node, __pyx_n_s_node_src, __pyx_n_s_text, __pyx_n_s_query); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(2, 846, __pyx_L1_error)
+  __pyx_tuple__89 = PyTuple_Pack(8, __pyx_n_s_self, __pyx_n_s_queries, __pyx_n_s_nodes, __pyx_n_s_src_nodes, __pyx_n_s_node, __pyx_n_s_node_src, __pyx_n_s_text, __pyx_n_s_query); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(2, 862, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__89);
   __Pyx_GIVEREF(__pyx_tuple__89);
-  __pyx_codeobj__90 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 8, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__89, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_script_srcs_contain, 846, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__90)) __PYX_ERR(2, 846, __pyx_L1_error)
+  __pyx_codeobj__90 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 8, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__89, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_script_srcs_contain, 862, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__90)) __PYX_ERR(2, 862, __pyx_L1_error)
 
-  /* "selectolax/modest/node.pxi":902
+  /* "selectolax/modest/node.pxi":918
  *         return None
  * 
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
  *         """Iterates over all text nodes and merges all text nodes that are close to each other.
  * 
  */
-  __pyx_tuple__91 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_stack, __pyx_n_s_current_node, __pyx_n_s_next_node, __pyx_n_s_left_text, __pyx_n_s_right_text, __pyx_n_s_final_text, __pyx_n_s_left_length, __pyx_n_s_right_length, __pyx_n_s_final_length); if (unlikely(!__pyx_tuple__91)) __PYX_ERR(2, 902, __pyx_L1_error)
+  __pyx_tuple__91 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_stack, __pyx_n_s_current_node, __pyx_n_s_next_node, __pyx_n_s_left_text, __pyx_n_s_right_text, __pyx_n_s_final_text, __pyx_n_s_left_length, __pyx_n_s_right_length, __pyx_n_s_final_length); if (unlikely(!__pyx_tuple__91)) __PYX_ERR(2, 918, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__91);
   __Pyx_GIVEREF(__pyx_tuple__91);
-  __pyx_codeobj__92 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__91, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_merge_text_nodes, 902, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__92)) __PYX_ERR(2, 902, __pyx_L1_error)
+  __pyx_codeobj__92 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__91, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_modest_node_pxi, __pyx_n_s_merge_text_nodes, 918, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__92)) __PYX_ERR(2, 918, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
@@ -42113,83 +42258,83 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   /* "selectolax/parser.pyx":272
  * 
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty : bool = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
-  __pyx_tuple__123 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_tags); if (unlikely(!__pyx_tuple__123)) __PYX_ERR(3, 272, __pyx_L1_error)
+  __pyx_tuple__123 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_tags, __pyx_n_s_delete_empty); if (unlikely(!__pyx_tuple__123)) __PYX_ERR(3, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__123);
   __Pyx_GIVEREF(__pyx_tuple__123);
-  __pyx_codeobj__124 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__123, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_unwrap_tags, 272, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__124)) __PYX_ERR(3, 272, __pyx_L1_error)
+  __pyx_codeobj__124 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__123, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_unwrap_tags, 272, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__124)) __PYX_ERR(3, 272, __pyx_L1_error)
 
-  /* "selectolax/parser.pyx":302
+  /* "selectolax/parser.pyx":304
  *         return None
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
  *         """Select nodes given a CSS selector.
  * 
  */
-  __pyx_codeobj__125 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__113, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_select, 302, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__125)) __PYX_ERR(3, 302, __pyx_L1_error)
+  __pyx_codeobj__125 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__113, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_select, 304, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__125)) __PYX_ERR(3, 304, __pyx_L1_error)
 
-  /* "selectolax/parser.pyx":321
+  /* "selectolax/parser.pyx":323
  *             return Selector(node, query)
  * 
  *     def any_css_matches(self, tuple selectors):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the specified CSS selectors matches a node."""
  *         return self.root.any_css_matches(selectors)
  */
-  __pyx_codeobj__126 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__63, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_any_css_matches, 321, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__126)) __PYX_ERR(3, 321, __pyx_L1_error)
+  __pyx_codeobj__126 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__63, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_any_css_matches, 323, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__126)) __PYX_ERR(3, 323, __pyx_L1_error)
 
-  /* "selectolax/parser.pyx":325
+  /* "selectolax/parser.pyx":327
  *         return self.root.any_css_matches(selectors)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script tags contain specified text.
  * 
  */
-  __pyx_codeobj__127 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_scripts_contain, 325, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__127)) __PYX_ERR(3, 325, __pyx_L1_error)
+  __pyx_codeobj__127 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_scripts_contain, 327, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__127)) __PYX_ERR(3, 327, __pyx_L1_error)
 
-  /* "selectolax/parser.pyx":338
+  /* "selectolax/parser.pyx":340
  *         return self.root.scripts_contain(query)
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script SRCs attributes contain on of the specified text.
  * 
  */
-  __pyx_tuple__128 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_queries); if (unlikely(!__pyx_tuple__128)) __PYX_ERR(3, 338, __pyx_L1_error)
+  __pyx_tuple__128 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_queries); if (unlikely(!__pyx_tuple__128)) __PYX_ERR(3, 340, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__128);
   __Pyx_GIVEREF(__pyx_tuple__128);
-  __pyx_codeobj__129 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__128, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_script_srcs_contain, 338, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__129)) __PYX_ERR(3, 338, __pyx_L1_error)
+  __pyx_codeobj__129 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__128, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_script_srcs_contain, 340, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__129)) __PYX_ERR(3, 340, __pyx_L1_error)
 
-  /* "selectolax/parser.pyx":350
+  /* "selectolax/parser.pyx":352
  *         return self.root.script_srcs_contain(queries)
  * 
  *     def css_matches(self, str selector):             # <<<<<<<<<<<<<<
  *         return self.root.css_matches(selector)
  *     def merge_text_nodes(self):
  */
-  __pyx_codeobj__130 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_css_matches, 350, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__130)) __PYX_ERR(3, 350, __pyx_L1_error)
+  __pyx_codeobj__130 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_css_matches, 352, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__130)) __PYX_ERR(3, 352, __pyx_L1_error)
 
-  /* "selectolax/parser.pyx":352
+  /* "selectolax/parser.pyx":354
  *     def css_matches(self, str selector):
  *         return self.root.css_matches(selector)
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
  *         """Iterates over all text nodes and merges all text nodes that are close to each other.
  * 
  */
-  __pyx_codeobj__131 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_merge_text_nodes, 352, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__131)) __PYX_ERR(3, 352, __pyx_L1_error)
+  __pyx_codeobj__131 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_merge_text_nodes, 354, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__131)) __PYX_ERR(3, 354, __pyx_L1_error)
 
-  /* "selectolax/parser.pyx":388
+  /* "selectolax/parser.pyx":390
  * 
  * 
  *     def clone(self):             # <<<<<<<<<<<<<<
  *         """Clone the current tree."""
  *         cdef myhtml_t* myhtml
  */
-  __pyx_tuple__132 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_myhtml, __pyx_n_s_status, __pyx_n_s_html_tree, __pyx_n_s_node, __pyx_n_s_cls); if (unlikely(!__pyx_tuple__132)) __PYX_ERR(3, 388, __pyx_L1_error)
+  __pyx_tuple__132 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_myhtml, __pyx_n_s_status, __pyx_n_s_html_tree, __pyx_n_s_node, __pyx_n_s_cls); if (unlikely(!__pyx_tuple__132)) __PYX_ERR(3, 390, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__132);
   __Pyx_GIVEREF(__pyx_tuple__132);
-  __pyx_codeobj__133 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__132, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_clone, 388, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__133)) __PYX_ERR(3, 388, __pyx_L1_error)
+  __pyx_codeobj__133 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__132, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_selectolax_parser_pyx, __pyx_n_s_clone, 390, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__133)) __PYX_ERR(3, 390, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
@@ -43273,262 +43418,265 @@ if (!__Pyx_RefNanny) {
   /* "selectolax/modest/node.pxi":518
  *         self.decompose(recursive)
  * 
- *     def unwrap(self):             # <<<<<<<<<<<<<<
+ *     def unwrap(self, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Replace node with whatever is inside this node.
  * 
  */
   __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_23unwrap, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_unwrap, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__75)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 518, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__60);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_unwrap, __pyx_t_2) < 0) __PYX_ERR(2, 518, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
-  /* "selectolax/modest/node.pxi":547
+  /* "selectolax/modest/node.pxi":555
  *         myhtml_node_delete(self.node)
  * 
  *     def strip_tags(self, list tags, bool recursive = False):             # <<<<<<<<<<<<<<
  *         """Remove specified tags from the HTML tree.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_25strip_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_strip_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 547, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_25strip_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_strip_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 555, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__60);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_strip_tags, __pyx_t_2) < 0) __PYX_ERR(2, 547, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_strip_tags, __pyx_t_2) < 0) __PYX_ERR(2, 555, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
-  /* "selectolax/modest/node.pxi":571
+  /* "selectolax/modest/node.pxi":579
  *                 element.decompose(recursive=recursive)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_27unwrap_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_unwrap_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 571, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_27unwrap_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_unwrap_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 579, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_unwrap_tags, __pyx_t_2) < 0) __PYX_ERR(2, 571, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__60);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_unwrap_tags, __pyx_t_2) < 0) __PYX_ERR(2, 579, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
-  /* "selectolax/modest/node.pxi":594
- *                 element.unwrap()
+  /* "selectolax/modest/node.pxi":606
+ *                 element.unwrap(delete_empty)
  * 
  *     def replace_with(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """Replace current Node with specified value.
  * 
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_k__10 = __pyx_t_2;
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_51replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_51replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_basestring, __pyx_t_3) < 0) __PYX_ERR(2, 594, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_basestring, __pyx_t_3) < 0) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_53replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_53replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_bytes, __pyx_t_3) < 0) __PYX_ERR(2, 594, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_bytes, __pyx_t_3) < 0) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_55replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_55replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_Node, __pyx_t_3) < 0) __PYX_ERR(2, 594, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_Node, __pyx_t_3) < 0) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_29replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 594, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_29replace_with, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_replace_with, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
   ((__pyx_FusedFunctionObject *) __pyx_t_3)->__signatures__ = __pyx_t_2;
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_replace_with, __pyx_t_3) < 0) __PYX_ERR(2, 594, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_replace_with, __pyx_t_3) < 0) __PYX_ERR(2, 606, __pyx_L1_error)
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "selectolax/modest/node.pxi":635
+  /* "selectolax/modest/node.pxi":647
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_before(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """
  *         Insert a node before the current Node.
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_k__15 = __pyx_t_3;
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_59insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_59insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_basestring, __pyx_t_2) < 0) __PYX_ERR(2, 635, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_basestring, __pyx_t_2) < 0) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_61insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_61insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_bytes, __pyx_t_2) < 0) __PYX_ERR(2, 635, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_bytes, __pyx_t_2) < 0) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_63insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_63insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_Node, __pyx_t_2) < 0) __PYX_ERR(2, 635, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_Node, __pyx_t_2) < 0) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_31insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 635, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_31insert_before, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_before, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 647, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
   ((__pyx_FusedFunctionObject *) __pyx_t_2)->__signatures__ = __pyx_t_3;
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_insert_before, __pyx_t_2) < 0) __PYX_ERR(2, 635, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_insert_before, __pyx_t_2) < 0) __PYX_ERR(2, 647, __pyx_L1_error)
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "selectolax/modest/node.pxi":675
+  /* "selectolax/modest/node.pxi":687
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_after(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """
  *         Insert a node after the current Node.
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_k__16 = __pyx_t_2;
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_67insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_67insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_basestring, __pyx_t_3) < 0) __PYX_ERR(2, 675, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_basestring, __pyx_t_3) < 0) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_69insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_69insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_bytes, __pyx_t_3) < 0) __PYX_ERR(2, 675, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_bytes, __pyx_t_3) < 0) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_71insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_71insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_Node, __pyx_t_3) < 0) __PYX_ERR(2, 675, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_Node, __pyx_t_3) < 0) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_33insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 675, __pyx_L1_error)
+  __pyx_t_3 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_33insert_after, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_after, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_empty_tuple);
   ((__pyx_FusedFunctionObject *) __pyx_t_3)->__signatures__ = __pyx_t_2;
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_insert_after, __pyx_t_3) < 0) __PYX_ERR(2, 675, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_insert_after, __pyx_t_3) < 0) __PYX_ERR(2, 687, __pyx_L1_error)
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "selectolax/modest/node.pxi":715
+  /* "selectolax/modest/node.pxi":727
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
  *     def insert_child(self, str_or_Node value):             # <<<<<<<<<<<<<<
  *         """
  *         Insert a node inside (at the end of) the current Node.
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_k__17 = __pyx_t_3;
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_75insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_10selectolax_6parser_4Node_75insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_basestring, __pyx_t_2) < 0) __PYX_ERR(2, 715, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_basestring, __pyx_t_2) < 0) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_77insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_10selectolax_6parser_4Node_77insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_bytes, __pyx_t_2) < 0) __PYX_ERR(2, 715, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_bytes, __pyx_t_2) < 0) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_79insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_fuse_2__pyx_mdef_10selectolax_6parser_4Node_79insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_Node, __pyx_t_2) < 0) __PYX_ERR(2, 715, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_Node, __pyx_t_2) < 0) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_35insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 715, __pyx_L1_error)
+  __pyx_t_2 = __pyx_FusedFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_35insert_child, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_insert_child, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 727, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_empty_tuple);
   ((__pyx_FusedFunctionObject *) __pyx_t_2)->__signatures__ = __pyx_t_3;
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_insert_child, __pyx_t_2) < 0) __PYX_ERR(2, 715, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_insert_child, __pyx_t_2) < 0) __PYX_ERR(2, 727, __pyx_L1_error)
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "selectolax/modest/node.pxi":755
+  /* "selectolax/modest/node.pxi":767
  *             raise TypeError("Expected a string or Node instance, but %s found" % type(value).__name__)
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_37unwrap_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_unwrap_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__85)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 755, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_37unwrap_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_unwrap_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__85)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 767, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_unwrap_tags, __pyx_t_2) < 0) __PYX_ERR(2, 755, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__60);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_unwrap_tags, __pyx_t_2) < 0) __PYX_ERR(2, 767, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
-  /* "selectolax/modest/node.pxi":805
+  /* "selectolax/modest/node.pxi":821
  *         return self.parser.raw_html[begin:begin + length]
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
  *         """Select nodes given a CSS selector.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_39select, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_select, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__86)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 805, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_39select, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_select, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__86)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 821, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__41);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_select, __pyx_t_2) < 0) __PYX_ERR(2, 805, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_select, __pyx_t_2) < 0) __PYX_ERR(2, 821, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
-  /* "selectolax/modest/node.pxi":821
+  /* "selectolax/modest/node.pxi":837
  *         return Selector(self, query)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script tags contain specified text.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_41scripts_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_scripts_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__88)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 821, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_41scripts_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_scripts_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__88)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 837, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_scripts_contain, __pyx_t_2) < 0) __PYX_ERR(2, 821, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_scripts_contain, __pyx_t_2) < 0) __PYX_ERR(2, 837, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
-  /* "selectolax/modest/node.pxi":846
+  /* "selectolax/modest/node.pxi":862
  *         return False
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script SRCs attributes contain on of the specified text.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_43script_srcs_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_script_srcs_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__90)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 846, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_43script_srcs_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_script_srcs_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__90)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 862, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_script_srcs_contain, __pyx_t_2) < 0) __PYX_ERR(2, 846, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_script_srcs_contain, __pyx_t_2) < 0) __PYX_ERR(2, 862, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
-  /* "selectolax/modest/node.pxi":902
+  /* "selectolax/modest/node.pxi":918
  *         return None
  * 
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
  *         """Iterates over all text nodes and merges all text nodes that are close to each other.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_49merge_text_nodes, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_merge_text_nodes, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__92)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 902, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_4Node_49merge_text_nodes, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Node_merge_text_nodes, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__92)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 918, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_merge_text_nodes, __pyx_t_2) < 0) __PYX_ERR(2, 902, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_Node, __pyx_n_s_merge_text_nodes, __pyx_t_2) < 0) __PYX_ERR(2, 918, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_Node);
 
@@ -43994,106 +44142,112 @@ if (!__Pyx_RefNanny) {
   /* "selectolax/parser.pyx":272
  * 
  * 
- *     def unwrap_tags(self, list tags):             # <<<<<<<<<<<<<<
+ *     def unwrap_tags(self, list tags, delete_empty : bool = False):             # <<<<<<<<<<<<<<
  *         """Unwraps specified tags from the HTML tree.
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_13unwrap_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_unwrap_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__124)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 272, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_unwrap_tags, __pyx_t_4) < 0) __PYX_ERR(3, 272, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_delete_empty, __pyx_n_s_bool) < 0) __PYX_ERR(3, 272, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_13unwrap_tags, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_unwrap_tags, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__124)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 272, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__60);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_unwrap_tags, __pyx_t_5) < 0) __PYX_ERR(3, 272, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
-  /* "selectolax/parser.pyx":302
+  /* "selectolax/parser.pyx":304
  *         return None
  * 
  *     def select(self, query=None):             # <<<<<<<<<<<<<<
  *         """Select nodes given a CSS selector.
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_15select, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_select, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__125)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 302, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__41);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_select, __pyx_t_4) < 0) __PYX_ERR(3, 302, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_15select, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_select, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__125)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 304, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__41);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_select, __pyx_t_5) < 0) __PYX_ERR(3, 304, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
-  /* "selectolax/parser.pyx":321
+  /* "selectolax/parser.pyx":323
  *             return Selector(node, query)
  * 
  *     def any_css_matches(self, tuple selectors):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the specified CSS selectors matches a node."""
  *         return self.root.any_css_matches(selectors)
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_17any_css_matches, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_any_css_matches, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__126)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 321, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_any_css_matches, __pyx_t_4) < 0) __PYX_ERR(3, 321, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_17any_css_matches, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_any_css_matches, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__126)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 323, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_any_css_matches, __pyx_t_5) < 0) __PYX_ERR(3, 323, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
-  /* "selectolax/parser.pyx":325
+  /* "selectolax/parser.pyx":327
  *         return self.root.any_css_matches(selectors)
  * 
  *     def scripts_contain(self, str query):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script tags contain specified text.
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_19scripts_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_scripts_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__127)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 325, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_scripts_contain, __pyx_t_4) < 0) __PYX_ERR(3, 325, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_19scripts_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_scripts_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__127)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 327, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_scripts_contain, __pyx_t_5) < 0) __PYX_ERR(3, 327, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
-  /* "selectolax/parser.pyx":338
+  /* "selectolax/parser.pyx":340
  *         return self.root.scripts_contain(query)
  * 
  *     def script_srcs_contain(self, tuple queries):             # <<<<<<<<<<<<<<
  *         """Returns True if any of the script SRCs attributes contain on of the specified text.
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_21script_srcs_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_script_srcs_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__129)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 338, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_script_srcs_contain, __pyx_t_4) < 0) __PYX_ERR(3, 338, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_21script_srcs_contain, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_script_srcs_contain, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__129)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 340, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_script_srcs_contain, __pyx_t_5) < 0) __PYX_ERR(3, 340, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
-  /* "selectolax/parser.pyx":350
+  /* "selectolax/parser.pyx":352
  *         return self.root.script_srcs_contain(queries)
  * 
  *     def css_matches(self, str selector):             # <<<<<<<<<<<<<<
  *         return self.root.css_matches(selector)
  *     def merge_text_nodes(self):
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_23css_matches, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_css_matches, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__130)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 350, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_css_matches, __pyx_t_4) < 0) __PYX_ERR(3, 350, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_23css_matches, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_css_matches, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__130)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 352, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_css_matches, __pyx_t_5) < 0) __PYX_ERR(3, 352, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
-  /* "selectolax/parser.pyx":352
+  /* "selectolax/parser.pyx":354
  *     def css_matches(self, str selector):
  *         return self.root.css_matches(selector)
  *     def merge_text_nodes(self):             # <<<<<<<<<<<<<<
  *         """Iterates over all text nodes and merges all text nodes that are close to each other.
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_25merge_text_nodes, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_merge_text_nodes, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__131)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 352, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_merge_text_nodes, __pyx_t_4) < 0) __PYX_ERR(3, 352, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_25merge_text_nodes, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_merge_text_nodes, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__131)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 354, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_merge_text_nodes, __pyx_t_5) < 0) __PYX_ERR(3, 354, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
-  /* "selectolax/parser.pyx":388
+  /* "selectolax/parser.pyx":390
  * 
  * 
  *     def clone(self):             # <<<<<<<<<<<<<<
  *         """Clone the current tree."""
  *         cdef myhtml_t* myhtml
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_27clone, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_clone, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__133)); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 388, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_clone, __pyx_t_4) < 0) __PYX_ERR(3, 388, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_27clone, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser_clone, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__133)); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 390, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_10selectolax_6parser_HTMLParser, __pyx_n_s_clone, __pyx_t_5) < 0) __PYX_ERR(3, 390, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_10selectolax_6parser_HTMLParser);
 
   /* "(tree fragment)":1
@@ -44101,10 +44255,10 @@ if (!__Pyx_RefNanny) {
  *     raise TypeError, "self.html_tree cannot be converted to a Python object for pickling"
  * def __setstate_cython__(self, __pyx_state):
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_33__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser___reduce_cython, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__134)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_reduce_cython, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_33__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser___reduce_cython, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__134)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_reduce_cython, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "(tree fragment)":3
  * def __reduce_cython__(self):
@@ -44112,20 +44266,20 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "self.html_tree cannot be converted to a Python object for pickling"
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_35__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser___setstate_cython, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__135)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_10HTMLParser_35__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_HTMLParser___setstate_cython, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__135)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_setstate_cython, __pyx_t_5) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_Selector(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_21__pyx_unpickle_Selector, 0, __pyx_n_s_pyx_unpickle_Selector, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__137)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_Selector, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_10selectolax_6parser_21__pyx_unpickle_Selector, 0, __pyx_n_s_pyx_unpickle_Selector, NULL, __pyx_n_s_selectolax_parser, __pyx_d, ((PyObject *)__pyx_codeobj__137)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_Selector, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "selectolax/parser.pyx":2
  * 
@@ -44133,26 +44287,26 @@ if (!__Pyx_RefNanny) {
  * 
  * include "modest/selection.pxi"
  */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(16); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 2, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_attributes___get___line_151, __pyx_kp_u_Get_all_attributes_that_belong_t) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_attrs___get___line_187, __pyx_kp_u_A_dict_like_object_that_is_simil) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_decompose_line_493, __pyx_kp_u_Remove_a_Node_from_the_tree_Para) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_unwrap_line_518, __pyx_kp_u_Replace_node_with_whatever_is_in) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_strip_tags_line_547, __pyx_kp_u_Remove_specified_tags_from_the_H) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_unwrap_tags_line_571, __pyx_kp_u_Unwraps_specified_tags_from_the) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_replace_with_line_594, __pyx_kp_u_Replace_current_Node_with_specif) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_insert_before_line_635, __pyx_kp_u_Insert_a_node_before_the_curren) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_insert_after_line_675, __pyx_kp_u_Insert_a_node_after_the_current) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_insert_child_line_715, __pyx_kp_u_Insert_a_node_inside_at_the_end) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_unwrap_tags_line_755, __pyx_kp_u_Unwraps_specified_tags_from_the_2) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_raw_value___get___line_778, __pyx_kp_u_Return_the_raw_unparsed_original) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_Node_merge_text_nodes_line_902, __pyx_kp_u_Iterates_over_all_text_nodes_and) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_HTMLParser_strip_tags_line_229, __pyx_kp_u_Remove_specified_tags_from_the_n) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_HTMLParser_unwrap_tags_line_272, __pyx_kp_u_Unwraps_specified_tags_from_the_3) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_kp_u_HTMLParser_merge_text_nodes_line, __pyx_kp_u_Iterates_over_all_text_nodes_and) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_4) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(16); if (unlikely(!__pyx_t_5)) __PYX_ERR(3, 2, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_attributes___get___line_151, __pyx_kp_u_Get_all_attributes_that_belong_t) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_attrs___get___line_187, __pyx_kp_u_A_dict_like_object_that_is_simil) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_decompose_line_493, __pyx_kp_u_Remove_a_Node_from_the_tree_Para) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_unwrap_line_518, __pyx_kp_u_Replace_node_with_whatever_is_in) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_strip_tags_line_555, __pyx_kp_u_Remove_specified_tags_from_the_H) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_unwrap_tags_line_579, __pyx_kp_u_Unwraps_specified_tags_from_the) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_replace_with_line_606, __pyx_kp_u_Replace_current_Node_with_specif) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_insert_before_line_647, __pyx_kp_u_Insert_a_node_before_the_curren) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_insert_after_line_687, __pyx_kp_u_Insert_a_node_after_the_current) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_insert_child_line_727, __pyx_kp_u_Insert_a_node_inside_at_the_end) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_unwrap_tags_line_767, __pyx_kp_u_Unwraps_specified_tags_from_the_2) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_raw_value___get___line_794, __pyx_kp_u_Return_the_raw_unparsed_original) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_Node_merge_text_nodes_line_918, __pyx_kp_u_Iterates_over_all_text_nodes_and) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_HTMLParser_strip_tags_line_229, __pyx_kp_u_Remove_specified_tags_from_the_n) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_HTMLParser_unwrap_tags_line_272, __pyx_kp_u_Unwraps_specified_tags_from_the_3) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u_HTMLParser_merge_text_nodes_line, __pyx_kp_u_Iterates_over_all_text_nodes_and) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_5) < 0) __PYX_ERR(3, 2, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /*--- Wrapped vars code ---*/
 

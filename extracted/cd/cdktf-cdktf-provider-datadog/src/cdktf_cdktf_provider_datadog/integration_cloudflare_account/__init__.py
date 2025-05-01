@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_cloudflare_account`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_cloudflare_account`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account).
+Refer to the Terraform Registry for docs: [`datadog_integration_cloudflare_account`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationCloudflareAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationCloudflareAccount.IntegrationCloudflareAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account datadog_integration_cloudflare_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account datadog_integration_cloudflare_account}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class IntegrationCloudflareAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account datadog_integration_cloudflare_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account datadog_integration_cloudflare_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_key: The API key (or token) for the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#api_key IntegrationCloudflareAccount#api_key}
-        :param name: The name of the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#name IntegrationCloudflareAccount#name}
-        :param email: The email associated with the Cloudflare account. If an API key is provided (and not a token), this field is also required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#email IntegrationCloudflareAccount#email}
-        :param resources: An allowlist of resources to pull metrics for. Includes ``web``, ``dns``, ``lb`` (load balancer), and ``worker``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#resources IntegrationCloudflareAccount#resources}
+        :param api_key: The API key (or token) for the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#api_key IntegrationCloudflareAccount#api_key}
+        :param name: The name of the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#name IntegrationCloudflareAccount#name}
+        :param email: The email associated with the Cloudflare account. If an API key is provided (and not a token), this field is also required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#email IntegrationCloudflareAccount#email}
+        :param resources: An allowlist of resources to pull metrics for. Includes ``web``, ``dns``, ``lb`` (load balancer), and ``worker``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#resources IntegrationCloudflareAccount#resources}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class IntegrationCloudflareAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationCloudflareAccount to import.
-        :param import_from_id: The id of the existing IntegrationCloudflareAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationCloudflareAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationCloudflareAccount to import is found.
         '''
         if __debug__:
@@ -259,10 +259,10 @@ class IntegrationCloudflareAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_key: The API key (or token) for the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#api_key IntegrationCloudflareAccount#api_key}
-        :param name: The name of the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#name IntegrationCloudflareAccount#name}
-        :param email: The email associated with the Cloudflare account. If an API key is provided (and not a token), this field is also required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#email IntegrationCloudflareAccount#email}
-        :param resources: An allowlist of resources to pull metrics for. Includes ``web``, ``dns``, ``lb`` (load balancer), and ``worker``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#resources IntegrationCloudflareAccount#resources}
+        :param api_key: The API key (or token) for the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#api_key IntegrationCloudflareAccount#api_key}
+        :param name: The name of the Cloudflare account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#name IntegrationCloudflareAccount#name}
+        :param email: The email associated with the Cloudflare account. If an API key is provided (and not a token), this field is also required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#email IntegrationCloudflareAccount#email}
+        :param resources: An allowlist of resources to pull metrics for. Includes ``web``, ``dns``, ``lb`` (load balancer), and ``worker``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#resources IntegrationCloudflareAccount#resources}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,7 +370,7 @@ class IntegrationCloudflareAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def api_key(self) -> builtins.str:
         '''The API key (or token) for the Cloudflare account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#api_key IntegrationCloudflareAccount#api_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#api_key IntegrationCloudflareAccount#api_key}
         '''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
@@ -380,7 +380,7 @@ class IntegrationCloudflareAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def name(self) -> builtins.str:
         '''The name of the Cloudflare account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#name IntegrationCloudflareAccount#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#name IntegrationCloudflareAccount#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -392,7 +392,7 @@ class IntegrationCloudflareAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         If an API key is provided (and not a token), this field is also required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#email IntegrationCloudflareAccount#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#email IntegrationCloudflareAccount#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -401,7 +401,7 @@ class IntegrationCloudflareAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def resources(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An allowlist of resources to pull metrics for. Includes ``web``, ``dns``, ``lb`` (load balancer), and ``worker``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_cloudflare_account#resources IntegrationCloudflareAccount#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_cloudflare_account#resources IntegrationCloudflareAccount#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

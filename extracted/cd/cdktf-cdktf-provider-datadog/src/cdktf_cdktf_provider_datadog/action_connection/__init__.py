@@ -1,7 +1,7 @@
 r'''
 # `datadog_action_connection`
 
-Refer to the Terraform Registry for docs: [`datadog_action_connection`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection).
+Refer to the Terraform Registry for docs: [`datadog_action_connection`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActionConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.actionConnection.ActionConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection datadog_action_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection datadog_action_connection}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class ActionConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection datadog_action_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection datadog_action_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
-        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#aws ActionConnection#aws}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#http ActionConnection#http}
+        :param name: Name of the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
+        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#aws ActionConnection#aws}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#http ActionConnection#http}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class ActionConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActionConnection to import.
-        :param import_from_id: The id of the existing ActionConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActionConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActionConnection to import is found.
         '''
         if __debug__:
@@ -127,7 +127,7 @@ class ActionConnection(
         assume_role: typing.Optional[typing.Union["ActionConnectionAwsAssumeRole", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#assume_role ActionConnection#assume_role}
+        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#assume_role ActionConnection#assume_role}
         '''
         value = ActionConnectionAws(assume_role=assume_role)
 
@@ -141,8 +141,8 @@ class ActionConnection(
         token_auth: typing.Optional[typing.Union["ActionConnectionHttpTokenAuth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param base_url: Base HTTP url for the integration. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#base_url ActionConnection#base_url}
-        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#token_auth ActionConnection#token_auth}
+        :param base_url: Base HTTP url for the integration. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#base_url ActionConnection#base_url}
+        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#token_auth ActionConnection#token_auth}
         '''
         value = ActionConnectionHttp(base_url=base_url, token_auth=token_auth)
 
@@ -228,7 +228,7 @@ class ActionConnectionAws:
         assume_role: typing.Optional[typing.Union["ActionConnectionAwsAssumeRole", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#assume_role ActionConnection#assume_role}
+        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#assume_role ActionConnection#assume_role}
         '''
         if isinstance(assume_role, dict):
             assume_role = ActionConnectionAwsAssumeRole(**assume_role)
@@ -243,7 +243,7 @@ class ActionConnectionAws:
     def assume_role(self) -> typing.Optional["ActionConnectionAwsAssumeRole"]:
         '''assume_role block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#assume_role ActionConnection#assume_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#assume_role ActionConnection#assume_role}
         '''
         result = self._values.get("assume_role")
         return typing.cast(typing.Optional["ActionConnectionAwsAssumeRole"], result)
@@ -273,8 +273,8 @@ class ActionConnectionAwsAssumeRole:
         role: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_id: AWS account that the connection is created for. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#account_id ActionConnection#account_id}
-        :param role: Role to assume. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#role ActionConnection#role}
+        :param account_id: AWS account that the connection is created for. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#account_id ActionConnection#account_id}
+        :param role: Role to assume. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#role ActionConnection#role}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46762c6ecae4849cdeddffca1d9f39adc1c839417658264821ca7a6cac579a58)
@@ -290,7 +290,7 @@ class ActionConnectionAwsAssumeRole:
     def account_id(self) -> typing.Optional[builtins.str]:
         '''AWS account that the connection is created for. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#account_id ActionConnection#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#account_id ActionConnection#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -299,7 +299,7 @@ class ActionConnectionAwsAssumeRole:
     def role(self) -> typing.Optional[builtins.str]:
         '''Role to assume. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#role ActionConnection#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#role ActionConnection#role}
         '''
         result = self._values.get("role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -434,8 +434,8 @@ class ActionConnectionAwsOutputReference(
         role: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_id: AWS account that the connection is created for. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#account_id ActionConnection#account_id}
-        :param role: Role to assume. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#role ActionConnection#role}
+        :param account_id: AWS account that the connection is created for. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#account_id ActionConnection#account_id}
+        :param role: Role to assume. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#role ActionConnection#role}
         '''
         value = ActionConnectionAwsAssumeRole(account_id=account_id, role=role)
 
@@ -514,9 +514,9 @@ class ActionConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
-        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#aws ActionConnection#aws}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#http ActionConnection#http}
+        :param name: Name of the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
+        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#aws ActionConnection#aws}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#http ActionConnection#http}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -626,7 +626,7 @@ class ActionConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -636,7 +636,7 @@ class ActionConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws(self) -> typing.Optional[ActionConnectionAws]:
         '''aws block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#aws ActionConnection#aws}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#aws ActionConnection#aws}
         '''
         result = self._values.get("aws")
         return typing.cast(typing.Optional[ActionConnectionAws], result)
@@ -645,7 +645,7 @@ class ActionConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http(self) -> typing.Optional["ActionConnectionHttp"]:
         '''http block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#http ActionConnection#http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#http ActionConnection#http}
         '''
         result = self._values.get("http")
         return typing.cast(typing.Optional["ActionConnectionHttp"], result)
@@ -675,8 +675,8 @@ class ActionConnectionHttp:
         token_auth: typing.Optional[typing.Union["ActionConnectionHttpTokenAuth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param base_url: Base HTTP url for the integration. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#base_url ActionConnection#base_url}
-        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#token_auth ActionConnection#token_auth}
+        :param base_url: Base HTTP url for the integration. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#base_url ActionConnection#base_url}
+        :param token_auth: token_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#token_auth ActionConnection#token_auth}
         '''
         if isinstance(token_auth, dict):
             token_auth = ActionConnectionHttpTokenAuth(**token_auth)
@@ -694,7 +694,7 @@ class ActionConnectionHttp:
     def base_url(self) -> typing.Optional[builtins.str]:
         '''Base HTTP url for the integration. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#base_url ActionConnection#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#base_url ActionConnection#base_url}
         '''
         result = self._values.get("base_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -703,7 +703,7 @@ class ActionConnectionHttp:
     def token_auth(self) -> typing.Optional["ActionConnectionHttpTokenAuth"]:
         '''token_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#token_auth ActionConnection#token_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#token_auth ActionConnection#token_auth}
         '''
         result = self._values.get("token_auth")
         return typing.cast(typing.Optional["ActionConnectionHttpTokenAuth"], result)
@@ -750,10 +750,10 @@ class ActionConnectionHttpOutputReference(
         url_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ActionConnectionHttpTokenAuthUrlParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#body ActionConnection#body}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#header ActionConnection#header}
-        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#token ActionConnection#token}
-        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#url_parameter ActionConnection#url_parameter}
+        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#body ActionConnection#body}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#header ActionConnection#header}
+        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#token ActionConnection#token}
+        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#url_parameter ActionConnection#url_parameter}
         '''
         value = ActionConnectionHttpTokenAuth(
             body=body, header=header, token=token, url_parameter=url_parameter
@@ -836,10 +836,10 @@ class ActionConnectionHttpTokenAuth:
         url_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ActionConnectionHttpTokenAuthUrlParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#body ActionConnection#body}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#header ActionConnection#header}
-        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#token ActionConnection#token}
-        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#url_parameter ActionConnection#url_parameter}
+        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#body ActionConnection#body}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#header ActionConnection#header}
+        :param token: token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#token ActionConnection#token}
+        :param url_parameter: url_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#url_parameter ActionConnection#url_parameter}
         '''
         if isinstance(body, dict):
             body = ActionConnectionHttpTokenAuthBody(**body)
@@ -863,7 +863,7 @@ class ActionConnectionHttpTokenAuth:
     def body(self) -> typing.Optional["ActionConnectionHttpTokenAuthBody"]:
         '''body block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#body ActionConnection#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#body ActionConnection#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional["ActionConnectionHttpTokenAuthBody"], result)
@@ -874,7 +874,7 @@ class ActionConnectionHttpTokenAuth:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ActionConnectionHttpTokenAuthHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#header ActionConnection#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#header ActionConnection#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ActionConnectionHttpTokenAuthHeader"]]], result)
@@ -885,7 +885,7 @@ class ActionConnectionHttpTokenAuth:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ActionConnectionHttpTokenAuthToken"]]]:
         '''token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#token ActionConnection#token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#token ActionConnection#token}
         '''
         result = self._values.get("token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ActionConnectionHttpTokenAuthToken"]]], result)
@@ -896,7 +896,7 @@ class ActionConnectionHttpTokenAuth:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ActionConnectionHttpTokenAuthUrlParameter"]]]:
         '''url_parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#url_parameter ActionConnection#url_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#url_parameter ActionConnection#url_parameter}
         '''
         result = self._values.get("url_parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ActionConnectionHttpTokenAuthUrlParameter"]]], result)
@@ -926,8 +926,8 @@ class ActionConnectionHttpTokenAuthBody:
         content_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: Serialized body content. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#content ActionConnection#content}
-        :param content_type: Content type of the body. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#content_type ActionConnection#content_type}
+        :param content: Serialized body content. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#content ActionConnection#content}
+        :param content_type: Content type of the body. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#content_type ActionConnection#content_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86ca630442e327b336aa1bdb3bfd22dd977aa3a34155cff688f556d6c9a1540d)
@@ -943,7 +943,7 @@ class ActionConnectionHttpTokenAuthBody:
     def content(self) -> typing.Optional[builtins.str]:
         '''Serialized body content. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#content ActionConnection#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#content ActionConnection#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -952,7 +952,7 @@ class ActionConnectionHttpTokenAuthBody:
     def content_type(self) -> typing.Optional[builtins.str]:
         '''Content type of the body. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#content_type ActionConnection#content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#content_type ActionConnection#content_type}
         '''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1062,8 +1062,8 @@ class ActionConnectionHttpTokenAuthHeader:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Header name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
-        :param value: String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#value ActionConnection#value}
+        :param name: Header name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
+        :param value: String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#value ActionConnection#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34cb02e5fc2a376610267fbcf33fcf2cb55ecf37fa0aa48430e68a577161a995)
@@ -1079,7 +1079,7 @@ class ActionConnectionHttpTokenAuthHeader:
     def name(self) -> typing.Optional[builtins.str]:
         '''Header name. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1088,7 +1088,7 @@ class ActionConnectionHttpTokenAuthHeader:
     def value(self) -> typing.Optional[builtins.str]:
         '''String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#value ActionConnection#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#value ActionConnection#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1312,8 +1312,8 @@ class ActionConnectionHttpTokenAuthOutputReference(
         content_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: Serialized body content. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#content ActionConnection#content}
-        :param content_type: Content type of the body. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#content_type ActionConnection#content_type}
+        :param content: Serialized body content. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#content ActionConnection#content}
+        :param content_type: Content type of the body. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#content_type ActionConnection#content_type}
         '''
         value = ActionConnectionHttpTokenAuthBody(
             content=content, content_type=content_type
@@ -1456,9 +1456,9 @@ class ActionConnectionHttpTokenAuthToken:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Token name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
-        :param type: Token type Valid values are ``SECRET``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#type ActionConnection#type}
-        :param value: Token value. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#value ActionConnection#value}
+        :param name: Token name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
+        :param type: Token type Valid values are ``SECRET``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#type ActionConnection#type}
+        :param value: Token value. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#value ActionConnection#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1a340979827a96ac531b7efe576c6e6f6802e933697adce2767bf4f331ade7b)
@@ -1477,7 +1477,7 @@ class ActionConnectionHttpTokenAuthToken:
     def name(self) -> typing.Optional[builtins.str]:
         '''Token name. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1486,7 +1486,7 @@ class ActionConnectionHttpTokenAuthToken:
     def type(self) -> typing.Optional[builtins.str]:
         '''Token type Valid values are ``SECRET``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#type ActionConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#type ActionConnection#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1495,7 +1495,7 @@ class ActionConnectionHttpTokenAuthToken:
     def value(self) -> typing.Optional[builtins.str]:
         '''Token value. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#value ActionConnection#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#value ActionConnection#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1725,8 +1725,8 @@ class ActionConnectionHttpTokenAuthUrlParameter:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: URL parameter name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
-        :param value: URL parameter value. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#value ActionConnection#value}
+        :param name: URL parameter name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
+        :param value: URL parameter value. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#value ActionConnection#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__adf868f6095df1cfa5ce166ee70e0c1877607ae81b3716f9a0a2a1e371c79933)
@@ -1742,7 +1742,7 @@ class ActionConnectionHttpTokenAuthUrlParameter:
     def name(self) -> typing.Optional[builtins.str]:
         '''URL parameter name. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#name ActionConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#name ActionConnection#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1751,7 +1751,7 @@ class ActionConnectionHttpTokenAuthUrlParameter:
     def value(self) -> typing.Optional[builtins.str]:
         '''URL parameter value. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/action_connection#value ActionConnection#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/action_connection#value ActionConnection#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)

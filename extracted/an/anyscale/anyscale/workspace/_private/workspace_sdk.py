@@ -422,11 +422,18 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             should_warn_delete = True
             dry_run_options.append("--delete-excluded")
 
-        result = subprocess.run(
-            rsync_command + dry_run_options, capture_output=True, text=True, check=True
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"Rsync failed with return code {result.returncode}")
+        try:
+            result = subprocess.run(
+                rsync_command + dry_run_options,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            self._logger.error(f"Error running rsync command: {e}")
+            self._logger.error(f">>> stdout: {e.stdout}")
+            self._logger.error(f">>> stderr: {e.stderr}")
+            raise RuntimeError(f"Rsync failed with return code {e.returncode}")
 
         _, deleting_files = self._parse_rsync_dry_run_output(result.stdout)
 
@@ -514,7 +521,13 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             # Add -v / --verbose to the rsync command to be explicit about what is being transferred
             args += ["-v"]
 
-            subprocess.run(args, check=True)
+            try:
+                subprocess.run(args, check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as e:
+                self._logger.error(f">>> Error running rsync command: {e}")
+                self._logger.error(f">>> stdout: {e.stdout}")
+                self._logger.error(f">>> stderr: {e.stderr}")
+                raise RuntimeError(f"Rsync failed with return code {e.returncode}")
 
     def pull(
         self,

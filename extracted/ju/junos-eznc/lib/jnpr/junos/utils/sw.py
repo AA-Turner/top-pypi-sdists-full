@@ -1039,7 +1039,8 @@ class SW(Util):
                         for x in self._RE_list
                         if re.search(r"(\d+)", x)
                     ]
-                    vc_members.remove(self.dev.facts["vc_master"])
+                    if self.dev.facts["vc_master"] in vc_members:
+                        vc_members.remove(self.dev.facts["vc_master"])
                     vc_members.insert(len(vc_members), self.dev.facts["vc_master"])
                     for vc_id in vc_members:
                         _progress(
@@ -1056,24 +1057,35 @@ class SW(Util):
                         ok = ok[0] and bool_ret, ok[1] + "\n" + msg
                     return ok
                 else:
-                    # then this is a device with two RE that supports the "re0"
-                    # and "re1" options to the command (M, MX tested only)
-                    _progress("installing software on RE0 ... please be patient ...")
-                    ok = self.pkgadd(
-                        remote_package,
-                        vmhost=vmhost,
-                        re0=True,
-                        dev_timeout=timeout,
-                        **kwargs
-                    )
-                    _progress("installing software on RE1 ... please be patient ...")
-                    bool_ret, msg = self.pkgadd(
-                        remote_package,
-                        vmhost=vmhost,
-                        re1=True,
-                        dev_timeout=timeout,
-                        **kwargs
-                    )
+                    # For Dual RE device re0/re1 is not required
+                    if self._dev.facts["_is_linux"]:
+                        _progress("installing software ... please be patient ...")
+                        ok = self.pkgadd(
+                            remote_package, vmhost=vmhost, dev_timeout=timeout, **kwargs
+                        )
+                    else:
+                        # then this is a device with two RE that supports the "re0"
+                        # and "re1" options to the command (M, MX tested only)
+                        _progress(
+                            "installing software on RE0 ... please be patient ..."
+                        )
+                        ok = self.pkgadd(
+                            remote_package,
+                            vmhost=vmhost,
+                            re0=True,
+                            dev_timeout=timeout,
+                            **kwargs
+                        )
+                        _progress(
+                            "installing software on RE1 ... please be patient ..."
+                        )
+                        bool_ret, msg = self.pkgadd(
+                            remote_package,
+                            vmhost=vmhost,
+                            re1=True,
+                            dev_timeout=timeout,
+                            **kwargs
+                        )
                     ok = ok[0] and bool_ret, ok[1] + "\n" + msg
                     return ok
 
@@ -1228,7 +1240,7 @@ class SW(Util):
 
         if self._dev.facts["_is_linux"]:
             if on_node is None:
-                cmd = E("request-shutdown-reboot")
+                cmd = E("request-system-reboot")
             else:
                 cmd = E("request-node-reboot")
                 cmd.append(E("node", on_node))

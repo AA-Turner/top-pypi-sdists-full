@@ -8,21 +8,24 @@ use std::{cmp, collections::HashSet, fmt::Debug, str::FromStr};
 use arrow::{pyarrow::ToPyArrow, record_batch::RecordBatch};
 
 use pyo3::{
-    prelude::{pyclass, pymethods, PyAnyMethods, Python},
-    types::{PyList, PyString},
     Bound, IntoPyObject, IntoPyObjectExt, PyAny, PyObject, PyResult,
+    prelude::{PyAnyMethods, Python, pyclass, pymethods},
+    types::{PyList, PyString},
 };
 
 use crate::{
-    data::{record_batch_from_data_and_columns, ExcelSheetData},
+    data::{
+        ExcelSheetData, record_batch_from_data_and_columns,
+        record_batch_from_data_and_columns_with_errors,
+    },
     error::{
-        py_errors::IntoPyResult, ErrorContext, FastExcelError, FastExcelErrorKind, FastExcelResult,
+        ErrorContext, FastExcelError, FastExcelErrorKind, FastExcelResult, py_errors::IntoPyResult,
     },
     types::{dtype::DTypes, idx_or_name::IdxOrName},
 };
 use crate::{types::dtype::DTypeCoercion, utils::schema::get_schema_sample_rows};
 
-use self::column_info::{build_available_columns_info, finalize_column_info, ColumnInfo};
+use self::column_info::{ColumnInfo, build_available_columns_info, finalize_column_info};
 
 #[derive(Debug)]
 pub(crate) enum Header {
@@ -366,6 +369,42 @@ impl From<CalamineSheetVisible> for SheetVisible {
     }
 }
 
+#[derive(Debug, Clone)]
+#[pyclass]
+pub(crate) struct CellError {
+    /// `(int, int)`. The original row and column of the error
+    #[pyo3(get)]
+    pub position: (usize, usize),
+    /// `int`. The row offset
+    #[pyo3(get)]
+    pub row_offset: usize,
+    /// `str`. The error message
+    #[pyo3(get)]
+    pub detail: String,
+}
+
+#[pymethods]
+impl CellError {
+    #[getter]
+    pub fn offset_position(&self) -> (usize, usize) {
+        let (row, col) = self.position;
+        (row - self.row_offset, col)
+    }
+}
+
+#[pyclass]
+pub(crate) struct CellErrors {
+    pub errors: Vec<CellError>,
+}
+
+#[pymethods]
+impl CellErrors {
+    #[getter]
+    pub fn errors<'p>(&'p self, _py: Python<'p>) -> Vec<CellError> {
+        self.errors.clone()
+    }
+}
+
 #[pyclass(name = "_ExcelSheet")]
 pub(crate) struct ExcelSheet {
     sheet_meta: CalamineSheet,
@@ -549,7 +588,7 @@ impl ExcelSheet {
     #[getter]
     pub fn visible<'py>(&'py self, py: Python<'py>) -> FastExcelResult<Bound<'py, PyString>> {
         let visible: SheetVisible = self.sheet_meta.visible.into();
-        (&visible).into_pyobject(py).map_err(Into::into)
+        (&visible).into_pyobject(py)
     }
 
     pub fn to_arrow<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -572,6 +611,35 @@ impl ExcelSheet {
             })
             .into_pyresult()
             .and_then(|obj| obj.into_bound_py_any(py))
+    }
+
+    pub fn to_arrow_with_errors<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let offset = self.offset();
+        let limit = self.limit();
+
+        let (rb, errors) = record_batch_from_data_and_columns_with_errors(
+            &self.selected_columns,
+            self.data(),
+            offset,
+            limit,
+        )
+        .with_context(|| {
+            format!(
+                "could not create RecordBatch from sheet \"{}\"",
+                self.name()
+            )
+        })?;
+
+        let rb = rb
+            .to_pyarrow(py)
+            .map_err(|err| FastExcelErrorKind::ArrowError(err.to_string()).into())
+            .with_context(|| {
+                format!(
+                    "could not convert RecordBatch to pyarrow for sheet \"{}\"",
+                    self.name()
+                )
+            })?;
+        (rb, errors).into_bound_py_any(py)
     }
 
     pub fn __repr__(&self) -> String {

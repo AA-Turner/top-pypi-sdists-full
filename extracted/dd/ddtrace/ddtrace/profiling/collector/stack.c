@@ -2872,7 +2872,6 @@ static const char __pyx_k_monotonic_ns[] = "monotonic_ns";
 static const char __pyx_k_push_cputime[] = "push_cputime";
 static const char __pyx_k_push_task_id[] = "push_task_id";
 static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
-static const char __pyx_k_set_interval[] = "set_interval";
 static const char __pyx_k_stop_service[] = "_stop_service";
 static const char __pyx_k_stringsource[] = "<stringsource>";
 static const char __pyx_k_use_setstate[] = "use_setstate";
@@ -2927,8 +2926,10 @@ static const char __pyx_k_compute_new_interval[] = "_compute_new_interval";
 static const char __pyx_k_get_last_thread_time[] = "_get_last_thread_time";
 static const char __pyx_k_get_thread_native_id[] = "get_thread_native_id";
 static const char __pyx_k_typing_Optional_bool[] = "typing.Optional[bool]";
+static const char __pyx_k_v2_adaptive_sampling[] = "v2_adaptive_sampling";
 static const char __pyx_k_StackCollector___init[] = "StackCollector.__init__";
 static const char __pyx_k_StackCollector___repr[] = "StackCollector.__repr__";
+static const char __pyx_k_set_adaptive_sampling[] = "set_adaptive_sampling";
 static const char __pyx_k_StackCollector_collect[] = "StackCollector.collect";
 static const char __pyx_k_ddtrace_internal_utils[] = "ddtrace.internal.utils";
 static const char __pyx_k_deregister_on_activate[] = "_deregister_on_activate";
@@ -3248,7 +3249,7 @@ typedef struct {
   PyObject *__pyx_n_s_sampling_period;
   PyObject *__pyx_n_s_self;
   PyObject *__pyx_n_s_send;
-  PyObject *__pyx_n_s_set_interval;
+  PyObject *__pyx_n_s_set_adaptive_sampling;
   PyObject *__pyx_n_s_set_name;
   PyObject *__pyx_n_s_set_trace_info;
   PyObject *__pyx_n_s_setstate;
@@ -3304,6 +3305,7 @@ typedef struct {
   PyObject *__pyx_n_s_use_setstate;
   PyObject *__pyx_n_s_used_wall_time_ns;
   PyObject *__pyx_n_s_v;
+  PyObject *__pyx_n_s_v2_adaptive_sampling;
   PyObject *__pyx_n_s_v2_enabled;
   PyObject *__pyx_n_s_wall_time;
   PyObject *__pyx_n_s_wall_time_ns;
@@ -3586,7 +3588,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_sampling_period);
   Py_CLEAR(clear_module_state->__pyx_n_s_self);
   Py_CLEAR(clear_module_state->__pyx_n_s_send);
-  Py_CLEAR(clear_module_state->__pyx_n_s_set_interval);
+  Py_CLEAR(clear_module_state->__pyx_n_s_set_adaptive_sampling);
   Py_CLEAR(clear_module_state->__pyx_n_s_set_name);
   Py_CLEAR(clear_module_state->__pyx_n_s_set_trace_info);
   Py_CLEAR(clear_module_state->__pyx_n_s_setstate);
@@ -3642,6 +3644,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_use_setstate);
   Py_CLEAR(clear_module_state->__pyx_n_s_used_wall_time_ns);
   Py_CLEAR(clear_module_state->__pyx_n_s_v);
+  Py_CLEAR(clear_module_state->__pyx_n_s_v2_adaptive_sampling);
   Py_CLEAR(clear_module_state->__pyx_n_s_v2_enabled);
   Py_CLEAR(clear_module_state->__pyx_n_s_wall_time);
   Py_CLEAR(clear_module_state->__pyx_n_s_wall_time_ns);
@@ -3902,7 +3905,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_sampling_period);
   Py_VISIT(traverse_module_state->__pyx_n_s_self);
   Py_VISIT(traverse_module_state->__pyx_n_s_send);
-  Py_VISIT(traverse_module_state->__pyx_n_s_set_interval);
+  Py_VISIT(traverse_module_state->__pyx_n_s_set_adaptive_sampling);
   Py_VISIT(traverse_module_state->__pyx_n_s_set_name);
   Py_VISIT(traverse_module_state->__pyx_n_s_set_trace_info);
   Py_VISIT(traverse_module_state->__pyx_n_s_setstate);
@@ -3958,6 +3961,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_use_setstate);
   Py_VISIT(traverse_module_state->__pyx_n_s_used_wall_time_ns);
   Py_VISIT(traverse_module_state->__pyx_n_s_v);
+  Py_VISIT(traverse_module_state->__pyx_n_s_v2_adaptive_sampling);
   Py_VISIT(traverse_module_state->__pyx_n_s_v2_enabled);
   Py_VISIT(traverse_module_state->__pyx_n_s_wall_time);
   Py_VISIT(traverse_module_state->__pyx_n_s_wall_time_ns);
@@ -4250,7 +4254,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_sampling_period __pyx_mstate_global->__pyx_n_s_sampling_period
 #define __pyx_n_s_self __pyx_mstate_global->__pyx_n_s_self
 #define __pyx_n_s_send __pyx_mstate_global->__pyx_n_s_send
-#define __pyx_n_s_set_interval __pyx_mstate_global->__pyx_n_s_set_interval
+#define __pyx_n_s_set_adaptive_sampling __pyx_mstate_global->__pyx_n_s_set_adaptive_sampling
 #define __pyx_n_s_set_name __pyx_mstate_global->__pyx_n_s_set_name
 #define __pyx_n_s_set_trace_info __pyx_mstate_global->__pyx_n_s_set_trace_info
 #define __pyx_n_s_setstate __pyx_mstate_global->__pyx_n_s_setstate
@@ -4306,6 +4310,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_use_setstate __pyx_mstate_global->__pyx_n_s_use_setstate
 #define __pyx_n_s_used_wall_time_ns __pyx_mstate_global->__pyx_n_s_used_wall_time_ns
 #define __pyx_n_s_v __pyx_mstate_global->__pyx_n_s_v
+#define __pyx_n_s_v2_adaptive_sampling __pyx_mstate_global->__pyx_n_s_v2_adaptive_sampling
 #define __pyx_n_s_v2_enabled __pyx_mstate_global->__pyx_n_s_v2_enabled
 #define __pyx_n_s_wall_time __pyx_mstate_global->__pyx_n_s_wall_time
 #define __pyx_n_s_wall_time_ns __pyx_mstate_global->__pyx_n_s_wall_time_ns
@@ -11598,6 +11603,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   PyObject *__pyx_t_3 = NULL;
   unsigned int __pyx_t_4;
   int __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -11832,8 +11838,8 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *             # itself, but it's a little bit fiddly and it's easier to make it correct here.
  *             # TODO take the `threading` import out of here and just handle it in v2 startup
  *             threading.init_stack_v2()             # <<<<<<<<<<<<<<
+ *             stack_v2.set_adaptive_sampling(config.stack.v2_adaptive_sampling)
  *             stack_v2.start()
- * 
  */
     __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_threading_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 529, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
@@ -11867,23 +11873,31 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     /* "ddtrace/profiling/collector/stack.pyx":530
  *             # TODO take the `threading` import out of here and just handle it in v2 startup
  *             threading.init_stack_v2()
- *             stack_v2.start()             # <<<<<<<<<<<<<<
+ *             stack_v2.set_adaptive_sampling(config.stack.v2_adaptive_sampling)             # <<<<<<<<<<<<<<
+ *             stack_v2.start()
  * 
- *     def _start_service(self):
  */
     __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 530, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 530, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_set_adaptive_sampling); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 530, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 530, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_stack); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 530, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_v2_adaptive_sampling); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 530, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_6 = NULL;
     __pyx_t_4 = 0;
     #if CYTHON_UNPACK_METHODS
     if (unlikely(PyMethod_Check(__pyx_t_3))) {
-      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
-      if (likely(__pyx_t_2)) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_3);
+      if (likely(__pyx_t_6)) {
         PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
-        __Pyx_INCREF(__pyx_t_2);
+        __Pyx_INCREF(__pyx_t_6);
         __Pyx_INCREF(function);
         __Pyx_DECREF_SET(__pyx_t_3, function);
         __pyx_t_4 = 1;
@@ -11891,12 +11905,49 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
-      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_2};
+      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 530, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    }
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+    /* "ddtrace/profiling/collector/stack.pyx":531
+ *             threading.init_stack_v2()
+ *             stack_v2.set_adaptive_sampling(config.stack.v2_adaptive_sampling)
+ *             stack_v2.start()             # <<<<<<<<<<<<<<
+ * 
+ *     def _start_service(self):
+ */
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_stack_v2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 531, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_start); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 531, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = NULL;
+    __pyx_t_4 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_2))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+      if (likely(__pyx_t_3)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
+        __Pyx_INCREF(__pyx_t_3);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_2, function);
+        __pyx_t_4 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
+      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 531, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
@@ -11924,6 +11975,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_6);
   __Pyx_AddTraceback("ddtrace.profiling.collector.stack.StackCollector._init", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -11933,7 +11985,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":532
+/* "ddtrace/profiling/collector/stack.pyx":533
  *             stack_v2.start()
  * 
  *     def _start_service(self):             # <<<<<<<<<<<<<<
@@ -11994,12 +12046,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 532, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 533, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_start_service") < 0)) __PYX_ERR(0, 532, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_start_service") < 0)) __PYX_ERR(0, 533, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -12010,7 +12062,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_start_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 532, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_start_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 533, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12049,16 +12101,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_start_service", 1);
 
-  /* "ddtrace/profiling/collector/stack.pyx":535
+  /* "ddtrace/profiling/collector/stack.pyx":536
  *         # type: (...) -> None
  *         # This is split in its own function to ease testing
  *         LOG.debug("Profiling StackCollector starting")             # <<<<<<<<<<<<<<
  *         self._init()
  *         super(StackCollector, self)._start_service()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 536, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 536, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12079,20 +12131,20 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_kp_u_Profiling_StackCollector_startin};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 535, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":536
+  /* "ddtrace/profiling/collector/stack.pyx":537
  *         # This is split in its own function to ease testing
  *         LOG.debug("Profiling StackCollector starting")
  *         self._init()             # <<<<<<<<<<<<<<
  *         super(StackCollector, self)._start_service()
  *         LOG.debug("Profiling StackCollector started")
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_init_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 536, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_init_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 537, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = NULL;
   __pyx_t_4 = 0;
@@ -12112,33 +12164,33 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 536, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 537, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":537
+  /* "ddtrace/profiling/collector/stack.pyx":538
  *         LOG.debug("Profiling StackCollector starting")
  *         self._init()
  *         super(StackCollector, self)._start_service()             # <<<<<<<<<<<<<<
  *         LOG.debug("Profiling StackCollector started")
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_StackCollector); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_StackCollector); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 538, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 538, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3)) __PYX_ERR(0, 537, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3)) __PYX_ERR(0, 538, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self);
   __Pyx_GIVEREF(__pyx_v_self);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_self)) __PYX_ERR(0, 537, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_self)) __PYX_ERR(0, 538, __pyx_L1_error);
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_super, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_super, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 538, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_start_service); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_start_service); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 538, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -12159,22 +12211,22 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 537, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 538, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":538
+  /* "ddtrace/profiling/collector/stack.pyx":539
  *         self._init()
  *         super(StackCollector, self)._start_service()
  *         LOG.debug("Profiling StackCollector started")             # <<<<<<<<<<<<<<
  * 
  *     def _stop_service(self):
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 538, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 539, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 538, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 539, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12195,13 +12247,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_kp_u_Profiling_StackCollector_started};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 538, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 539, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":532
+  /* "ddtrace/profiling/collector/stack.pyx":533
  *             stack_v2.start()
  * 
  *     def _start_service(self):             # <<<<<<<<<<<<<<
@@ -12224,7 +12276,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":540
+/* "ddtrace/profiling/collector/stack.pyx":541
  *         LOG.debug("Profiling StackCollector started")
  * 
  *     def _stop_service(self):             # <<<<<<<<<<<<<<
@@ -12285,12 +12337,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 540, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 541, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_stop_service") < 0)) __PYX_ERR(0, 540, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_stop_service") < 0)) __PYX_ERR(0, 541, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -12301,7 +12353,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_stop_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 540, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_stop_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 541, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12342,16 +12394,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_stop_service", 1);
 
-  /* "ddtrace/profiling/collector/stack.pyx":542
+  /* "ddtrace/profiling/collector/stack.pyx":543
  *     def _stop_service(self):
  *         # type: (...) -> None
  *         LOG.debug("Profiling StackCollector stopping")             # <<<<<<<<<<<<<<
  *         super(StackCollector, self)._stop_service()
  *         if self.tracer is not None:
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 542, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 543, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 542, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 543, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12372,33 +12424,33 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_kp_u_Profiling_StackCollector_stoppin};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 542, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 543, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":543
+  /* "ddtrace/profiling/collector/stack.pyx":544
  *         # type: (...) -> None
  *         LOG.debug("Profiling StackCollector stopping")
  *         super(StackCollector, self)._stop_service()             # <<<<<<<<<<<<<<
  *         if self.tracer is not None:
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_StackCollector); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 543, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_StackCollector); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 544, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 543, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 544, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3)) __PYX_ERR(0, 543, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3)) __PYX_ERR(0, 544, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self);
   __Pyx_GIVEREF(__pyx_v_self);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_self)) __PYX_ERR(0, 543, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_self)) __PYX_ERR(0, 544, __pyx_L1_error);
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_super, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 543, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_super, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 544, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_stop_service); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 543, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_stop_service); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 544, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -12419,48 +12471,48 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 543, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 544, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":544
+  /* "ddtrace/profiling/collector/stack.pyx":545
  *         LOG.debug("Profiling StackCollector stopping")
  *         super(StackCollector, self)._stop_service()
  *         if self.tracer is not None:             # <<<<<<<<<<<<<<
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
  *             self.tracer.context_provider._deregister_on_activate(link_span)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 544, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 545, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_5 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_5) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":545
+    /* "ddtrace/profiling/collector/stack.pyx":546
  *         super(StackCollector, self)._stop_service()
  *         if self.tracer is not None:
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span             # <<<<<<<<<<<<<<
  *             self.tracer.context_provider._deregister_on_activate(link_span)
  *         LOG.debug("Profiling StackCollector stopped")
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_stack_collector_v2_enabled); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 545, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_stack_collector_v2_enabled); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 546, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 545, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 546, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (__pyx_t_5) {
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 545, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 546, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_link_span); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 545, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_link_span); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 546, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_1 = __pyx_t_3;
       __pyx_t_3 = 0;
     } else {
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_thread_span_links); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 545, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_thread_span_links); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 546, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_link_span); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 545, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_link_span); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 546, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_1 = __pyx_t_2;
@@ -12469,19 +12521,19 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_v_link_span = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":546
+    /* "ddtrace/profiling/collector/stack.pyx":547
  *         if self.tracer is not None:
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
  *             self.tracer.context_provider._deregister_on_activate(link_span)             # <<<<<<<<<<<<<<
  *         LOG.debug("Profiling StackCollector stopped")
  * 
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tracer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 546, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tracer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 547, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_context_provider); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 546, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_context_provider); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 547, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_deregister_on_activate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 546, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_deregister_on_activate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 547, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -12502,13 +12554,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_link_span};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 546, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 547, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":544
+    /* "ddtrace/profiling/collector/stack.pyx":545
  *         LOG.debug("Profiling StackCollector stopping")
  *         super(StackCollector, self)._stop_service()
  *         if self.tracer is not None:             # <<<<<<<<<<<<<<
@@ -12517,16 +12569,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":547
+  /* "ddtrace/profiling/collector/stack.pyx":548
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
  *             self.tracer.context_provider._deregister_on_activate(link_span)
  *         LOG.debug("Profiling StackCollector stopped")             # <<<<<<<<<<<<<<
  * 
  *         # Also tell the native thread running the v2 sampler to stop, if needed
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 547, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 548, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 547, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_debug); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 548, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12547,35 +12599,35 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_kp_u_Profiling_StackCollector_stopped};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 547, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 548, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":550
+  /* "ddtrace/profiling/collector/stack.pyx":551
  * 
  *         # Also tell the native thread running the v2 sampler to stop, if needed
  *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
  *             stack_v2.stop()
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_stack_collector_v2_enabled); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 550, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_stack_collector_v2_enabled); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 551, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 550, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 551, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_5) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":551
+    /* "ddtrace/profiling/collector/stack.pyx":552
  *         # Also tell the native thread running the v2 sampler to stop, if needed
  *         if self._stack_collector_v2_enabled:
  *             stack_v2.stop()             # <<<<<<<<<<<<<<
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_stack_v2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 551, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_stack_v2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_stop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 551, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_stop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -12596,13 +12648,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 551, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 552, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":550
+    /* "ddtrace/profiling/collector/stack.pyx":551
  * 
  *         # Also tell the native thread running the v2 sampler to stop, if needed
  *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
@@ -12611,7 +12663,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":540
+  /* "ddtrace/profiling/collector/stack.pyx":541
  *         LOG.debug("Profiling StackCollector started")
  * 
  *     def _stop_service(self):             # <<<<<<<<<<<<<<
@@ -12635,7 +12687,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":553
+/* "ddtrace/profiling/collector/stack.pyx":554
  *             stack_v2.stop()
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):             # <<<<<<<<<<<<<<
@@ -12699,7 +12751,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 553, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 554, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -12707,14 +12759,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 553, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 554, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, 1); __PYX_ERR(0, 553, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, 1); __PYX_ERR(0, 554, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_compute_new_interval") < 0)) __PYX_ERR(0, 553, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_compute_new_interval") < 0)) __PYX_ERR(0, 554, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -12727,7 +12779,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 553, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 554, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12768,28 +12820,28 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_compute_new_interval", 1);
 
-  /* "ddtrace/profiling/collector/stack.pyx":554
+  /* "ddtrace/profiling/collector/stack.pyx":555
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):
  *         interval = (used_wall_time_ns / (self.max_time_usage_pct / 100.0)) - used_wall_time_ns             # <<<<<<<<<<<<<<
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_max_time_usage_pct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_max_time_usage_pct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 555, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyFloat_TrueDivideObjC(__pyx_t_1, __pyx_float_100_0, 100.0, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyFloat_TrueDivideObjC(__pyx_t_1, __pyx_float_100_0, 100.0, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 555, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_used_wall_time_ns, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_used_wall_time_ns, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 555, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyNumber_Subtract(__pyx_t_1, __pyx_v_used_wall_time_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_t_2 = PyNumber_Subtract(__pyx_t_1, __pyx_v_used_wall_time_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 555, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_interval = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":555
+  /* "ddtrace/profiling/collector/stack.pyx":556
  *     def _compute_new_interval(self, used_wall_time_ns):
  *         interval = (used_wall_time_ns / (self.max_time_usage_pct / 100.0)) - used_wall_time_ns
  *         return max(interval / 1e9, self.min_interval_time)             # <<<<<<<<<<<<<<
@@ -12797,12 +12849,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *     def collect(self):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_min_interval_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 555, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_min_interval_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyFloat_TrueDivideObjC(__pyx_v_interval, __pyx_float_1e9, 1e9, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 555, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyFloat_TrueDivideObjC(__pyx_v_interval, __pyx_float_1e9, 1e9, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 555, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 555, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_5) {
     __Pyx_INCREF(__pyx_t_2);
@@ -12818,7 +12870,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":553
+  /* "ddtrace/profiling/collector/stack.pyx":554
  *             stack_v2.stop()
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):             # <<<<<<<<<<<<<<
@@ -12841,7 +12893,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":557
+/* "ddtrace/profiling/collector/stack.pyx":558
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  *     def collect(self):             # <<<<<<<<<<<<<<
@@ -12902,12 +12954,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 557, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 558, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "collect") < 0)) __PYX_ERR(0, 557, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "collect") < 0)) __PYX_ERR(0, 558, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -12918,7 +12970,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("collect", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 557, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("collect", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 558, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12968,16 +13020,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("collect", 1);
 
-  /* "ddtrace/profiling/collector/stack.pyx":559
+  /* "ddtrace/profiling/collector/stack.pyx":560
  *     def collect(self):
  *         # Compute wall time
  *         now = time.monotonic_ns()             # <<<<<<<<<<<<<<
  *         wall_time = now - self._last_wall_time
  *         self._last_wall_time = now
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_monotonic_ns); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_monotonic_ns); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12998,124 +13050,124 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 559, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 560, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_v_now = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":560
+  /* "ddtrace/profiling/collector/stack.pyx":561
  *         # Compute wall time
  *         now = time.monotonic_ns()
  *         wall_time = now - self._last_wall_time             # <<<<<<<<<<<<<<
  *         self._last_wall_time = now
  *         all_events = []
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_last_wall_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 560, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_last_wall_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 561, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyNumber_Subtract(__pyx_v_now, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 560, __pyx_L1_error)
+  __pyx_t_3 = PyNumber_Subtract(__pyx_v_now, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 561, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_wall_time = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":561
+  /* "ddtrace/profiling/collector/stack.pyx":562
  *         now = time.monotonic_ns()
  *         wall_time = now - self._last_wall_time
  *         self._last_wall_time = now             # <<<<<<<<<<<<<<
  *         all_events = []
  * 
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_last_wall_time, __pyx_v_now) < 0) __PYX_ERR(0, 561, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_last_wall_time, __pyx_v_now) < 0) __PYX_ERR(0, 562, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":562
+  /* "ddtrace/profiling/collector/stack.pyx":563
  *         wall_time = now - self._last_wall_time
  *         self._last_wall_time = now
  *         all_events = []             # <<<<<<<<<<<<<<
  * 
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
  */
-  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 562, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 563, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_all_events = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":565
+  /* "ddtrace/profiling/collector/stack.pyx":566
  * 
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
  *         if not self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
  *             all_events = stack_collect(
  *                 self.ignore_profiler,
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_stack_collector_v2_enabled); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 565, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_stack_collector_v2_enabled); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 566, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 565, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 566, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_6 = (!__pyx_t_5);
   if (__pyx_t_6) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":567
+    /* "ddtrace/profiling/collector/stack.pyx":568
  *         if not self._stack_collector_v2_enabled:
  *             all_events = stack_collect(
  *                 self.ignore_profiler,             # <<<<<<<<<<<<<<
  *                 self._thread_time,
  *                 self.nframes,
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_ignore_profiler); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 567, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_ignore_profiler); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 568, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
 
-    /* "ddtrace/profiling/collector/stack.pyx":568
+    /* "ddtrace/profiling/collector/stack.pyx":569
  *             all_events = stack_collect(
  *                 self.ignore_profiler,
  *                 self._thread_time,             # <<<<<<<<<<<<<<
  *                 self.nframes,
  *                 self.interval,
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_thread_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 568, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_thread_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 569, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "ddtrace/profiling/collector/stack.pyx":569
+    /* "ddtrace/profiling/collector/stack.pyx":570
  *                 self.ignore_profiler,
  *                 self._thread_time,
  *                 self.nframes,             # <<<<<<<<<<<<<<
  *                 self.interval,
  *                 wall_time,
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nframes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 569, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nframes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 570, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
 
-    /* "ddtrace/profiling/collector/stack.pyx":570
+    /* "ddtrace/profiling/collector/stack.pyx":571
  *                 self._thread_time,
  *                 self.nframes,
  *                 self.interval,             # <<<<<<<<<<<<<<
  *                 wall_time,
  *                 self._thread_span_links,
  */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_interval); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 570, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_interval); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 571, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
 
-    /* "ddtrace/profiling/collector/stack.pyx":572
+    /* "ddtrace/profiling/collector/stack.pyx":573
  *                 self.interval,
  *                 wall_time,
  *                 self._thread_span_links,             # <<<<<<<<<<<<<<
  *                 self.endpoint_collection_enabled,
  *                 now_ns=now,
  */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_thread_span_links); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 572, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_thread_span_links); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 573, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
 
-    /* "ddtrace/profiling/collector/stack.pyx":573
+    /* "ddtrace/profiling/collector/stack.pyx":574
  *                 wall_time,
  *                 self._thread_span_links,
  *                 self.endpoint_collection_enabled,             # <<<<<<<<<<<<<<
  *                 now_ns=now,
  *             )
  */
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_endpoint_collection_enabled); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 573, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_endpoint_collection_enabled); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 574, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
 
-    /* "ddtrace/profiling/collector/stack.pyx":566
+    /* "ddtrace/profiling/collector/stack.pyx":567
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
  *         if not self._stack_collector_v2_enabled:
  *             all_events = stack_collect(             # <<<<<<<<<<<<<<
@@ -13124,7 +13176,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  */
     __pyx_t_11.__pyx_n = 1;
     __pyx_t_11.now_ns = __pyx_v_now;
-    __pyx_t_10 = __pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(__pyx_t_3, __pyx_t_1, __pyx_t_2, __pyx_t_7, __pyx_v_wall_time, __pyx_t_8, __pyx_t_9, &__pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 566, __pyx_L1_error)
+    __pyx_t_10 = __pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(__pyx_t_3, __pyx_t_1, __pyx_t_2, __pyx_t_7, __pyx_v_wall_time, __pyx_t_8, __pyx_t_9, &__pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 567, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -13135,7 +13187,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __Pyx_DECREF_SET(__pyx_v_all_events, __pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":565
+    /* "ddtrace/profiling/collector/stack.pyx":566
  * 
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
  *         if not self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
@@ -13144,16 +13196,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":577
+  /* "ddtrace/profiling/collector/stack.pyx":578
  *             )
  * 
  *         used_wall_time_ns = time.monotonic_ns() - now             # <<<<<<<<<<<<<<
  *         self.interval = self._compute_new_interval(used_wall_time_ns)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_n_s_time); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 577, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_n_s_time); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_n_s_monotonic_ns); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 577, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_n_s_monotonic_ns); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __pyx_t_9 = NULL;
@@ -13174,24 +13226,24 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_9, NULL};
     __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 577, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 578, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   }
-  __pyx_t_8 = PyNumber_Subtract(__pyx_t_10, __pyx_v_now); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 577, __pyx_L1_error)
+  __pyx_t_8 = PyNumber_Subtract(__pyx_t_10, __pyx_v_now); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __pyx_v_used_wall_time_ns = __pyx_t_8;
   __pyx_t_8 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":578
+  /* "ddtrace/profiling/collector/stack.pyx":579
  * 
  *         used_wall_time_ns = time.monotonic_ns() - now
  *         self.interval = self._compute_new_interval(used_wall_time_ns)             # <<<<<<<<<<<<<<
  * 
- *         if self._stack_collector_v2_enabled:
+ *         return all_events
  */
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_compute_new_interval); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 578, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_compute_new_interval); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 579, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_9 = NULL;
   __pyx_t_4 = 0;
@@ -13211,76 +13263,15 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_used_wall_time_ns};
     __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 578, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 579, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_interval, __pyx_t_8) < 0) __PYX_ERR(0, 578, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_interval, __pyx_t_8) < 0) __PYX_ERR(0, 579, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":580
+  /* "ddtrace/profiling/collector/stack.pyx":581
  *         self.interval = self._compute_new_interval(used_wall_time_ns)
- * 
- *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
- *             stack_v2.set_interval(self.interval)
- * 
- */
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_stack_collector_v2_enabled); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 580, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 580, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  if (__pyx_t_6) {
-
-    /* "ddtrace/profiling/collector/stack.pyx":581
- * 
- *         if self._stack_collector_v2_enabled:
- *             stack_v2.set_interval(self.interval)             # <<<<<<<<<<<<<<
- * 
- *         return all_events
- */
-    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_n_s_stack_v2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 581, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_set_interval); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 581, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_interval); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 581, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_7 = NULL;
-    __pyx_t_4 = 0;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_9))) {
-      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_9);
-      if (likely(__pyx_t_7)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_9);
-        __Pyx_INCREF(__pyx_t_7);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_9, function);
-        __pyx_t_4 = 1;
-      }
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_10};
-      __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
-      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 581, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_8);
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    }
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-
-    /* "ddtrace/profiling/collector/stack.pyx":580
- *         self.interval = self._compute_new_interval(used_wall_time_ns)
- * 
- *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
- *             stack_v2.set_interval(self.interval)
- * 
- */
-  }
-
-  /* "ddtrace/profiling/collector/stack.pyx":583
- *             stack_v2.set_interval(self.interval)
  * 
  *         return all_events             # <<<<<<<<<<<<<<
  */
@@ -13289,7 +13280,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_r = __pyx_v_all_events;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":557
+  /* "ddtrace/profiling/collector/stack.pyx":558
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  *     def collect(self):             # <<<<<<<<<<<<<<
@@ -15025,7 +15016,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_sampling_period, __pyx_k_sampling_period, sizeof(__pyx_k_sampling_period), 0, 0, 1, 1},
     {&__pyx_n_s_self, __pyx_k_self, sizeof(__pyx_k_self), 0, 0, 1, 1},
     {&__pyx_n_s_send, __pyx_k_send, sizeof(__pyx_k_send), 0, 0, 1, 1},
-    {&__pyx_n_s_set_interval, __pyx_k_set_interval, sizeof(__pyx_k_set_interval), 0, 0, 1, 1},
+    {&__pyx_n_s_set_adaptive_sampling, __pyx_k_set_adaptive_sampling, sizeof(__pyx_k_set_adaptive_sampling), 0, 0, 1, 1},
     {&__pyx_n_s_set_name, __pyx_k_set_name, sizeof(__pyx_k_set_name), 0, 0, 1, 1},
     {&__pyx_n_s_set_trace_info, __pyx_k_set_trace_info, sizeof(__pyx_k_set_trace_info), 0, 0, 1, 1},
     {&__pyx_n_s_setstate, __pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 0, 1, 1},
@@ -15081,6 +15072,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_use_setstate, __pyx_k_use_setstate, sizeof(__pyx_k_use_setstate), 0, 0, 1, 1},
     {&__pyx_n_s_used_wall_time_ns, __pyx_k_used_wall_time_ns, sizeof(__pyx_k_used_wall_time_ns), 0, 0, 1, 1},
     {&__pyx_n_s_v, __pyx_k_v, sizeof(__pyx_k_v), 0, 0, 1, 1},
+    {&__pyx_n_s_v2_adaptive_sampling, __pyx_k_v2_adaptive_sampling, sizeof(__pyx_k_v2_adaptive_sampling), 0, 0, 1, 1},
     {&__pyx_n_s_v2_enabled, __pyx_k_v2_enabled, sizeof(__pyx_k_v2_enabled), 0, 0, 1, 1},
     {&__pyx_n_s_wall_time, __pyx_k_wall_time, sizeof(__pyx_k_wall_time), 0, 0, 1, 1},
     {&__pyx_n_s_wall_time_ns, __pyx_k_wall_time_ns, sizeof(__pyx_k_wall_time_ns), 0, 0, 1, 1},
@@ -15240,47 +15232,47 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__26);
   __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_init_2, 511, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 511, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":532
+  /* "ddtrace/profiling/collector/stack.pyx":533
  *             stack_v2.start()
  * 
  *     def _start_service(self):             # <<<<<<<<<<<<<<
  *         # type: (...) -> None
  *         # This is split in its own function to ease testing
  */
-  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_start_service, 532, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 532, __pyx_L1_error)
+  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_start_service, 533, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 533, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":540
+  /* "ddtrace/profiling/collector/stack.pyx":541
  *         LOG.debug("Profiling StackCollector started")
  * 
  *     def _stop_service(self):             # <<<<<<<<<<<<<<
  *         # type: (...) -> None
  *         LOG.debug("Profiling StackCollector stopping")
  */
-  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_stop_service, 540, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 540, __pyx_L1_error)
+  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_stop_service, 541, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 541, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":553
+  /* "ddtrace/profiling/collector/stack.pyx":554
  *             stack_v2.stop()
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):             # <<<<<<<<<<<<<<
  *         interval = (used_wall_time_ns / (self.max_time_usage_pct / 100.0)) - used_wall_time_ns
  *         return max(interval / 1e9, self.min_interval_time)
  */
-  __pyx_tuple__30 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_used_wall_time_ns, __pyx_n_s_interval); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 553, __pyx_L1_error)
+  __pyx_tuple__30 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_used_wall_time_ns, __pyx_n_s_interval); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 554, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__30);
   __Pyx_GIVEREF(__pyx_tuple__30);
-  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_compute_new_interval, 553, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 553, __pyx_L1_error)
+  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_compute_new_interval, 554, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 554, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":557
+  /* "ddtrace/profiling/collector/stack.pyx":558
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  *     def collect(self):             # <<<<<<<<<<<<<<
  *         # Compute wall time
  *         now = time.monotonic_ns()
  */
-  __pyx_tuple__32 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_now, __pyx_n_s_wall_time, __pyx_n_s_all_events, __pyx_n_s_used_wall_time_ns); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 557, __pyx_L1_error)
+  __pyx_tuple__32 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_now, __pyx_n_s_wall_time, __pyx_n_s_all_events, __pyx_n_s_used_wall_time_ns); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 558, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__32);
   __Pyx_GIVEREF(__pyx_tuple__32);
-  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_collect, 557, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 557, __pyx_L1_error)
+  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_ddtrace_profiling_collector_stac_2, __pyx_n_s_collect, 558, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 558, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __pyx_unpickle__ThreadTime(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
@@ -16645,52 +16637,52 @@ if (!__Pyx_RefNanny) {
   if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_init_2, __pyx_t_8) < 0) __PYX_ERR(0, 511, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":532
+  /* "ddtrace/profiling/collector/stack.pyx":533
  *             stack_v2.start()
  * 
  *     def _start_service(self):             # <<<<<<<<<<<<<<
  *         # type: (...) -> None
  *         # This is split in its own function to ease testing
  */
-  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_7_start_service, 0, __pyx_n_s_StackCollector__start_service, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 532, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_7_start_service, 0, __pyx_n_s_StackCollector__start_service, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 533, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_start_service, __pyx_t_8) < 0) __PYX_ERR(0, 532, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_start_service, __pyx_t_8) < 0) __PYX_ERR(0, 533, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":540
+  /* "ddtrace/profiling/collector/stack.pyx":541
  *         LOG.debug("Profiling StackCollector started")
  * 
  *     def _stop_service(self):             # <<<<<<<<<<<<<<
  *         # type: (...) -> None
  *         LOG.debug("Profiling StackCollector stopping")
  */
-  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_9_stop_service, 0, __pyx_n_s_StackCollector__stop_service, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__29)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 540, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_9_stop_service, 0, __pyx_n_s_StackCollector__stop_service, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__29)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 541, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_stop_service, __pyx_t_8) < 0) __PYX_ERR(0, 540, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_stop_service, __pyx_t_8) < 0) __PYX_ERR(0, 541, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":553
+  /* "ddtrace/profiling/collector/stack.pyx":554
  *             stack_v2.stop()
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):             # <<<<<<<<<<<<<<
  *         interval = (used_wall_time_ns / (self.max_time_usage_pct / 100.0)) - used_wall_time_ns
  *         return max(interval / 1e9, self.min_interval_time)
  */
-  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_11_compute_new_interval, 0, __pyx_n_s_StackCollector__compute_new_inte, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 553, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_11_compute_new_interval, 0, __pyx_n_s_StackCollector__compute_new_inte, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 554, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_compute_new_interval, __pyx_t_8) < 0) __PYX_ERR(0, 553, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_compute_new_interval, __pyx_t_8) < 0) __PYX_ERR(0, 554, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":557
+  /* "ddtrace/profiling/collector/stack.pyx":558
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  *     def collect(self):             # <<<<<<<<<<<<<<
  *         # Compute wall time
  *         now = time.monotonic_ns()
  */
-  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_13collect, 0, __pyx_n_s_StackCollector_collect, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 557, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_13collect, 0, __pyx_n_s_StackCollector_collect, NULL, __pyx_n_s_ddtrace_profiling_collector_stac, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 558, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_collect, __pyx_t_8) < 0) __PYX_ERR(0, 557, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_n_s_collect, __pyx_t_8) < 0) __PYX_ERR(0, 558, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
   /* "ddtrace/profiling/collector/stack.pyx":456

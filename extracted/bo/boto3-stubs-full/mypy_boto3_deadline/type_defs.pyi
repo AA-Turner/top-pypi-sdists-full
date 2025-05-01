@@ -63,6 +63,7 @@ from .literals import (
     StepParameterTypeType,
     StepTargetTaskRunStatusType,
     StorageProfileOperatingSystemFamilyType,
+    TagPropagationModeType,
     TaskRunStatusType,
     TaskTargetRunStatusType,
     UpdatedWorkerStatusType,
@@ -2385,11 +2386,13 @@ class CustomerManagedFleetConfigurationOutputTypeDef(TypedDict):
     mode: AutoScalingModeType
     workerCapabilities: CustomerManagedWorkerCapabilitiesOutputTypeDef
     storageProfileId: NotRequired[str]
+    tagPropagationMode: NotRequired[TagPropagationModeType]
 
 class CustomerManagedFleetConfigurationTypeDef(TypedDict):
     mode: AutoScalingModeType
     workerCapabilities: CustomerManagedWorkerCapabilitiesTypeDef
     storageProfileId: NotRequired[str]
+    tagPropagationMode: NotRequired[TagPropagationModeType]
 
 class SearchFilterExpressionTypeDef(TypedDict):
     dateTimeFilter: NotRequired[DateTimeFilterExpressionTypeDef]
@@ -2647,6 +2650,7 @@ class CreateWorkerRequestTypeDef(TypedDict):
     fleetId: str
     hostProperties: NotRequired[HostPropertiesRequestTypeDef]
     clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class UpdateWorkerRequestTypeDef(TypedDict):
     farmId: str

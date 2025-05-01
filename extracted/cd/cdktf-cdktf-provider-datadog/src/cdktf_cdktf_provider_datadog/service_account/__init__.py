@@ -1,7 +1,7 @@
 r'''
 # `datadog_service_account`
 
-Refer to the Terraform Registry for docs: [`datadog_service_account`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account).
+Refer to the Terraform Registry for docs: [`datadog_service_account`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.serviceAccount.ServiceAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account datadog_service_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account datadog_service_account}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ServiceAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account datadog_service_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account datadog_service_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param email: Email of the associated user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#email ServiceAccount#email}
-        :param disabled: Whether the service account is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#disabled ServiceAccount#disabled}
-        :param name: Name for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#name ServiceAccount#name}
-        :param roles: A list of role IDs to assign to the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#roles ServiceAccount#roles}
+        :param email: Email of the associated user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#email ServiceAccount#email}
+        :param disabled: Whether the service account is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#disabled ServiceAccount#disabled}
+        :param name: Name for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#name ServiceAccount#name}
+        :param roles: A list of role IDs to assign to the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#roles ServiceAccount#roles}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ServiceAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceAccount to import.
-        :param import_from_id: The id of the existing ServiceAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceAccount to import is found.
         '''
         if __debug__:
@@ -268,10 +268,10 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param email: Email of the associated user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#email ServiceAccount#email}
-        :param disabled: Whether the service account is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#disabled ServiceAccount#disabled}
-        :param name: Name for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#name ServiceAccount#name}
-        :param roles: A list of role IDs to assign to the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#roles ServiceAccount#roles}
+        :param email: Email of the associated user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#email ServiceAccount#email}
+        :param disabled: Whether the service account is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#disabled ServiceAccount#disabled}
+        :param name: Name for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#name ServiceAccount#name}
+        :param roles: A list of role IDs to assign to the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#roles ServiceAccount#roles}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -380,7 +380,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def email(self) -> builtins.str:
         '''Email of the associated user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#email ServiceAccount#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#email ServiceAccount#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -392,7 +392,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the service account is disabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#disabled ServiceAccount#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#disabled ServiceAccount#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -401,7 +401,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''Name for the service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#name ServiceAccount#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#name ServiceAccount#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -410,7 +410,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def roles(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of role IDs to assign to the service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/service_account#roles ServiceAccount#roles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/service_account#roles ServiceAccount#roles}
         '''
         result = self._values.get("roles")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

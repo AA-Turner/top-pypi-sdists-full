@@ -1,7 +1,7 @@
 r'''
 # `datadog_appsec_waf_exclusion_filter`
 
-Refer to the Terraform Registry for docs: [`datadog_appsec_waf_exclusion_filter`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter).
+Refer to the Terraform Registry for docs: [`datadog_appsec_waf_exclusion_filter`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppsecWafExclusionFilter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.appsecWafExclusionFilter.AppsecWafExclusionFilter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter datadog_appsec_waf_exclusion_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter datadog_appsec_waf_exclusion_filter}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class AppsecWafExclusionFilter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter datadog_appsec_waf_exclusion_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter datadog_appsec_waf_exclusion_filter} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: A description for the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#description AppsecWafExclusionFilter#description}
-        :param enabled: Indicates whether the exclusion filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#enabled AppsecWafExclusionFilter#enabled}
-        :param event_query: The event query matched by the legacy exclusion filter. Cannot be created nor updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#event_query AppsecWafExclusionFilter#event_query}
-        :param ip_list: The client IP addresses matched by the exclusion filter (CIDR notation is supported). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#ip_list AppsecWafExclusionFilter#ip_list}
-        :param on_match: The action taken when the exclusion filter matches. When set to ``monitor``, security traces are emitted but the requests are not blocked. By default, security traces are not emitted and the requests are not blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#on_match AppsecWafExclusionFilter#on_match}
-        :param parameters: A list of parameters matched by the exclusion filter in the HTTP query string and HTTP request body. Nested parameters can be matched by joining fields with a dot character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#parameters AppsecWafExclusionFilter#parameters}
-        :param path_glob: The HTTP path glob expression matched by the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#path_glob AppsecWafExclusionFilter#path_glob}
-        :param rules_target: rules_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#rules_target AppsecWafExclusionFilter#rules_target}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#scope AppsecWafExclusionFilter#scope}
+        :param description: A description for the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#description AppsecWafExclusionFilter#description}
+        :param enabled: Indicates whether the exclusion filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#enabled AppsecWafExclusionFilter#enabled}
+        :param event_query: The event query matched by the legacy exclusion filter. Cannot be created nor updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#event_query AppsecWafExclusionFilter#event_query}
+        :param ip_list: The client IP addresses matched by the exclusion filter (CIDR notation is supported). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#ip_list AppsecWafExclusionFilter#ip_list}
+        :param on_match: The action taken when the exclusion filter matches. When set to ``monitor``, security traces are emitted but the requests are not blocked. By default, security traces are not emitted and the requests are not blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#on_match AppsecWafExclusionFilter#on_match}
+        :param parameters: A list of parameters matched by the exclusion filter in the HTTP query string and HTTP request body. Nested parameters can be matched by joining fields with a dot character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#parameters AppsecWafExclusionFilter#parameters}
+        :param path_glob: The HTTP path glob expression matched by the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#path_glob AppsecWafExclusionFilter#path_glob}
+        :param rules_target: rules_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#rules_target AppsecWafExclusionFilter#rules_target}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#scope AppsecWafExclusionFilter#scope}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class AppsecWafExclusionFilter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppsecWafExclusionFilter to import.
-        :param import_from_id: The id of the existing AppsecWafExclusionFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppsecWafExclusionFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppsecWafExclusionFilter to import is found.
         '''
         if __debug__:
@@ -410,15 +410,15 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: A description for the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#description AppsecWafExclusionFilter#description}
-        :param enabled: Indicates whether the exclusion filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#enabled AppsecWafExclusionFilter#enabled}
-        :param event_query: The event query matched by the legacy exclusion filter. Cannot be created nor updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#event_query AppsecWafExclusionFilter#event_query}
-        :param ip_list: The client IP addresses matched by the exclusion filter (CIDR notation is supported). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#ip_list AppsecWafExclusionFilter#ip_list}
-        :param on_match: The action taken when the exclusion filter matches. When set to ``monitor``, security traces are emitted but the requests are not blocked. By default, security traces are not emitted and the requests are not blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#on_match AppsecWafExclusionFilter#on_match}
-        :param parameters: A list of parameters matched by the exclusion filter in the HTTP query string and HTTP request body. Nested parameters can be matched by joining fields with a dot character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#parameters AppsecWafExclusionFilter#parameters}
-        :param path_glob: The HTTP path glob expression matched by the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#path_glob AppsecWafExclusionFilter#path_glob}
-        :param rules_target: rules_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#rules_target AppsecWafExclusionFilter#rules_target}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#scope AppsecWafExclusionFilter#scope}
+        :param description: A description for the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#description AppsecWafExclusionFilter#description}
+        :param enabled: Indicates whether the exclusion filter is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#enabled AppsecWafExclusionFilter#enabled}
+        :param event_query: The event query matched by the legacy exclusion filter. Cannot be created nor updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#event_query AppsecWafExclusionFilter#event_query}
+        :param ip_list: The client IP addresses matched by the exclusion filter (CIDR notation is supported). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#ip_list AppsecWafExclusionFilter#ip_list}
+        :param on_match: The action taken when the exclusion filter matches. When set to ``monitor``, security traces are emitted but the requests are not blocked. By default, security traces are not emitted and the requests are not blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#on_match AppsecWafExclusionFilter#on_match}
+        :param parameters: A list of parameters matched by the exclusion filter in the HTTP query string and HTTP request body. Nested parameters can be matched by joining fields with a dot character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#parameters AppsecWafExclusionFilter#parameters}
+        :param path_glob: The HTTP path glob expression matched by the exclusion filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#path_glob AppsecWafExclusionFilter#path_glob}
+        :param rules_target: rules_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#rules_target AppsecWafExclusionFilter#rules_target}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#scope AppsecWafExclusionFilter#scope}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -541,7 +541,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''A description for the exclusion filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#description AppsecWafExclusionFilter#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#description AppsecWafExclusionFilter#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -551,7 +551,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates whether the exclusion filter is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#enabled AppsecWafExclusionFilter#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#enabled AppsecWafExclusionFilter#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -561,7 +561,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def event_query(self) -> typing.Optional[builtins.str]:
         '''The event query matched by the legacy exclusion filter. Cannot be created nor updated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#event_query AppsecWafExclusionFilter#event_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#event_query AppsecWafExclusionFilter#event_query}
         '''
         result = self._values.get("event_query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -570,7 +570,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ip_list(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The client IP addresses matched by the exclusion filter (CIDR notation is supported).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#ip_list AppsecWafExclusionFilter#ip_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#ip_list AppsecWafExclusionFilter#ip_list}
         '''
         result = self._values.get("ip_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -581,7 +581,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         When set to ``monitor``, security traces are emitted but the requests are not blocked. By default, security traces are not emitted and the requests are not blocked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#on_match AppsecWafExclusionFilter#on_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#on_match AppsecWafExclusionFilter#on_match}
         '''
         result = self._values.get("on_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -592,7 +592,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Nested parameters can be matched by joining fields with a dot character.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#parameters AppsecWafExclusionFilter#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#parameters AppsecWafExclusionFilter#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -601,7 +601,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def path_glob(self) -> typing.Optional[builtins.str]:
         '''The HTTP path glob expression matched by the exclusion filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#path_glob AppsecWafExclusionFilter#path_glob}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#path_glob AppsecWafExclusionFilter#path_glob}
         '''
         result = self._values.get("path_glob")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -612,7 +612,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafExclusionFilterRulesTarget"]]]:
         '''rules_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#rules_target AppsecWafExclusionFilter#rules_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#rules_target AppsecWafExclusionFilter#rules_target}
         '''
         result = self._values.get("rules_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafExclusionFilterRulesTarget"]]], result)
@@ -623,7 +623,7 @@ class AppsecWafExclusionFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafExclusionFilterScope"]]]:
         '''scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#scope AppsecWafExclusionFilter#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#scope AppsecWafExclusionFilter#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafExclusionFilterScope"]]], result)
@@ -653,8 +653,8 @@ class AppsecWafExclusionFilterRulesTarget:
         tags: typing.Optional[typing.Union["AppsecWafExclusionFilterRulesTargetTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param rule_id: Target a single WAF rule based on its identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#rule_id AppsecWafExclusionFilter#rule_id}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#tags AppsecWafExclusionFilter#tags}
+        :param rule_id: Target a single WAF rule based on its identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#rule_id AppsecWafExclusionFilter#rule_id}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#tags AppsecWafExclusionFilter#tags}
         '''
         if isinstance(tags, dict):
             tags = AppsecWafExclusionFilterRulesTargetTags(**tags)
@@ -672,7 +672,7 @@ class AppsecWafExclusionFilterRulesTarget:
     def rule_id(self) -> typing.Optional[builtins.str]:
         '''Target a single WAF rule based on its identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#rule_id AppsecWafExclusionFilter#rule_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#rule_id AppsecWafExclusionFilter#rule_id}
         '''
         result = self._values.get("rule_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -681,7 +681,7 @@ class AppsecWafExclusionFilterRulesTarget:
     def tags(self) -> typing.Optional["AppsecWafExclusionFilterRulesTargetTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#tags AppsecWafExclusionFilter#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#tags AppsecWafExclusionFilter#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["AppsecWafExclusionFilterRulesTargetTags"], result)
@@ -825,8 +825,8 @@ class AppsecWafExclusionFilterRulesTargetOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: The category of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#category AppsecWafExclusionFilter#category}
-        :param type: The type of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#type AppsecWafExclusionFilter#type}
+        :param category: The category of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#category AppsecWafExclusionFilter#category}
+        :param type: The type of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#type AppsecWafExclusionFilter#type}
         '''
         value = AppsecWafExclusionFilterRulesTargetTags(category=category, type=type)
 
@@ -900,8 +900,8 @@ class AppsecWafExclusionFilterRulesTargetTags:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: The category of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#category AppsecWafExclusionFilter#category}
-        :param type: The type of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#type AppsecWafExclusionFilter#type}
+        :param category: The category of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#category AppsecWafExclusionFilter#category}
+        :param type: The type of the targeted WAF rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#type AppsecWafExclusionFilter#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38dafc5bdf299ce1d5d9eae8c91bcbccc2059368f86812970aada730c459e58a)
@@ -917,7 +917,7 @@ class AppsecWafExclusionFilterRulesTargetTags:
     def category(self) -> typing.Optional[builtins.str]:
         '''The category of the targeted WAF rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#category AppsecWafExclusionFilter#category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#category AppsecWafExclusionFilter#category}
         '''
         result = self._values.get("category")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -926,7 +926,7 @@ class AppsecWafExclusionFilterRulesTargetTags:
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of the targeted WAF rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#type AppsecWafExclusionFilter#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#type AppsecWafExclusionFilter#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1036,8 +1036,8 @@ class AppsecWafExclusionFilterScope:
         service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param env: Deploy on this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#env AppsecWafExclusionFilter#env}
-        :param service: Deploy on this service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#service AppsecWafExclusionFilter#service}
+        :param env: Deploy on this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#env AppsecWafExclusionFilter#env}
+        :param service: Deploy on this service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#service AppsecWafExclusionFilter#service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e21b7704fb13e46ff7c226843bffe6faba1329446fb48ad963afa0ecaaa17a5c)
@@ -1053,7 +1053,7 @@ class AppsecWafExclusionFilterScope:
     def env(self) -> typing.Optional[builtins.str]:
         '''Deploy on this environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#env AppsecWafExclusionFilter#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#env AppsecWafExclusionFilter#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1062,7 +1062,7 @@ class AppsecWafExclusionFilterScope:
     def service(self) -> typing.Optional[builtins.str]:
         '''Deploy on this service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_exclusion_filter#service AppsecWafExclusionFilter#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_exclusion_filter#service AppsecWafExclusionFilter#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)

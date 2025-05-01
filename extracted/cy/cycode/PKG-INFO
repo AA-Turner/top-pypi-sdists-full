@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cycode
-Version: 2.3.3
+Version: 2.4.0
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 Home-page: https://github.com/cycodehq/cycode-cli
 License: MIT

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: MetPy
-Version: 1.6.3
+Version: 1.7.0
 Summary: Collection of tools for reading, visualizing and performing calculations with weather data.
 Maintainer-email: MetPy Developers <support-python@unidata.ucar.edu>
 License: BSD-3-Clause
@@ -9,34 +9,35 @@ Project-URL: Documentation, https://unidata.github.io/MetPy/
 Project-URL: Release Notes, https://github.com/Unidata/MetPy/releases
 Project-URL: Bug Tracker, https://github.com/Unidata/MetPy/issues
 Project-URL: Source Code, https://github.com/Unidata/MetPy
+Project-URL: Bluesky, https://bsky.app/profile/metpy.bsky.social
 Project-URL: Twitter, https://twitter.com/MetPy
 Project-URL: MetPy Mondays, https://www.youtube.com/playlist?list=PLQut5OXpV-0ir4IdllSt1iEZKTwFBa7kO
 Keywords: meteorology,weather
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Matplotlib
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: BSD License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS.txt
 Requires-Dist: matplotlib>=3.5.0
-Requires-Dist: numpy>=1.20.0
+Requires-Dist: numpy>=1.23.0
 Requires-Dist: pandas>=1.4.0
 Requires-Dist: pint>=0.17
 Requires-Dist: pooch>=1.2.0
-Requires-Dist: pyproj>=3.0.0
+Requires-Dist: pyproj>=3.3.0
 Requires-Dist: scipy>=1.8.0
-Requires-Dist: traitlets>=5.0.5
-Requires-Dist: xarray>=0.21.0
+Requires-Dist: traitlets>=5.1.0
+Requires-Dist: xarray>=2022.6.0
 Provides-Extra: doc
 Requires-Dist: metpy[examples]; extra == "doc"
 Requires-Dist: myst-parser; extra == "doc"
@@ -51,18 +52,21 @@ Requires-Dist: metpy[extras]; extra == "examples"
 Provides-Extra: test
 Requires-Dist: netCDF4; extra == "test"
 Requires-Dist: packaging>=21.0; extra == "test"
-Requires-Dist: pytest>=6.2; extra == "test"
+Requires-Dist: pytest>=7.0; extra == "test"
 Requires-Dist: pytest-mpl; extra == "test"
+Requires-Dist: vcrpy>=4.3.1; extra == "test"
 Provides-Extra: extras
 Requires-Dist: cartopy>=0.21.0; extra == "extras"
 Requires-Dist: dask>=2020.12.0; extra == "extras"
 Requires-Dist: shapely>=1.6.4; extra == "extras"
+Requires-Dist: boto3>=1.26.45; extra == "extras"
+Dynamic: license-file
 
 MetPy
 =====
 
 [![MetPy Logo](https://github.com/Unidata/MetPy/raw/main/docs/_static/metpy_150x150.png)](https://unidata.github.io/MetPy/)
-[![Unidata Logo](https://github.com/Unidata/MetPy/raw/main/docs/_static/unidata_150x150.png)](https://www.unidata.ucar.edu)
+[![NSF Unidata Logo](https://github.com/Unidata/MetPy/raw/main/docs/_static/NSF-Unidata_lockup_horizontal_2024.png)](https://www.unidata.ucar.edu)
 
 [![License](https://img.shields.io/pypi/l/metpy.svg)](https://pypi.python.org/pypi/MetPy/)
 [![Gitter](https://badges.gitter.im/Unidata/MetPy.svg)](https://gitter.im/Unidata/MetPy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
@@ -88,10 +92,10 @@ that any MetPy ``1.x`` release will be backwards compatible with an earlier ``1.
 "backward compatible", we mean that **correct** code that works on a ``1.y`` version will work
 on a future ``1.x`` version.
 
-For additional MetPy examples not included in this repository, please see the [Unidata Python
-Gallery](https://unidata.github.io/python-gallery/).
+For additional MetPy examples not included in this repository, please see the
+[MetPy Cookbook on Project Pythia](https://projectpythia.org/metpy-cookbook/README.html).
 
-We support Python >= 3.9.
+We support Python >= 3.10.
 
 Need Help?
 ----------
@@ -103,7 +107,7 @@ Important Links
 ---------------
 
 - [HTML Documentation](http://unidata.github.io/MetPy)
-- [Unidata Python Gallery](https://unidata.github.io/python-gallery/)
+- [MetPy Cookbook on Project Pythia](https://projectpythia.org/metpy-cookbook/README.html)
 - "metpy" tagged questions on [Stack Overflow](https://stackoverflow.com/questions/tagged/metpy)
 - [Gitter chat room](https://gitter.im/Unidata/MetPy)
 

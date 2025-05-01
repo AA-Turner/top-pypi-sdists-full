@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: okta
-Version: 2.9.12
+Version: 2.9.13
 Summary: Python SDK for the Okta Management API
 Home-page: https://github.com/okta/okta-sdk-python
 Author: Okta, Inc.

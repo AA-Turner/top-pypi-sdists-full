@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-aurora-globaldatabase
-Version: 2.3.821
+Version: 2.3.822
 Summary: cdk-aurora-globaldatabase is an AWS CDK construct library that provides Cross Region Create Global Aurora RDS Databases.
 Home-page: https://github.com/neilkuan/cdk-aurora-globaldatabase.git
 Author: Neil Kuan<guan840912@gmail.com>

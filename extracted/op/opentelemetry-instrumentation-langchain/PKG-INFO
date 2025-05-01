@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-langchain
-Version: 0.39.4
+Version: 0.40.2
 Summary: OpenTelemetry Langchain instrumentation
 License: Apache-2.0
 Author: Gal Kleinman
@@ -17,7 +17,7 @@ Provides-Extra: instruments
 Requires-Dist: opentelemetry-api (>=1.28.0,<2.0.0)
 Requires-Dist: opentelemetry-instrumentation (>=0.50b0)
 Requires-Dist: opentelemetry-semantic-conventions (>=0.50b0)
-Requires-Dist: opentelemetry-semantic-conventions-ai (==0.4.3)
+Requires-Dist: opentelemetry-semantic-conventions-ai (==0.4.5)
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-langchain
 Description-Content-Type: text/markdown
 

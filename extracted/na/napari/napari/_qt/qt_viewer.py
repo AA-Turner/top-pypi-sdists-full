@@ -11,8 +11,6 @@ from types import FrameType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
-    Union,
 )
 from weakref import WeakSet, ref
 
@@ -70,7 +68,7 @@ if TYPE_CHECKING:
 
 def _npe2_decode_selected_filter(
     ext_str: str, selected_filter: str, writers: Sequence[WriterContribution]
-) -> Optional[WriterContribution]:
+) -> WriterContribution | None:
     """Determine the writer that should be invoked to save data.
 
     When npe2 can be imported, resolves a selected file extension
@@ -82,6 +80,7 @@ def _npe2_decode_selected_filter(
     for entry, writer in zip(
         ext_str.split(';;'),
         writers,
+        strict=False,
     ):
         if entry.startswith(selected_filter):
             return writer
@@ -267,50 +266,9 @@ class QtViewer(QSplitter):
         for layer in self.viewer.layers:
             self._add_layer(layer)
 
-    @property
-    def view(self):
-        """
-        Rectangular  vispy viewbox widget in which a subscene is rendered. Access directly within the QtViewer will
-        become deprecated.
-        """
-        warnings.warn(
-            trans._(
-                'Access to QtViewer.view is deprecated since 0.5.0 and will be removed in the napari 0.6.0. Change to QtViewer.canvas.view instead.'
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.canvas.view
-
-    @property
-    def camera(self):
-        """
-        The Vispy camera class which contains both the 2d and 3d camera used to describe the perspective by which a
-        scene is viewed and interacted with. Access directly within the QtViewer will become deprecated.
-        """
-        warnings.warn(
-            trans._(
-                'Access to QtViewer.camera will become deprecated in the 0.6.0. Change to QtViewer.canvas.camera instead.'
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.canvas.camera
-
-    @property
-    def chunk_receiver(self) -> None:
-        warnings.warn(
-            trans._(
-                'QtViewer.chunk_receiver is deprecated in version 0.5 and will be removed in a later version. '
-                'More generally the old approach to async loading was removed in version 0.5 so this value is always None. '
-                'If you need to specifically use the old approach, continue to use the latest 0.4 release.'
-            ),
-            DeprecationWarning,
-        )
-
     @staticmethod
     def _update_dask_cache_settings(
-        dask_setting: Union[DaskSettings, Event] = None,
+        dask_setting: DaskSettings | Event = None,
     ):
         """Update dask cache to match settings."""
         if not dask_setting:
@@ -509,7 +467,7 @@ class QtViewer(QSplitter):
             give (list/tuple/str) then the variable values looked up in the
             callers frame.
         """
-        if isinstance(variables, (str, list, tuple)):
+        if isinstance(variables, str | list | tuple):
             if isinstance(variables, str):
                 vlist = variables.split()
             else:
@@ -520,7 +478,7 @@ class QtViewer(QSplitter):
                 try:
                     vdict[name] = eval(name, cf.f_globals, cf.f_locals)
                 except NameError:
-                    logging.warning(
+                    logging.getLogger('napari').warning(
                         'Could not get variable %s from %s',
                         name,
                         cf.f_code.co_name,
@@ -538,7 +496,7 @@ class QtViewer(QSplitter):
         """List: items to push to console when instantiated."""
         return self._console_backlog
 
-    def _get_console(self) -> Optional[QtConsole]:
+    def _get_console(self) -> QtConsole | None:
         """Function to setup console.
 
         Returns
@@ -625,7 +583,9 @@ class QtViewer(QSplitter):
         This only gets triggered on the async slicing path.
         """
         responses: dict[weakref.ReferenceType[Layer], Any] = event.value
-        logging.debug('QtViewer._on_slice_ready: %s', responses)
+        logging.getLogger('napari').debug(
+            'QtViewer._on_slice_ready: %s', responses
+        )
         for weak_layer, response in responses.items():
             if layer := weak_layer():
                 # Update the layer slice state to temporarily support behavior
@@ -825,7 +785,7 @@ class QtViewer(QSplitter):
                 else QFileDialog.Options()
             ),
         )
-        logging.debug(
+        logging.getLogger('napari').debug(
             trans._(
                 'QFileDialog - filename: {filename} '
                 'selected_filter: {selected_filter}',
@@ -842,7 +802,7 @@ class QtViewer(QSplitter):
                 saved = self.viewer.layers.save(
                     filename, selected=selected, _writer=writer
                 )
-                logging.debug('Saved %s', saved)
+                logging.getLogger('napari').debug('Saved %s', saved)
                 error_messages = '\n'.join(str(x.message.args[0]) for x in wa)
 
             if not saved:
@@ -984,10 +944,10 @@ class QtViewer(QSplitter):
     def _qt_open(
         self,
         filenames: list[str],
-        stack: Union[bool, list[list[str]]],
+        stack: bool | list[list[str]],
         choose_plugin: bool = False,
-        plugin: Optional[str] = None,
-        layer_type: Optional[str] = None,
+        plugin: str | None = None,
+        layer_type: str | None = None,
         **kwargs,
     ):
         """Open files, potentially popping reader dialog for plugin selection.
@@ -1233,7 +1193,7 @@ if TYPE_CHECKING:
     from napari.components.experimental.remote import RemoteManager
 
 
-def _create_qt_poll(parent: QObject, camera: Camera) -> Optional[QtPoll]:
+def _create_qt_poll(parent: QObject, camera: Camera) -> QtPoll | None:
     """Create and return a QtPoll instance, if needed.
 
     Create a QtPoll instance for the monitor.
@@ -1264,9 +1224,7 @@ def _create_qt_poll(parent: QObject, camera: Camera) -> Optional[QtPoll]:
     return qt_poll
 
 
-def _create_remote_manager(
-    layers: LayerList, qt_poll
-) -> Optional[RemoteManager]:
+def _create_remote_manager(layers: LayerList, qt_poll) -> RemoteManager | None:
     """Create and return a RemoteManager instance, if we need one.
 
     Parameters

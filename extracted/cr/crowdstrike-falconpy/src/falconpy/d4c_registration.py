@@ -217,10 +217,11 @@ class D4CRegistration(ServiceClass):
         aws_profile -- The AWS profile to be used during registration. String.
         aws_region -- The AWS region to be used during registration. String.
         behavior_assessment_enabled -- Enable behavior assessment. String. Allowed values: true, false
-        custom_role_name -- The custom IAM role to be used during registration. String.
+        custom_role_name -- The custom IAM role to be used during registration. Same as iam_role_arn. String.
         dspm_enabled -- Flag indicating if DSPM is enabled. String. Allowed values: true, false
         dspm_regions -- List of DSPM regions. Comma delimited string.
         dspm_role -- DSPM role. String.
+        iam_role_arn -- The custom IAM role to be used during registration. Same as custom_role_name. String.
         idp_enabled -- Flag indicating if IDP protection is enabled. String. Allowed values: true, false
         ids -- List of AWS Account IDs to retrieve the script for. String or list of strings.
         falcon_client_id -- The Falcon client ID used during registration. String.
@@ -228,6 +229,7 @@ class D4CRegistration(ServiceClass):
         organization_unit_ids -- The AWS Organizational unit IDs to be registered. String or list of strings.
         parameters -- full parameters payload, not required if ids is provided as a keyword.
         sensor_management_enabled -- Enable sensor management. String. Allowed values: true, false
+        tags -- Base64 encoded JSON string to be used as AWS tags. String.
         template -- Template to be rendered. String. Allowed values: aws-bash, aws-terraform
         use_existing_cloudtrail -- Use the existing cloudtrail log. String. Allowed values: true, false
 
@@ -241,6 +243,9 @@ class D4CRegistration(ServiceClass):
         Swagger URL
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/d4c-registration/GetD4CAWSAccountScriptsAttachment
         """
+        if kwargs.get("custom_role_name", None):
+            kwargs["iam_role_arn"] = kwargs.get("custom_role_name", None)
+
         return process_service_request(
             calling_object=self,
             endpoints=Endpoints,

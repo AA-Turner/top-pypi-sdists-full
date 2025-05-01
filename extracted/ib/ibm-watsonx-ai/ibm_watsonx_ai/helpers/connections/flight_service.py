@@ -1363,25 +1363,18 @@ class FlightConnection:
                 )
             )
 
-            if "file_format" in command["interaction_properties"] and (
-                "write_mode" in command["interaction_properties"] or self.read_binary
-            ):
-                del command["interaction_properties"]["file_format"]
+            if "write_mode" in command["interaction_properties"] or self.read_binary:
+                if "file_format" in command["interaction_properties"]:
+                    del command["interaction_properties"]["file_format"]
 
-            if "sheet_name" in command["interaction_properties"] and (
-                "write_mode" in command["interaction_properties"] or self.read_binary
-            ):
-                del command["interaction_properties"]["sheet_name"]
+                if "sheet_name" in command["interaction_properties"]:
+                    del command["interaction_properties"]["sheet_name"]
 
-            if "encoding" in command["interaction_properties"] and (
-                "write_mode" in command["interaction_properties"] or self.read_binary
-            ):
-                del command["interaction_properties"]["encoding"]
+                if "encoding" in command["interaction_properties"]:
+                    del command["interaction_properties"]["encoding"]
 
-            if "quote_character" in command["interaction_properties"] and (
-                "write_mode" in command["interaction_properties"] or self.read_binary
-            ):
-                del command["interaction_properties"]["quote_character"]
+                if "quote_character" in command["interaction_properties"]:
+                    del command["interaction_properties"]["quote_character"]
 
             if infer_schema:
                 command["interaction_properties"]["infer_schema"] = "true"

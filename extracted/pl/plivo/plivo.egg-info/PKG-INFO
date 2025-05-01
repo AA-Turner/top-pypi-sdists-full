@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: plivo
-Version: 4.58.6
+Version: 4.59.0
 Summary: A Python SDK to make voice calls & send SMS using Plivo and to generate Plivo XML
 Home-page: https://github.com/plivo/plivo-python
 Author: The Plivo SDKs Team

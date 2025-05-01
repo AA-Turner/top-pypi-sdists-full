@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_business_service_subscriber`
 
-Refer to the Terraform Registry for docs: [`pagerduty_business_service_subscriber`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber).
+Refer to the Terraform Registry for docs: [`pagerduty_business_service_subscriber`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BusinessServiceSubscriber(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.businessServiceSubscriber.BusinessServiceSubscriber",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber pagerduty_business_service_subscriber}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber pagerduty_business_service_subscriber}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class BusinessServiceSubscriber(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber pagerduty_business_service_subscriber} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber pagerduty_business_service_subscriber} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param business_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#business_service_id BusinessServiceSubscriber#business_service_id}.
-        :param subscriber_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#subscriber_id BusinessServiceSubscriber#subscriber_id}.
-        :param subscriber_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#subscriber_type BusinessServiceSubscriber#subscriber_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#id BusinessServiceSubscriber#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param business_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#business_service_id BusinessServiceSubscriber#business_service_id}.
+        :param subscriber_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#subscriber_id BusinessServiceSubscriber#subscriber_id}.
+        :param subscriber_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#subscriber_type BusinessServiceSubscriber#subscriber_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#id BusinessServiceSubscriber#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class BusinessServiceSubscriber(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BusinessServiceSubscriber to import.
-        :param import_from_id: The id of the existing BusinessServiceSubscriber that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BusinessServiceSubscriber that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BusinessServiceSubscriber to import is found.
         '''
         if __debug__:
@@ -250,10 +250,10 @@ class BusinessServiceSubscriberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param business_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#business_service_id BusinessServiceSubscriber#business_service_id}.
-        :param subscriber_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#subscriber_id BusinessServiceSubscriber#subscriber_id}.
-        :param subscriber_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#subscriber_type BusinessServiceSubscriber#subscriber_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#id BusinessServiceSubscriber#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param business_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#business_service_id BusinessServiceSubscriber#business_service_id}.
+        :param subscriber_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#subscriber_id BusinessServiceSubscriber#subscriber_id}.
+        :param subscriber_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#subscriber_type BusinessServiceSubscriber#subscriber_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#id BusinessServiceSubscriber#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -358,28 +358,28 @@ class BusinessServiceSubscriberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def business_service_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#business_service_id BusinessServiceSubscriber#business_service_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#business_service_id BusinessServiceSubscriber#business_service_id}.'''
         result = self._values.get("business_service_id")
         assert result is not None, "Required property 'business_service_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscriber_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#subscriber_id BusinessServiceSubscriber#subscriber_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#subscriber_id BusinessServiceSubscriber#subscriber_id}.'''
         result = self._values.get("subscriber_id")
         assert result is not None, "Required property 'subscriber_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscriber_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#subscriber_type BusinessServiceSubscriber#subscriber_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#subscriber_type BusinessServiceSubscriber#subscriber_type}.'''
         result = self._values.get("subscriber_type")
         assert result is not None, "Required property 'subscriber_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/business_service_subscriber#id BusinessServiceSubscriber#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/business_service_subscriber#id BusinessServiceSubscriber#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

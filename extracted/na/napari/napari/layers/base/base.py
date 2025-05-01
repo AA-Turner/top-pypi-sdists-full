@@ -6,19 +6,15 @@ import itertools
 import logging
 import os.path
 import uuid
-import warnings
 from abc import ABC, ABCMeta, abstractmethod
 from collections import defaultdict
-from collections.abc import Generator, Hashable, Mapping, Sequence
+from collections.abc import Callable, Generator, Hashable, Mapping, Sequence
 from contextlib import contextmanager
 from functools import cached_property
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
-    Optional,
-    Union,
 )
 
 import magicgui as mgui
@@ -56,7 +52,6 @@ from napari.utils._magicgui import (
     get_layers,
 )
 from napari.utils.events import EmitterGroup, Event, EventedDict
-from napari.utils.events.event import WarningEmitter
 from napari.utils.geometry import (
     find_front_back_face,
     intersect_line_with_axis_aligned_bounding_box_3d,
@@ -66,7 +61,9 @@ from napari.utils.migrations import _DeprecatingDict
 from napari.utils.misc import StringEnum
 from napari.utils.mouse_bindings import MousemapProvider
 from napari.utils.naming import magic_name
-from napari.utils.status_messages import generate_layer_coords_status
+from napari.utils.status_messages import (
+    generate_layer_status_strings,
+)
 from napari.utils.transforms import Affine, CompositeAffine, TransformChain
 from napari.utils.translations import trans
 
@@ -232,10 +229,6 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         Size of cursor if custom. None yields default size
     help : str
         Displayed in status bar bottom right.
-    interactive : bool
-        Determine if canvas pan/zoom interactivity is enabled.
-        This attribute is deprecated since 0.5.0 and should not be used.
-        Use the mouse_pan and mouse_zoom attributes instead.
     mouse_pan : bool
         Determine if canvas interactive panning is enabled with the mouse.
     mouse_zoom : bool
@@ -302,7 +295,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
     _projectionclass: type[StringEnum] = BaseProjectionMode
 
     ModeCallable = Callable[
-        ['Layer', Event], Union[None, Generator[None, None, None]]
+        ['Layer', Event], None | Generator[None, None, None]
     ]
 
     _drag_modes: ClassVar[dict[StringEnum, ModeCallable]] = {
@@ -378,7 +371,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         self._mouse_pan = True
         self._mouse_zoom = True
         self._value = None
-        self.scale_factor = 1
+        self._scale_factor = 1
         self.multiscale = multiscale
         self._experimental_clipping_planes = ClippingPlaneList()
         self._mode = self._modeclass('pan_zoom')
@@ -476,6 +469,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
             reload=Event,
             rotate=Event,
             scale=Event,
+            scale_factor=Event,
             set_data=Event,
             shear=Event,
             status=Event,
@@ -483,13 +477,6 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
             translate=Event,
             units=Event,
             visible=Event,
-            interactive=WarningEmitter(
-                trans._(
-                    'layer.events.interactive is deprecated since 0.4.18 and will be removed in 0.6.0. Please use layer.events.mouse_pan and layer.events.mouse_zoom',
-                    deferred=True,
-                ),
-                type_name='interactive',
-            ),
             _extent_augmented=Event,
             _overlays=Event,
         )
@@ -518,7 +505,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         cls = type(self)
         return f'<{cls.__name__} layer {self.name!r} at {hex(id(self))}>'
 
-    def _mode_setter_helper(self, mode_in: Union[Mode, str]) -> StringEnum:
+    def _mode_setter_helper(self, mode_in: Mode | str) -> StringEnum:
         """
         Helper to manage callbacks in multiple layers
 
@@ -578,7 +565,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
 
         if mode == TRANSFORM:
             self.help = trans._(
-                'hold <space> to pan/zoom, hold <shift> to preserve aspect ratio and rotate in 45° increments'
+                'hold <space> to move camera, hold <shift> to preserve aspect ratio and rotate in 45° increments'
             )
         elif mode == PAN_ZOOM:
             self.help = ''
@@ -608,7 +595,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         return str(self._mode)
 
     @mode.setter
-    def mode(self, mode: Union[Mode, str]) -> None:
+    def mode(self, mode: Mode | str) -> None:
         mode_enum = self._mode_setter_helper(mode)
         if mode_enum == self._mode:
             return
@@ -655,7 +642,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         return self._name
 
     @name.setter
-    def name(self, name: Optional[str]) -> None:
+    def name(self, name: str | None) -> None:
         if name == self.name:
             return
         if not name:
@@ -834,7 +821,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         return self._transforms['data2physical'].axis_labels
 
     @axis_labels.setter
-    def axis_labels(self, axis_labels: Optional[Sequence[str]]) -> None:
+    def axis_labels(self, axis_labels: Sequence[str] | None) -> None:
         prev = self._transforms['data2physical'].axis_labels
         # mypy bug https://github.com/python/mypy/issues/3004
         self._transforms['data2physical'].axis_labels = axis_labels  # type: ignore[assignment]
@@ -847,7 +834,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         return self._transforms['data2physical'].units
 
     @units.setter
-    def units(self, units: Optional[Sequence[pint.Unit]]) -> None:
+    def units(self, units: Sequence[pint.Unit] | None) -> None:
         prev = self.units
         # mypy bug https://github.com/python/mypy/issues/3004
         self._transforms['data2physical'].units = units  # type: ignore[assignment]
@@ -860,12 +847,23 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         return self._transforms['data2physical'].scale
 
     @scale.setter
-    def scale(self, scale: Optional[npt.NDArray]) -> None:
+    def scale(self, scale: npt.NDArray | None) -> None:
         if scale is None:
             scale = np.array([1] * self.ndim)
         self._transforms['data2physical'].scale = np.array(scale)
         self.refresh()
         self.events.scale()
+
+    @property
+    def scale_factor(self):
+        """float: Conversion factor from canvas coordinates to image coordinates."""
+        return self._scale_factor
+
+    @scale_factor.setter
+    def scale_factor(self, scale_factor):
+        if self._scale_factor != scale_factor:
+            self._scale_factor = scale_factor
+            self.events.scale_factor()
 
     @property
     def translate(self) -> npt.NDArray:
@@ -906,7 +904,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         return self._transforms['physical2world']
 
     @affine.setter
-    def affine(self, affine: Union[npt.ArrayLike, Affine]) -> None:
+    def affine(self, affine: npt.ArrayLike | Affine) -> None:
         # Assignment by transform name is not supported by TransformChain and
         # EventedList, so use the integer index instead. For more details, see:
         # https://github.com/napari/napari/issues/3058
@@ -1174,30 +1172,6 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         self.events.help(help=help_text)
 
     @property
-    def interactive(self) -> bool:
-        warnings.warn(
-            trans._(
-                'Layer.interactive is deprecated since napari 0.4.18 and will be removed in 0.6.0. Please use Layer.mouse_pan and Layer.mouse_zoom instead'
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.mouse_pan or self.mouse_zoom
-
-    @interactive.setter
-    def interactive(self, interactive: bool) -> None:
-        warnings.warn(
-            trans._(
-                'Layer.interactive is deprecated since napari 0.4.18 and will be removed in 0.6.0. Please use Layer.mouse_pan and Layer.mouse_zoom instead'
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
-        with self.events.interactive.blocker():
-            self.mouse_pan = interactive
-        self.mouse_zoom = interactive
-
-    @property
     def mouse_pan(self) -> bool:
         """bool: Determine if canvas interactive panning is enabled with the mouse."""
         return self._mouse_pan
@@ -1208,9 +1182,6 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
             return
         self._mouse_pan = mouse_pan
         self.events.mouse_pan(mouse_pan=mouse_pan)
-        self.events.interactive(
-            interactive=self.mouse_pan or self.mouse_zoom
-        )  # Deprecated since 0.5.0
 
     @property
     def mouse_zoom(self) -> bool:
@@ -1223,9 +1194,6 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
             return
         self._mouse_zoom = mouse_zoom
         self.events.mouse_zoom(mouse_zoom=mouse_zoom)
-        self.events.interactive(
-            interactive=self.mouse_pan or self.mouse_zoom
-        )  # Deprecated since 0.5.0
 
     @property
     def cursor(self) -> str:
@@ -1258,18 +1226,16 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
     @experimental_clipping_planes.setter
     def experimental_clipping_planes(
         self,
-        value: Union[
-            dict,
-            ClippingPlane,
-            list[Union[ClippingPlane, dict]],
-            ClippingPlaneList,
-        ],
+        value: dict
+        | ClippingPlane
+        | list[ClippingPlane | dict]
+        | ClippingPlaneList,
     ) -> None:
         self._experimental_clipping_planes.clear()
         if value is None:
             return
 
-        if isinstance(value, (ClippingPlane, dict)):
+        if isinstance(value, ClippingPlane | dict):
             value = [value]
         for new_plane in value:
             plane = ClippingPlane()
@@ -1375,10 +1341,10 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         self,
         position: npt.ArrayLike,
         *,
-        view_direction: Optional[npt.ArrayLike] = None,
-        dims_displayed: Optional[list[int]] = None,
+        view_direction: npt.ArrayLike | None = None,
+        dims_displayed: list[int] | None = None,
         world: bool = False,
-    ) -> Optional[tuple]:
+    ) -> tuple | None:
         """Value of the data at a position.
 
         If the layer is not visible, return None.
@@ -1447,12 +1413,10 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
 
     def _get_value_3d(
         self,
-        start_point: Optional[np.ndarray],
-        end_point: Optional[np.ndarray],
+        start_point: np.ndarray | None,
+        end_point: np.ndarray | None,
         dims_displayed: list[int],
-    ) -> Union[
-        float, int, None, tuple[Union[float, int, None], Optional[int]]
-    ]:
+    ) -> float | int | None | tuple[float | int | None, int | None]:
         """Get the layer data value along a ray
 
         Parameters
@@ -1548,7 +1512,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
 
     def refresh(
         self,
-        event: Optional[Event] = None,
+        event: Event | None = None,
         *,
         thumbnail: bool = True,
         data_displayed: bool = True,
@@ -1831,14 +1795,14 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         """
         Static for ease of testing
         """
-        world_dims = np.asarray(world_dims)
-        assert world_dims.min() == 0
-        assert world_dims.max() == len(world_dims) - 1
-        assert world_dims.ndim == 1
         offset = ndim_world - ndim
-        order = world_dims - offset
-        order = order[order >= 0]
-        return order - order.min()
+        order = np.array(world_dims)
+        if offset == 0:
+            return order
+        if offset < 0:
+            return np.concatenate((np.arange(-offset), order - offset))
+
+        return order[order >= offset] - offset
 
     def _display_bounding_box(self, dims_displayed: list[int]) -> npt.NDArray:
         """An axis aligned (ndisplay, 2) bounding box around the data"""
@@ -1898,7 +1862,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         view_direction: npt.ArrayLike,
         dims_displayed: list[int],
         world: bool = True,
-    ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
         """Get the start and end point for the ray extending
         from a point through the data bounding box.
 
@@ -1961,7 +1925,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         dims_displayed: list[int],
         bounding_box: npt.NDArray,
         world: bool = True,
-    ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
         """Get the start and end point for the ray extending
         from a point through the data bounding box.
 
@@ -2179,12 +2143,13 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
 
     def get_status(
         self,
-        position: Optional[npt.ArrayLike] = None,
+        position: npt.ArrayLike | None = None,
         *,
-        view_direction: Optional[npt.ArrayLike] = None,
-        dims_displayed: Optional[list[int]] = None,
+        view_direction: npt.ArrayLike | None = None,
+        dims_displayed: list[int] | None = None,
         world: bool = False,
-    ) -> dict:
+        value: Any | None = None,
+    ) -> dict[str, str]:
         """
         Status message information of the data at a coordinate position.
 
@@ -2201,12 +2166,16 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         world : bool
             If True the position is taken to be in world coordinates
             and converted into data coordinates. False by default.
+        value : Any
+            Pre-computed value. In some cases,
 
         Returns
         -------
-        source_info : dict
+        status_dict : dict
             Dictionary containing a information that can be used as a status update.
         """
+        status_dict = self._get_source_info().copy()
+
         if position is not None:
             position = np.asarray(position)
             value = self.get_value(
@@ -2215,26 +2184,30 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
                 dims_displayed=dims_displayed,
                 world=world,
             )
+            coords_str, value_str = generate_layer_status_strings(
+                # position may be higher-dimensional due to other
+                # layers in the viewer, but self._translate_grid already
+                # has the correct dimensionality. We subtract translate_grid
+                # so that the coordinates are valid for the layer, regardless
+                # of grid display.
+                position[-self.ndim :] - self._translate_grid,
+                value,
+            )
         else:
-            value = None
+            coords_str, value_str = '', ''
 
-        source_info = self._get_source_info()
-        if position is not None:
-            source_info['coordinates'] = generate_layer_coords_status(
-                position[-self.ndim :], value
-            )
-        else:
-            source_info['coordinates'] = generate_layer_coords_status(
-                position, value
-            )
-        return source_info
+        status_dict['coordinates'] = ': '.join((coords_str, value_str))
+        status_dict['coords'] = coords_str
+        status_dict['value'] = value_str
+
+        return status_dict
 
     def _get_tooltip_text(
         self,
         position: npt.NDArray,
         *,
-        view_direction: Optional[np.ndarray] = None,
-        dims_displayed: Optional[list[int]] = None,
+        view_direction: np.ndarray | None = None,
+        dims_displayed: list[int] | None = None,
         world: bool = False,
     ) -> str:
         """
@@ -2261,7 +2234,7 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
         """
         return ''
 
-    def save(self, path: str, plugin: Optional[str] = None) -> list[str]:
+    def save(self, path: str, plugin: str | None = None) -> list[str]:
         """Save this layer to ``path`` with default (or specified) plugin.
 
         Parameters
@@ -2311,8 +2284,8 @@ class Layer(KeymapProvider, MousemapProvider, ABC, metaclass=PostInit):
     def create(
         cls,
         data: Any,
-        meta: Optional[Mapping] = None,
-        layer_type: Optional[str] = None,
+        meta: Mapping | None = None,
+        layer_type: str | None = None,
     ) -> Layer:
         """Create layer from `data` of type `layer_type`.
 

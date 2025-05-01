@@ -100,6 +100,7 @@ __all__ = (
     "SortOrderType",
     "StepTypeType",
     "SupplementalDataStorageLocationTypeType",
+    "SupportedLanguagesType",
     "TypeType",
     "WebScopeTypeType",
 )
@@ -164,6 +165,7 @@ FlowNodeTypeType = Literal[
     "Agent",
     "Collector",
     "Condition",
+    "InlineCode",
     "Input",
     "Iterator",
     "KnowledgeBase",
@@ -271,6 +273,7 @@ SharePointHostTypeType = Literal["ONLINE"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 StepTypeType = Literal["POST_CHUNKING"]
 SupplementalDataStorageLocationTypeType = Literal["S3"]
+SupportedLanguagesType = Literal["Python_3"]
 TypeType = Literal["array", "boolean", "integer", "number", "string"]
 WebScopeTypeType = Literal["HOST_ONLY", "SUBDOMAINS"]
 AgentsforBedrockServiceName = Literal["bedrock-agent"]

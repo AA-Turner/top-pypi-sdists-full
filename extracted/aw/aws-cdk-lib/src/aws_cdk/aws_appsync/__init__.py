@@ -1052,6 +1052,144 @@ api = appsync.EventApi(self, "api",
 api.add_channel_namespace("default")
 ```
 
+### Data Sources
+
+With AWS AppSync Events, you can configure data source integrations with Amazon DynamoDB, Amazon Aurora Serverless, Amazon EventBridge, Amazon Bedrock Runtime, AWS Lambda, Amazon OpenSearch Service, and HTTP endpoints. The Event API can be associated with the data source and you can use the data source as an integration in your channel namespace event handlers for `onPublish` and `onSubscribe` operations.
+
+Below are examples for how you add the various data sources to you Event API.
+
+#### Amazon DynamoDB
+
+```python
+api = appsync.EventApi(self, "EventApiDynamoDB",
+    api_name="DynamoDBEventApi"
+)
+
+table = dynamodb.Table(self, "table",
+    table_name="event-messages",
+    partition_key=dynamodb.Attribute(
+        name="id",
+        type=dynamodb.AttributeType.STRING
+    )
+)
+
+data_source = api.add_dynamo_db_data_source("ddbsource", table)
+```
+
+#### Amazon Aurora Serverless
+
+```python
+import aws_cdk.aws_secretsmanager as secretsmanager
+
+# vpc: ec2.Vpc
+
+database_name = "mydb"
+cluster = rds.DatabaseCluster(self, "Cluster",
+    engine=rds.DatabaseClusterEngine.aurora_postgres(version=rds.AuroraPostgresEngineVersion.VER_16_6),
+    writer=rds.ClusterInstance.serverless_v2("writer"),
+    vpc=vpc,
+    credentials={"username": "clusteradmin"},
+    default_database_name=database_name,
+    enable_data_api=True
+)
+
+secret = secretsmanager.Secret.from_secret_name_v2(self, "Secret", "db-secretName")
+
+api = appsync.EventApi(self, "EventApiRds",
+    api_name="RdsEventApi"
+)
+
+data_source = api.add_rds_data_source("rdsds", cluster, secret, database_name)
+```
+
+#### Amazon EventBridge
+
+```python
+import aws_cdk.aws_events as events
+
+
+api = appsync.EventApi(self, "EventApiEventBridge",
+    api_name="EventBridgeEventApi"
+)
+
+event_bus = events.EventBus(self, "test-bus")
+
+data_source = api.add_event_bridge_data_source("eventbridgeds", event_bus)
+```
+
+#### AWS Lambda
+
+```python
+import aws_cdk.aws_lambda as lambda_
+
+# lambda_ds: lambda.Function
+
+
+api = appsync.EventApi(self, "EventApiLambda",
+    api_name="LambdaEventApi"
+)
+
+data_source = api.add_lambda_data_source("lambdads", lambda_ds)
+```
+
+#### Amazon OpenSearch Service
+
+```python
+import aws_cdk.aws_opensearchservice as opensearch
+
+
+domain = opensearch.Domain(self, "Domain",
+    version=opensearch.EngineVersion.OPENSEARCH_2_17,
+    encryption_at_rest=opensearch.EncryptionAtRestOptions(
+        enabled=True
+    ),
+    node_to_node_encryption=True,
+    enforce_https=True,
+    capacity=opensearch.CapacityConfig(
+        multi_az_with_standby_enabled=False
+    ),
+    ebs=opensearch.EbsOptions(
+        enabled=True,
+        volume_size=10
+    )
+)
+api = appsync.EventApi(self, "EventApiOpenSearch",
+    api_name="OpenSearchEventApi"
+)
+
+data_source = api.add_open_search_data_source("opensearchds", domain)
+```
+
+#### HTTP Endpoints
+
+```python
+import aws_cdk.aws_apigateway as apigw
+
+
+api = appsync.EventApi(self, "EventApiHttp",
+    api_name="HttpEventApi"
+)
+
+random_api = apigw.RestApi(self, "RandomApi")
+random_route = random_api.root.add_resource("random")
+random_route.add_method("GET", apigw.MockIntegration(
+    integration_responses=[apigw.IntegrationResponse(
+        status_code="200",
+        response_templates={
+            "application/json": "my-random-value"
+        }
+    )],
+    passthrough_behavior=apigw.PassthroughBehavior.NEVER,
+    request_templates={
+        "application/json": "{ \"statusCode\": 200 }"
+    }
+),
+    method_responses=[apigw.MethodResponse(status_code="200")]
+)
+
+data_source = api.add_http_data_source("httpsource", f"https://{randomApi.restApiId}.execute-api.{this.region}.amazonaws.com")
+```
+
 ### Custom Domain Names
 
 With AWS AppSync, you can use custom domain names to configure a single, memorable domain that works for your Event APIs.
@@ -1166,6 +1304,8 @@ Channel namespaces provide a scalable approach to managing large numbers of chan
 
 Instead of configuring each channel individually, developers can apply settings across an entire namespace.
 
+Channel namespace can optionally interact with data sources configured on the Event API by defining optional event handler code or using direct integrations with the data source where applicable.
+
 For more information, see [Understanding channel namespaces](https://docs.aws.amazon.com/appsync/latest/eventapi/channel-namespaces.html).
 
 ```python
@@ -1218,6 +1358,64 @@ appsync.ChannelNamespace(self, "Namespace",
     api=api,
     # set a handler from an asset
     code=appsync.Code.from_asset("directory/function_code.js")
+)
+```
+
+You can define an integration in your event handler for `onPublish` and/or `onSubscribe` operations. When defining integrations on your channel namespace, you write code in the event handler to submit requests to and process responses from your data source. For example, if you configure an integration with Amazon DynamoDB for `onPublish` operations, you can persist those events to DynamoDB using a `batchPut` operation in the `request` method, and then return the events as normal in the `response` method. For an integration with Amazon OpenSearch Service, you may use this for `onPublish` operations to enrich the events.
+
+When using the AWS Lambda data source integration, you can either invoke the Lambda function using the event handler code or you can directly invoke the Lambda function, bypassing the event handler code all together. When using direct invoke, you can choose to invoke the Lambda function synchronously or asynchronously by specifying the `invokeType` as `REQUEST_RESPONSE` or `EVENT` respectively.
+
+Below are examples using Amazon DynamoDB, Amazon EventBridge, and AWS Lambda. You can leverage any supported data source in the same way.
+
+#### Amazon DynamoDB & Amazon EventBridge
+
+```python
+# api: appsync.EventApi
+# ddb_data_source: appsync.AppSyncDynamoDbDataSource
+# eb_data_source: appsync.AppSyncEventBridgeDataSource
+
+
+# DynamoDB data source for publish handler
+api.add_channel_namespace("ddb-eb-ns",
+    code=appsync.Code.from_inline("/* event handler code here.*/"),
+    publish_handler_config=appsync.HandlerConfig(
+        data_source=ddb_data_source
+    ),
+    subscribe_handler_config=appsync.HandlerConfig(
+        data_source=eb_data_source
+    )
+)
+```
+
+#### AWS Lambda
+
+```python
+# api: appsync.EventApi
+# lambda_data_source: appsync.AppSyncLambdaDataSource
+
+
+# Lambda data source for publish handler
+api.add_channel_namespace("lambda-ns",
+    code=appsync.Code.from_inline("/* event handler code here.*/"),
+    publish_handler_config=appsync.HandlerConfig(
+        data_source=lambda_data_source
+    )
+)
+
+# Direct Lambda data source for publish handler
+api.add_channel_namespace("lambda-direct-ns",
+    publish_handler_config=appsync.HandlerConfig(
+        data_source=lambda_data_source,
+        direct=True
+    )
+)
+
+api.add_channel_namespace("lambda-direct-async-ns",
+    publish_handler_config=appsync.HandlerConfig(
+        data_source=lambda_data_source,
+        direct=True,
+        lambda_invoke_type=appsync.LambdaInvokeType.EVENT
+    )
 )
 ```
 '''
@@ -1683,6 +1881,261 @@ class AppSyncAuthorizationType(enum.Enum):
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncAwsIamConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "signing_region": "signingRegion",
+        "signing_service_name": "signingServiceName",
+    },
+)
+class AppSyncAwsIamConfig:
+    def __init__(
+        self,
+        *,
+        signing_region: builtins.str,
+        signing_service_name: builtins.str,
+    ) -> None:
+        '''The authorization config in case the HTTP endpoint requires authorization.
+
+        :param signing_region: The signing region for AWS IAM authorization.
+        :param signing_service_name: The signing service name for AWS IAM authorization.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            
+            app_sync_aws_iam_config = appsync.AppSyncAwsIamConfig(
+                signing_region="signingRegion",
+                signing_service_name="signingServiceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a7d4c67b23a7b735cc6bf15c108f208253fed65876babb603435fb53a79480a)
+            check_type(argname="argument signing_region", value=signing_region, expected_type=type_hints["signing_region"])
+            check_type(argname="argument signing_service_name", value=signing_service_name, expected_type=type_hints["signing_service_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "signing_region": signing_region,
+            "signing_service_name": signing_service_name,
+        }
+
+    @builtins.property
+    def signing_region(self) -> builtins.str:
+        '''The signing region for AWS IAM authorization.'''
+        result = self._values.get("signing_region")
+        assert result is not None, "Required property 'signing_region' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signing_service_name(self) -> builtins.str:
+        '''The signing service name for AWS IAM authorization.'''
+        result = self._values.get("signing_service_name")
+        assert result is not None, "Required property 'signing_service_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncAwsIamConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppSyncBaseDataSource(
+    _constructs_77d1e7e8.Construct,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncBaseDataSource",
+):
+    '''Abstract AppSync datasource implementation.
+
+    Do not use directly but use subclasses for concrete datasources
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        props: typing.Union["AppSyncBackedDataSourceProps", typing.Dict[builtins.str, typing.Any]],
+        *,
+        type: "AppSyncDataSourceType",
+        dynamo_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.DynamoDBConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_bridge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.EventBridgeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        http_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.HttpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_search_service_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.OpenSearchServiceConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        relational_database_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.RelationalDatabaseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param props: -
+        :param type: The type of the AppSync datasource.
+        :param dynamo_db_config: Configuration for DynamoDB Datasource. Default: - No config
+        :param event_bridge_config: Configuration for EventBridge Datasource. Default: - No config
+        :param http_config: Configuration for HTTP Datasource. Default: - No config
+        :param lambda_config: Configuration for Lambda Datasource. Default: - No config
+        :param open_search_service_config: Configuration for OpenSearch data source. Default: - No config
+        :param relational_database_config: Configuration for RDS Datasource. Default: - No config
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9a115c0bc90ba5e2ef17fead7a4acaac9daab3299023326c5c1e16512132b44)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        extended = AppSyncExtendedDataSourceProps(
+            type=type,
+            dynamo_db_config=dynamo_db_config,
+            event_bridge_config=event_bridge_config,
+            http_config=http_config,
+            lambda_config=lambda_config,
+            open_search_service_config=open_search_service_config,
+            relational_database_config=relational_database_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props, extended])
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the data source.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def resource(self) -> "CfnDataSource":
+        '''The underlying CFN data source resource.'''
+        return typing.cast("CfnDataSource", jsii.get(self, "resource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="api")
+    def _api(self) -> "IApi":
+        return typing.cast("IApi", jsii.get(self, "api"))
+
+    @_api.setter
+    def _api(self, value: "IApi") -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de6bea57418b88ece312be09368872f556250ca6065af55b1df45d455af90294)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "api", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRole")
+    def _service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        return typing.cast(typing.Optional[_IRole_235f5d8e], jsii.get(self, "serviceRole"))
+
+    @_service_role.setter
+    def _service_role(self, value: typing.Optional[_IRole_235f5d8e]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0696048b430ec2cd7bcb73334c99f876ecdb0a5a047acd07237fee239f7b556)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceRole", value) # pyright: ignore[reportArgumentType]
+
+
+class _AppSyncBaseDataSourceProxy(AppSyncBaseDataSource):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, AppSyncBaseDataSource).__jsii_proxy_class__ = lambda : _AppSyncBaseDataSourceProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncBaseDataSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={"api": "api", "description": "description", "name": "name"},
+)
+class AppSyncBaseDataSourceProps:
+    def __init__(
+        self,
+        *,
+        api: "IApi",
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Base properties for an AppSync datasource.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            
+            # api: appsync.IApi
+            
+            app_sync_base_data_source_props = appsync.AppSyncBaseDataSourceProps(
+                api=api,
+            
+                # the properties below are optional
+                description="description",
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bea0eee61b1cea87b6622231b3f162a9ae91365fb99f3750a7d7ba668769f8fd)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def api(self) -> "IApi":
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast("IApi", result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncBaseDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appsync.AppSyncCognitoConfig",
     jsii_struct_bases=[],
     name_mapping={"user_pool": "userPool", "app_id_client_regex": "appIdClientRegex"},
@@ -1753,6 +2206,96 @@ class AppSyncCognitoConfig:
         return "AppSyncCognitoConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncDataSourceOptions",
+    jsii_struct_bases=[],
+    name_mapping={"description": "description", "name": "name"},
+)
+class AppSyncDataSourceOptions:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Optional configuration for data sources.
+
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            
+            app_sync_data_source_options = appsync.AppSyncDataSourceOptions(
+                description="description",
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4e890d2a8faf7c2137db999331361511f3634ef2833d6e1703e1880a5b6d647)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - No description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source, overrides the id given by CDK.
+
+        :default: - generated by CDK given the id
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncDataSourceOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.AppSyncDataSourceType")
+class AppSyncDataSourceType(enum.Enum):
+    '''Valid data source types for AppSync.'''
+
+    LAMBDA = "LAMBDA"
+    '''Lambda data source type.'''
+    DYNAMODB = "DYNAMODB"
+    '''DynamoDB data source type.'''
+    EVENTBRIDGE = "EVENTBRIDGE"
+    '''EventBridge data source type.'''
+    OPENSEARCH_SERVICE = "OPENSEARCH_SERVICE"
+    '''OpenSearch service data source type.'''
+    HTTP = "HTTP"
+    '''HTTP data source type.'''
+    RELATIONAL_DATABASE = "RELATIONAL_DATABASE"
+    '''Relational DB data source type.'''
+    BEDROCK = "BEDROCK"
+    '''Bedrock runtime data source type.'''
 
 
 @jsii.data_type(
@@ -1913,6 +2456,218 @@ class AppSyncEventResource(
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "resourceArns", [api]))
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncExtendedDataSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type": "type",
+        "dynamo_db_config": "dynamoDbConfig",
+        "event_bridge_config": "eventBridgeConfig",
+        "http_config": "httpConfig",
+        "lambda_config": "lambdaConfig",
+        "open_search_service_config": "openSearchServiceConfig",
+        "relational_database_config": "relationalDatabaseConfig",
+    },
+)
+class AppSyncExtendedDataSourceProps:
+    def __init__(
+        self,
+        *,
+        type: AppSyncDataSourceType,
+        dynamo_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.DynamoDBConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_bridge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.EventBridgeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        http_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.HttpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_search_service_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.OpenSearchServiceConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        relational_database_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.RelationalDatabaseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Props used by implementations of BaseDataSource to provide configuration.
+
+        Should not be used directly.
+
+        :param type: The type of the AppSync datasource.
+        :param dynamo_db_config: Configuration for DynamoDB Datasource. Default: - No config
+        :param event_bridge_config: Configuration for EventBridge Datasource. Default: - No config
+        :param http_config: Configuration for HTTP Datasource. Default: - No config
+        :param lambda_config: Configuration for Lambda Datasource. Default: - No config
+        :param open_search_service_config: Configuration for OpenSearch data source. Default: - No config
+        :param relational_database_config: Configuration for RDS Datasource. Default: - No config
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            
+            app_sync_extended_data_source_props = appsync.AppSyncExtendedDataSourceProps(
+                type=appsync.AppSyncDataSourceType.LAMBDA,
+            
+                # the properties below are optional
+                dynamo_db_config=appsync.CfnDataSource.DynamoDBConfigProperty(
+                    aws_region="awsRegion",
+                    table_name="tableName",
+            
+                    # the properties below are optional
+                    delta_sync_config=appsync.CfnDataSource.DeltaSyncConfigProperty(
+                        base_table_ttl="baseTableTtl",
+                        delta_sync_table_name="deltaSyncTableName",
+                        delta_sync_table_ttl="deltaSyncTableTtl"
+                    ),
+                    use_caller_credentials=False,
+                    versioned=False
+                ),
+                event_bridge_config=appsync.CfnDataSource.EventBridgeConfigProperty(
+                    event_bus_arn="eventBusArn"
+                ),
+                http_config=appsync.CfnDataSource.HttpConfigProperty(
+                    endpoint="endpoint",
+            
+                    # the properties below are optional
+                    authorization_config=appsync.CfnDataSource.AuthorizationConfigProperty(
+                        authorization_type="authorizationType",
+            
+                        # the properties below are optional
+                        aws_iam_config=appsync.CfnDataSource.AwsIamConfigProperty(
+                            signing_region="signingRegion",
+                            signing_service_name="signingServiceName"
+                        )
+                    )
+                ),
+                lambda_config=appsync.CfnDataSource.LambdaConfigProperty(
+                    lambda_function_arn="lambdaFunctionArn"
+                ),
+                open_search_service_config=appsync.CfnDataSource.OpenSearchServiceConfigProperty(
+                    aws_region="awsRegion",
+                    endpoint="endpoint"
+                ),
+                relational_database_config=appsync.CfnDataSource.RelationalDatabaseConfigProperty(
+                    relational_database_source_type="relationalDatabaseSourceType",
+            
+                    # the properties below are optional
+                    rds_http_endpoint_config=appsync.CfnDataSource.RdsHttpEndpointConfigProperty(
+                        aws_region="awsRegion",
+                        aws_secret_store_arn="awsSecretStoreArn",
+                        db_cluster_identifier="dbClusterIdentifier",
+            
+                        # the properties below are optional
+                        database_name="databaseName",
+                        schema="schema"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__422e83387ace04fc4ab6fb1ad7696af007307662d4bfa0ceadbdcaf28ab74332)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument dynamo_db_config", value=dynamo_db_config, expected_type=type_hints["dynamo_db_config"])
+            check_type(argname="argument event_bridge_config", value=event_bridge_config, expected_type=type_hints["event_bridge_config"])
+            check_type(argname="argument http_config", value=http_config, expected_type=type_hints["http_config"])
+            check_type(argname="argument lambda_config", value=lambda_config, expected_type=type_hints["lambda_config"])
+            check_type(argname="argument open_search_service_config", value=open_search_service_config, expected_type=type_hints["open_search_service_config"])
+            check_type(argname="argument relational_database_config", value=relational_database_config, expected_type=type_hints["relational_database_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+        }
+        if dynamo_db_config is not None:
+            self._values["dynamo_db_config"] = dynamo_db_config
+        if event_bridge_config is not None:
+            self._values["event_bridge_config"] = event_bridge_config
+        if http_config is not None:
+            self._values["http_config"] = http_config
+        if lambda_config is not None:
+            self._values["lambda_config"] = lambda_config
+        if open_search_service_config is not None:
+            self._values["open_search_service_config"] = open_search_service_config
+        if relational_database_config is not None:
+            self._values["relational_database_config"] = relational_database_config
+
+    @builtins.property
+    def type(self) -> AppSyncDataSourceType:
+        '''The type of the AppSync datasource.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(AppSyncDataSourceType, result)
+
+    @builtins.property
+    def dynamo_db_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DynamoDBConfigProperty"]]:
+        '''Configuration for DynamoDB Datasource.
+
+        :default: - No config
+        '''
+        result = self._values.get("dynamo_db_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DynamoDBConfigProperty"]], result)
+
+    @builtins.property
+    def event_bridge_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.EventBridgeConfigProperty"]]:
+        '''Configuration for EventBridge Datasource.
+
+        :default: - No config
+        '''
+        result = self._values.get("event_bridge_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.EventBridgeConfigProperty"]], result)
+
+    @builtins.property
+    def http_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.HttpConfigProperty"]]:
+        '''Configuration for HTTP Datasource.
+
+        :default: - No config
+        '''
+        result = self._values.get("http_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.HttpConfigProperty"]], result)
+
+    @builtins.property
+    def lambda_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.LambdaConfigProperty"]]:
+        '''Configuration for Lambda Datasource.
+
+        :default: - No config
+        '''
+        result = self._values.get("lambda_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.LambdaConfigProperty"]], result)
+
+    @builtins.property
+    def open_search_service_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.OpenSearchServiceConfigProperty"]]:
+        '''Configuration for OpenSearch data source.
+
+        :default: - No config
+        '''
+        result = self._values.get("open_search_service_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.OpenSearchServiceConfigProperty"]], result)
+
+    @builtins.property
+    def relational_database_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.RelationalDatabaseConfigProperty"]]:
+        '''Configuration for RDS Datasource.
+
+        :default: - No config
+        '''
+        result = self._values.get("relational_database_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.RelationalDatabaseConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncExtendedDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.AppSyncFieldLogLevel")
 class AppSyncFieldLogLevel(enum.Enum):
     '''log-level for fields in AppSync.
@@ -1960,6 +2715,100 @@ class AppSyncFieldLogLevel(enum.Enum):
     '''Debug, Info, and Error messages, appear in logs.'''
     ALL = "ALL"
     '''All messages (Debug, Error, Info, and Trace) appear in logs.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncHttpDataSourceOptions",
+    jsii_struct_bases=[AppSyncDataSourceOptions],
+    name_mapping={
+        "description": "description",
+        "name": "name",
+        "authorization_config": "authorizationConfig",
+    },
+)
+class AppSyncHttpDataSourceOptions(AppSyncDataSourceOptions):
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Optional configuration for Http data sources.
+
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            
+            app_sync_http_data_source_options = appsync.AppSyncHttpDataSourceOptions(
+                authorization_config=appsync.AppSyncAwsIamConfig(
+                    signing_region="signingRegion",
+                    signing_service_name="signingServiceName"
+                ),
+                description="description",
+                name="name"
+            )
+        '''
+        if isinstance(authorization_config, dict):
+            authorization_config = AppSyncAwsIamConfig(**authorization_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1484fc320839253b804df2abaef0e5e61d9f55e88b19ec4b5e7f2f5675b237f9)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if authorization_config is not None:
+            self._values["authorization_config"] = authorization_config
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - No description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source, overrides the id given by CDK.
+
+        :default: - generated by CDK given the id
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def authorization_config(self) -> typing.Optional[AppSyncAwsIamConfig]:
+        '''The authorization config in case the HTTP endpoint requires authorization.
+
+        :default: - none
+        '''
+        result = self._values.get("authorization_config")
+        return typing.cast(typing.Optional[AppSyncAwsIamConfig], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncHttpDataSourceOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -3095,6 +3944,8 @@ class BaseAppsyncFunctionProps:
         "authorization_config": "authorizationConfig",
         "channel_namespace_name": "channelNamespaceName",
         "code": "code",
+        "publish_handler_config": "publishHandlerConfig",
+        "subscribe_handler_config": "subscribeHandlerConfig",
     },
 )
 class BaseChannelNamespaceProps:
@@ -3104,12 +3955,16 @@ class BaseChannelNamespaceProps:
         authorization_config: typing.Optional[typing.Union["NamespaceAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         channel_namespace_name: typing.Optional[builtins.str] = None,
         code: typing.Optional["Code"] = None,
+        publish_handler_config: typing.Optional[typing.Union["HandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        subscribe_handler_config: typing.Optional[typing.Union["HandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''the base properties for a channel namespace.
 
         :param authorization_config: Authorization config for channel namespace. Default: - defaults to Event API default auth config
         :param channel_namespace_name: the name of the channel namespace. Default: - the construct's id will be used
         :param code: The Event Handler code. Default: - no code is used
+        :param publish_handler_config: onPublish handler config. Default: - no handler config
+        :param subscribe_handler_config: onSubscribe handler config. Default: - no handler config
 
         :exampleMetadata: fixture=_generated
 
@@ -3119,6 +3974,7 @@ class BaseChannelNamespaceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_appsync as appsync
             
+            # app_sync_backed_data_source: appsync.AppSyncBackedDataSource
             # code: appsync.Code
             
             base_channel_namespace_props = appsync.BaseChannelNamespaceProps(
@@ -3127,16 +3983,32 @@ class BaseChannelNamespaceProps:
                     subscribe_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY]
                 ),
                 channel_namespace_name="channelNamespaceName",
-                code=code
+                code=code,
+                publish_handler_config=appsync.HandlerConfig(
+                    data_source=app_sync_backed_data_source,
+                    direct=False,
+                    lambda_invoke_type=appsync.LambdaInvokeType.EVENT
+                ),
+                subscribe_handler_config=appsync.HandlerConfig(
+                    data_source=app_sync_backed_data_source,
+                    direct=False,
+                    lambda_invoke_type=appsync.LambdaInvokeType.EVENT
+                )
             )
         '''
         if isinstance(authorization_config, dict):
             authorization_config = NamespaceAuthConfig(**authorization_config)
+        if isinstance(publish_handler_config, dict):
+            publish_handler_config = HandlerConfig(**publish_handler_config)
+        if isinstance(subscribe_handler_config, dict):
+            subscribe_handler_config = HandlerConfig(**subscribe_handler_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a88094ea14bdde4ccd0f369b0a3bad8511714f00dcd3c6473ecacef41b16a50)
             check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
             check_type(argname="argument channel_namespace_name", value=channel_namespace_name, expected_type=type_hints["channel_namespace_name"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+            check_type(argname="argument publish_handler_config", value=publish_handler_config, expected_type=type_hints["publish_handler_config"])
+            check_type(argname="argument subscribe_handler_config", value=subscribe_handler_config, expected_type=type_hints["subscribe_handler_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if authorization_config is not None:
             self._values["authorization_config"] = authorization_config
@@ -3144,6 +4016,10 @@ class BaseChannelNamespaceProps:
             self._values["channel_namespace_name"] = channel_namespace_name
         if code is not None:
             self._values["code"] = code
+        if publish_handler_config is not None:
+            self._values["publish_handler_config"] = publish_handler_config
+        if subscribe_handler_config is not None:
+            self._values["subscribe_handler_config"] = subscribe_handler_config
 
     @builtins.property
     def authorization_config(self) -> typing.Optional["NamespaceAuthConfig"]:
@@ -3171,6 +4047,24 @@ class BaseChannelNamespaceProps:
         '''
         result = self._values.get("code")
         return typing.cast(typing.Optional["Code"], result)
+
+    @builtins.property
+    def publish_handler_config(self) -> typing.Optional["HandlerConfig"]:
+        '''onPublish handler config.
+
+        :default: - no handler config
+        '''
+        result = self._values.get("publish_handler_config")
+        return typing.cast(typing.Optional["HandlerConfig"], result)
+
+    @builtins.property
+    def subscribe_handler_config(self) -> typing.Optional["HandlerConfig"]:
+        '''onSubscribe handler config.
+
+        :default: - no handler config
+        '''
+        result = self._values.get("subscribe_handler_config")
+        return typing.cast(typing.Optional["HandlerConfig"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5688,6 +6582,30 @@ class CfnChannelNamespace(
             # the properties below are optional
             code_handlers="codeHandlers",
             code_s3_location="codeS3Location",
+            handler_configs=appsync.CfnChannelNamespace.HandlerConfigsProperty(
+                on_publish=appsync.CfnChannelNamespace.HandlerConfigProperty(
+                    behavior="behavior",
+                    integration=appsync.CfnChannelNamespace.IntegrationProperty(
+                        data_source_name="dataSourceName",
+        
+                        # the properties below are optional
+                        lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                            invoke_type="invokeType"
+                        )
+                    )
+                ),
+                on_subscribe=appsync.CfnChannelNamespace.HandlerConfigProperty(
+                    behavior="behavior",
+                    integration=appsync.CfnChannelNamespace.IntegrationProperty(
+                        data_source_name="dataSourceName",
+        
+                        # the properties below are optional
+                        lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                            invoke_type="invokeType"
+                        )
+                    )
+                )
+            ),
             publish_auth_modes=[appsync.CfnChannelNamespace.AuthModeProperty(
                 auth_type="authType"
             )],
@@ -5710,6 +6628,7 @@ class CfnChannelNamespace(
         name: builtins.str,
         code_handlers: typing.Optional[builtins.str] = None,
         code_s3_location: typing.Optional[builtins.str] = None,
+        handler_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannelNamespace.HandlerConfigsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannelNamespace.AuthModeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         subscribe_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannelNamespace.AuthModeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5717,13 +6636,14 @@ class CfnChannelNamespace(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param api_id: The ``Api`` ID.
-        :param name: The name of the channel namespace. This name must be unique within the ``Api`` .
-        :param code_handlers: The event handler functions that run custom business logic to process published events and subscribe requests.
+        :param api_id: AppSync Api Id that this Channel Namespace belongs to.
+        :param name: Namespace indentifier.
+        :param code_handlers: String of APPSYNC_JS code to be used by the handlers.
         :param code_s3_location: The Amazon S3 endpoint where the code is located.
+        :param handler_configs: 
         :param publish_auth_modes: The authorization mode to use for publishing messages on the channel namespace. This configuration overrides the default ``Api`` authorization configuration.
         :param subscribe_auth_modes: The authorization mode to use for subscribing to messages on the channel namespace. This configuration overrides the default ``Api`` authorization configuration.
-        :param tags: A set of tags (key-value pairs) for this channel namespace.
+        :param tags: An arbitrary set of tags (key-value pairs) for this AppSync API.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a093c57f7353830d56f8cde41e8653e333d0f0b91da87dd9ca86d72460c39119)
@@ -5734,6 +6654,7 @@ class CfnChannelNamespace(
             name=name,
             code_handlers=code_handlers,
             code_s3_location=code_s3_location,
+            handler_configs=handler_configs,
             publish_auth_modes=publish_auth_modes,
             subscribe_auth_modes=subscribe_auth_modes,
             tags=tags,
@@ -5774,7 +6695,7 @@ class CfnChannelNamespace(
     @builtins.property
     @jsii.member(jsii_name="attrChannelNamespaceArn")
     def attr_channel_namespace_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the channel namespace.
+        '''The Amazon Resource Name (ARN) for the Channel Namespace.
 
         :cloudformationAttribute: ChannelNamespaceArn
         '''
@@ -5794,7 +6715,7 @@ class CfnChannelNamespace(
     @builtins.property
     @jsii.member(jsii_name="apiId")
     def api_id(self) -> builtins.str:
-        '''The ``Api`` ID.'''
+        '''AppSync Api Id that this Channel Namespace belongs to.'''
         return typing.cast(builtins.str, jsii.get(self, "apiId"))
 
     @api_id.setter
@@ -5807,7 +6728,7 @@ class CfnChannelNamespace(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
-        '''The name of the channel namespace.'''
+        '''Namespace indentifier.'''
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @name.setter
@@ -5820,7 +6741,7 @@ class CfnChannelNamespace(
     @builtins.property
     @jsii.member(jsii_name="codeHandlers")
     def code_handlers(self) -> typing.Optional[builtins.str]:
-        '''The event handler functions that run custom business logic to process published events and subscribe requests.'''
+        '''String of APPSYNC_JS code to be used by the handlers.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "codeHandlers"))
 
     @code_handlers.setter
@@ -5842,6 +6763,23 @@ class CfnChannelNamespace(
             type_hints = typing.get_type_hints(_typecheckingstub__0253aa38ea0ac168a1bb603d6239ae0cf4ece50f9019b6a9b531fc609610605a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "codeS3Location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="handlerConfigs")
+    def handler_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.HandlerConfigsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.HandlerConfigsProperty"]], jsii.get(self, "handlerConfigs"))
+
+    @handler_configs.setter
+    def handler_configs(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.HandlerConfigsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__370c7c9ea6445a588ffb3df0332cccc87b2507390c3af4a48e682e101d555a3a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "handlerConfigs", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="publishAuthModes")
@@ -5882,7 +6820,7 @@ class CfnChannelNamespace(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A set of tags (key-value pairs) for this channel namespace.'''
+        '''An arbitrary set of tags (key-value pairs) for this AppSync API.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -5899,11 +6837,9 @@ class CfnChannelNamespace(
     )
     class AuthModeProperty:
         def __init__(self, *, auth_type: typing.Optional[builtins.str] = None) -> None:
-            '''Describes an authorization configuration.
+            '''An auth mode.
 
-            Use ``AuthMode`` to specify the publishing and subscription authorization configuration for an Event API.
-
-            :param auth_type: The authorization type.
+            :param auth_type: Security configuration for your AppSync API.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-authmode.html
             :exampleMetadata: fixture=_generated
@@ -5927,7 +6863,7 @@ class CfnChannelNamespace(
 
         @builtins.property
         def auth_type(self) -> typing.Optional[builtins.str]:
-            '''The authorization type.
+            '''Security configuration for your AppSync API.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-authmode.html#cfn-appsync-channelnamespace-authmode-authtype
             '''
@@ -5945,6 +6881,304 @@ class CfnChannelNamespace(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appsync.CfnChannelNamespace.HandlerConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"behavior": "behavior", "integration": "integration"},
+    )
+    class HandlerConfigProperty:
+        def __init__(
+            self,
+            *,
+            behavior: builtins.str,
+            integration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannelNamespace.IntegrationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param behavior: Integration behavior for a handler configuration.
+            :param integration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-handlerconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appsync as appsync
+                
+                handler_config_property = appsync.CfnChannelNamespace.HandlerConfigProperty(
+                    behavior="behavior",
+                    integration=appsync.CfnChannelNamespace.IntegrationProperty(
+                        data_source_name="dataSourceName",
+                
+                        # the properties below are optional
+                        lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                            invoke_type="invokeType"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d21ce55a2e68e60d4e01e4a80f61bfb861aea82e45f95b30a2afa69bbde6c4d1)
+                check_type(argname="argument behavior", value=behavior, expected_type=type_hints["behavior"])
+                check_type(argname="argument integration", value=integration, expected_type=type_hints["integration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "behavior": behavior,
+                "integration": integration,
+            }
+
+        @builtins.property
+        def behavior(self) -> builtins.str:
+            '''Integration behavior for a handler configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-handlerconfig.html#cfn-appsync-channelnamespace-handlerconfig-behavior
+            '''
+            result = self._values.get("behavior")
+            assert result is not None, "Required property 'behavior' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def integration(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.IntegrationProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-handlerconfig.html#cfn-appsync-channelnamespace-handlerconfig-integration
+            '''
+            result = self._values.get("integration")
+            assert result is not None, "Required property 'integration' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.IntegrationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HandlerConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appsync.CfnChannelNamespace.HandlerConfigsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"on_publish": "onPublish", "on_subscribe": "onSubscribe"},
+    )
+    class HandlerConfigsProperty:
+        def __init__(
+            self,
+            *,
+            on_publish: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannelNamespace.HandlerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_subscribe: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannelNamespace.HandlerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param on_publish: 
+            :param on_subscribe: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-handlerconfigs.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appsync as appsync
+                
+                handler_configs_property = appsync.CfnChannelNamespace.HandlerConfigsProperty(
+                    on_publish=appsync.CfnChannelNamespace.HandlerConfigProperty(
+                        behavior="behavior",
+                        integration=appsync.CfnChannelNamespace.IntegrationProperty(
+                            data_source_name="dataSourceName",
+                
+                            # the properties below are optional
+                            lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                                invoke_type="invokeType"
+                            )
+                        )
+                    ),
+                    on_subscribe=appsync.CfnChannelNamespace.HandlerConfigProperty(
+                        behavior="behavior",
+                        integration=appsync.CfnChannelNamespace.IntegrationProperty(
+                            data_source_name="dataSourceName",
+                
+                            # the properties below are optional
+                            lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                                invoke_type="invokeType"
+                            )
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c83b394375256eb51f01ca3f4e5523c684da9bb656d31dcbda4cde775040dd35)
+                check_type(argname="argument on_publish", value=on_publish, expected_type=type_hints["on_publish"])
+                check_type(argname="argument on_subscribe", value=on_subscribe, expected_type=type_hints["on_subscribe"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if on_publish is not None:
+                self._values["on_publish"] = on_publish
+            if on_subscribe is not None:
+                self._values["on_subscribe"] = on_subscribe
+
+        @builtins.property
+        def on_publish(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.HandlerConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-handlerconfigs.html#cfn-appsync-channelnamespace-handlerconfigs-onpublish
+            '''
+            result = self._values.get("on_publish")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.HandlerConfigProperty"]], result)
+
+        @builtins.property
+        def on_subscribe(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.HandlerConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-handlerconfigs.html#cfn-appsync-channelnamespace-handlerconfigs-onsubscribe
+            '''
+            result = self._values.get("on_subscribe")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.HandlerConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HandlerConfigsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appsync.CfnChannelNamespace.IntegrationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "data_source_name": "dataSourceName",
+            "lambda_config": "lambdaConfig",
+        },
+    )
+    class IntegrationProperty:
+        def __init__(
+            self,
+            *,
+            data_source_name: builtins.str,
+            lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannelNamespace.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param data_source_name: Data source to invoke for this integration.
+            :param lambda_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-integration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appsync as appsync
+                
+                integration_property = appsync.CfnChannelNamespace.IntegrationProperty(
+                    data_source_name="dataSourceName",
+                
+                    # the properties below are optional
+                    lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                        invoke_type="invokeType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2b192479e83e89171d2db139f5cac20b6d97415946e88933257d0058b8b2ef87)
+                check_type(argname="argument data_source_name", value=data_source_name, expected_type=type_hints["data_source_name"])
+                check_type(argname="argument lambda_config", value=lambda_config, expected_type=type_hints["lambda_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "data_source_name": data_source_name,
+            }
+            if lambda_config is not None:
+                self._values["lambda_config"] = lambda_config
+
+        @builtins.property
+        def data_source_name(self) -> builtins.str:
+            '''Data source to invoke for this integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-integration.html#cfn-appsync-channelnamespace-integration-datasourcename
+            '''
+            result = self._values.get("data_source_name")
+            assert result is not None, "Required property 'data_source_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def lambda_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.LambdaConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-integration.html#cfn-appsync-channelnamespace-integration-lambdaconfig
+            '''
+            result = self._values.get("lambda_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannelNamespace.LambdaConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntegrationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appsync.CfnChannelNamespace.LambdaConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"invoke_type": "invokeType"},
+    )
+    class LambdaConfigProperty:
+        def __init__(self, *, invoke_type: builtins.str) -> None:
+            '''
+            :param invoke_type: Invocation type for direct lambda integrations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-lambdaconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appsync as appsync
+                
+                lambda_config_property = appsync.CfnChannelNamespace.LambdaConfigProperty(
+                    invoke_type="invokeType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5894c383e26090ba966241c97dfc69c1c5c8467f15341af62605afbd33e54741)
+                check_type(argname="argument invoke_type", value=invoke_type, expected_type=type_hints["invoke_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "invoke_type": invoke_type,
+            }
+
+        @builtins.property
+        def invoke_type(self) -> builtins.str:
+            '''Invocation type for direct lambda integrations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-channelnamespace-lambdaconfig.html#cfn-appsync-channelnamespace-lambdaconfig-invoketype
+            '''
+            result = self._values.get("invoke_type")
+            assert result is not None, "Required property 'invoke_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LambdaConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appsync.CfnChannelNamespaceProps",
@@ -5954,6 +7188,7 @@ class CfnChannelNamespace(
         "name": "name",
         "code_handlers": "codeHandlers",
         "code_s3_location": "codeS3Location",
+        "handler_configs": "handlerConfigs",
         "publish_auth_modes": "publishAuthModes",
         "subscribe_auth_modes": "subscribeAuthModes",
         "tags": "tags",
@@ -5967,19 +7202,21 @@ class CfnChannelNamespaceProps:
         name: builtins.str,
         code_handlers: typing.Optional[builtins.str] = None,
         code_s3_location: typing.Optional[builtins.str] = None,
+        handler_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.HandlerConfigsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.AuthModeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         subscribe_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.AuthModeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnChannelNamespace``.
 
-        :param api_id: The ``Api`` ID.
-        :param name: The name of the channel namespace. This name must be unique within the ``Api`` .
-        :param code_handlers: The event handler functions that run custom business logic to process published events and subscribe requests.
+        :param api_id: AppSync Api Id that this Channel Namespace belongs to.
+        :param name: Namespace indentifier.
+        :param code_handlers: String of APPSYNC_JS code to be used by the handlers.
         :param code_s3_location: The Amazon S3 endpoint where the code is located.
+        :param handler_configs: 
         :param publish_auth_modes: The authorization mode to use for publishing messages on the channel namespace. This configuration overrides the default ``Api`` authorization configuration.
         :param subscribe_auth_modes: The authorization mode to use for subscribing to messages on the channel namespace. This configuration overrides the default ``Api`` authorization configuration.
-        :param tags: A set of tags (key-value pairs) for this channel namespace.
+        :param tags: An arbitrary set of tags (key-value pairs) for this AppSync API.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-channelnamespace.html
         :exampleMetadata: fixture=_generated
@@ -5997,6 +7234,30 @@ class CfnChannelNamespaceProps:
                 # the properties below are optional
                 code_handlers="codeHandlers",
                 code_s3_location="codeS3Location",
+                handler_configs=appsync.CfnChannelNamespace.HandlerConfigsProperty(
+                    on_publish=appsync.CfnChannelNamespace.HandlerConfigProperty(
+                        behavior="behavior",
+                        integration=appsync.CfnChannelNamespace.IntegrationProperty(
+                            data_source_name="dataSourceName",
+            
+                            # the properties below are optional
+                            lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                                invoke_type="invokeType"
+                            )
+                        )
+                    ),
+                    on_subscribe=appsync.CfnChannelNamespace.HandlerConfigProperty(
+                        behavior="behavior",
+                        integration=appsync.CfnChannelNamespace.IntegrationProperty(
+                            data_source_name="dataSourceName",
+            
+                            # the properties below are optional
+                            lambda_config=appsync.CfnChannelNamespace.LambdaConfigProperty(
+                                invoke_type="invokeType"
+                            )
+                        )
+                    )
+                ),
                 publish_auth_modes=[appsync.CfnChannelNamespace.AuthModeProperty(
                     auth_type="authType"
                 )],
@@ -6015,6 +7276,7 @@ class CfnChannelNamespaceProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument code_handlers", value=code_handlers, expected_type=type_hints["code_handlers"])
             check_type(argname="argument code_s3_location", value=code_s3_location, expected_type=type_hints["code_s3_location"])
+            check_type(argname="argument handler_configs", value=handler_configs, expected_type=type_hints["handler_configs"])
             check_type(argname="argument publish_auth_modes", value=publish_auth_modes, expected_type=type_hints["publish_auth_modes"])
             check_type(argname="argument subscribe_auth_modes", value=subscribe_auth_modes, expected_type=type_hints["subscribe_auth_modes"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -6026,6 +7288,8 @@ class CfnChannelNamespaceProps:
             self._values["code_handlers"] = code_handlers
         if code_s3_location is not None:
             self._values["code_s3_location"] = code_s3_location
+        if handler_configs is not None:
+            self._values["handler_configs"] = handler_configs
         if publish_auth_modes is not None:
             self._values["publish_auth_modes"] = publish_auth_modes
         if subscribe_auth_modes is not None:
@@ -6035,7 +7299,7 @@ class CfnChannelNamespaceProps:
 
     @builtins.property
     def api_id(self) -> builtins.str:
-        '''The ``Api`` ID.
+        '''AppSync Api Id that this Channel Namespace belongs to.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-channelnamespace.html#cfn-appsync-channelnamespace-apiid
         '''
@@ -6045,9 +7309,7 @@ class CfnChannelNamespaceProps:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''The name of the channel namespace.
-
-        This name must be unique within the ``Api`` .
+        '''Namespace indentifier.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-channelnamespace.html#cfn-appsync-channelnamespace-name
         '''
@@ -6057,7 +7319,7 @@ class CfnChannelNamespaceProps:
 
     @builtins.property
     def code_handlers(self) -> typing.Optional[builtins.str]:
-        '''The event handler functions that run custom business logic to process published events and subscribe requests.
+        '''String of APPSYNC_JS code to be used by the handlers.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-channelnamespace.html#cfn-appsync-channelnamespace-codehandlers
         '''
@@ -6072,6 +7334,16 @@ class CfnChannelNamespaceProps:
         '''
         result = self._values.get("code_s3_location")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def handler_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannelNamespace.HandlerConfigsProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-channelnamespace.html#cfn-appsync-channelnamespace-handlerconfigs
+        '''
+        result = self._values.get("handler_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannelNamespace.HandlerConfigsProperty]], result)
 
     @builtins.property
     def publish_auth_modes(
@@ -6101,7 +7373,7 @@ class CfnChannelNamespaceProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A set of tags (key-value pairs) for this channel namespace.
+        '''An arbitrary set of tags (key-value pairs) for this AppSync API.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-channelnamespace.html#cfn-appsync-channelnamespace-tags
         '''
@@ -12791,6 +14063,8 @@ class CfnSourceApiAssociationProps:
         "authorization_config": "authorizationConfig",
         "channel_namespace_name": "channelNamespaceName",
         "code": "code",
+        "publish_handler_config": "publishHandlerConfig",
+        "subscribe_handler_config": "subscribeHandlerConfig",
     },
 )
 class ChannelNamespaceOptions:
@@ -12800,35 +14074,50 @@ class ChannelNamespaceOptions:
         authorization_config: typing.Optional[typing.Union["NamespaceAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         channel_namespace_name: typing.Optional[builtins.str] = None,
         code: typing.Optional["Code"] = None,
+        publish_handler_config: typing.Optional[typing.Union["HandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        subscribe_handler_config: typing.Optional[typing.Union["HandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Option configuration for channel namespace.
 
         :param authorization_config: Authorization config for channel namespace. Default: - defaults to Event API default auth config
         :param channel_namespace_name: The Channel Namespace name. Default: - the construct's id will be used
         :param code: The Event Handler code. Default: - no code is used
+        :param publish_handler_config: onPublish handler config. Default: - no handler config
+        :param subscribe_handler_config: onSubscribe handler config. Default: - no handler config
 
         :exampleMetadata: infused
 
         Example::
 
             # api: appsync.EventApi
+            # ddb_data_source: appsync.AppSyncDynamoDbDataSource
+            # eb_data_source: appsync.AppSyncEventBridgeDataSource
             
             
-            # create a channel namespace
-            appsync.ChannelNamespace(self, "Namespace",
-                api=api
+            # DynamoDB data source for publish handler
+            api.add_channel_namespace("ddb-eb-ns",
+                code=appsync.Code.from_inline("/* event handler code here.*/"),
+                publish_handler_config=appsync.HandlerConfig(
+                    data_source=ddb_data_source
+                ),
+                subscribe_handler_config=appsync.HandlerConfig(
+                    data_source=eb_data_source
+                )
             )
-            
-            # You can also create a namespace through the addChannelNamespace method
-            api.add_channel_namespace("AnotherNameSpace")
         '''
         if isinstance(authorization_config, dict):
             authorization_config = NamespaceAuthConfig(**authorization_config)
+        if isinstance(publish_handler_config, dict):
+            publish_handler_config = HandlerConfig(**publish_handler_config)
+        if isinstance(subscribe_handler_config, dict):
+            subscribe_handler_config = HandlerConfig(**subscribe_handler_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14d2f38f43e1d7bd64939cfe2744297c0bea47e8c7ddac5f1ebb9e69da6d3870)
             check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
             check_type(argname="argument channel_namespace_name", value=channel_namespace_name, expected_type=type_hints["channel_namespace_name"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+            check_type(argname="argument publish_handler_config", value=publish_handler_config, expected_type=type_hints["publish_handler_config"])
+            check_type(argname="argument subscribe_handler_config", value=subscribe_handler_config, expected_type=type_hints["subscribe_handler_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if authorization_config is not None:
             self._values["authorization_config"] = authorization_config
@@ -12836,6 +14125,10 @@ class ChannelNamespaceOptions:
             self._values["channel_namespace_name"] = channel_namespace_name
         if code is not None:
             self._values["code"] = code
+        if publish_handler_config is not None:
+            self._values["publish_handler_config"] = publish_handler_config
+        if subscribe_handler_config is not None:
+            self._values["subscribe_handler_config"] = subscribe_handler_config
 
     @builtins.property
     def authorization_config(self) -> typing.Optional["NamespaceAuthConfig"]:
@@ -12864,6 +14157,24 @@ class ChannelNamespaceOptions:
         result = self._values.get("code")
         return typing.cast(typing.Optional["Code"], result)
 
+    @builtins.property
+    def publish_handler_config(self) -> typing.Optional["HandlerConfig"]:
+        '''onPublish handler config.
+
+        :default: - no handler config
+        '''
+        result = self._values.get("publish_handler_config")
+        return typing.cast(typing.Optional["HandlerConfig"], result)
+
+    @builtins.property
+    def subscribe_handler_config(self) -> typing.Optional["HandlerConfig"]:
+        '''onSubscribe handler config.
+
+        :default: - no handler config
+        '''
+        result = self._values.get("subscribe_handler_config")
+        return typing.cast(typing.Optional["HandlerConfig"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -12883,6 +14194,8 @@ class ChannelNamespaceOptions:
         "authorization_config": "authorizationConfig",
         "channel_namespace_name": "channelNamespaceName",
         "code": "code",
+        "publish_handler_config": "publishHandlerConfig",
+        "subscribe_handler_config": "subscribeHandlerConfig",
         "api": "api",
     },
 )
@@ -12893,6 +14206,8 @@ class ChannelNamespaceProps(BaseChannelNamespaceProps):
         authorization_config: typing.Optional[typing.Union["NamespaceAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         channel_namespace_name: typing.Optional[builtins.str] = None,
         code: typing.Optional["Code"] = None,
+        publish_handler_config: typing.Optional[typing.Union["HandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        subscribe_handler_config: typing.Optional[typing.Union["HandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         api: "IEventApi",
     ) -> None:
         '''Additional property for an AppSync channel namespace for an Event API reference.
@@ -12900,6 +14215,8 @@ class ChannelNamespaceProps(BaseChannelNamespaceProps):
         :param authorization_config: Authorization config for channel namespace. Default: - defaults to Event API default auth config
         :param channel_namespace_name: the name of the channel namespace. Default: - the construct's id will be used
         :param code: The Event Handler code. Default: - no code is used
+        :param publish_handler_config: onPublish handler config. Default: - no handler config
+        :param subscribe_handler_config: onSubscribe handler config. Default: - no handler config
         :param api: The API this channel namespace is associated with.
 
         :exampleMetadata: infused
@@ -12921,11 +14238,17 @@ class ChannelNamespaceProps(BaseChannelNamespaceProps):
         '''
         if isinstance(authorization_config, dict):
             authorization_config = NamespaceAuthConfig(**authorization_config)
+        if isinstance(publish_handler_config, dict):
+            publish_handler_config = HandlerConfig(**publish_handler_config)
+        if isinstance(subscribe_handler_config, dict):
+            subscribe_handler_config = HandlerConfig(**subscribe_handler_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__707a4f93cb65552ff75faa567d97163d9e55d906a953ccabb13de215a80ac6ce)
             check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
             check_type(argname="argument channel_namespace_name", value=channel_namespace_name, expected_type=type_hints["channel_namespace_name"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+            check_type(argname="argument publish_handler_config", value=publish_handler_config, expected_type=type_hints["publish_handler_config"])
+            check_type(argname="argument subscribe_handler_config", value=subscribe_handler_config, expected_type=type_hints["subscribe_handler_config"])
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api": api,
@@ -12936,6 +14259,10 @@ class ChannelNamespaceProps(BaseChannelNamespaceProps):
             self._values["channel_namespace_name"] = channel_namespace_name
         if code is not None:
             self._values["code"] = code
+        if publish_handler_config is not None:
+            self._values["publish_handler_config"] = publish_handler_config
+        if subscribe_handler_config is not None:
+            self._values["subscribe_handler_config"] = subscribe_handler_config
 
     @builtins.property
     def authorization_config(self) -> typing.Optional["NamespaceAuthConfig"]:
@@ -12965,6 +14292,24 @@ class ChannelNamespaceProps(BaseChannelNamespaceProps):
         return typing.cast(typing.Optional["Code"], result)
 
     @builtins.property
+    def publish_handler_config(self) -> typing.Optional["HandlerConfig"]:
+        '''onPublish handler config.
+
+        :default: - no handler config
+        '''
+        result = self._values.get("publish_handler_config")
+        return typing.cast(typing.Optional["HandlerConfig"], result)
+
+    @builtins.property
+    def subscribe_handler_config(self) -> typing.Optional["HandlerConfig"]:
+        '''onSubscribe handler config.
+
+        :default: - no handler config
+        '''
+        result = self._values.get("subscribe_handler_config")
+        return typing.cast(typing.Optional["HandlerConfig"], result)
+
+    @builtins.property
     def api(self) -> "IEventApi":
         '''The API this channel namespace is associated with.'''
         result = self._values.get("api")
@@ -12990,35 +14335,32 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_appsync.
 
     Example::
 
-        # api: appsync.GraphqlApi
+        # api: appsync.EventApi
+        # lambda_data_source: appsync.AppSyncLambdaDataSource
         
         
-        my_js_function = appsync.AppsyncFunction(self, "function",
-            name="my_js_function",
-            api=api,
-            data_source=api.add_none_data_source("none"),
-            code=appsync.Code.from_asset("directory/function_code.js"),
-            runtime=appsync.FunctionRuntime.JS_1_0_0
+        # Lambda data source for publish handler
+        api.add_channel_namespace("lambda-ns",
+            code=appsync.Code.from_inline("/* event handler code here.*/"),
+            publish_handler_config=appsync.HandlerConfig(
+                data_source=lambda_data_source
+            )
         )
         
-        appsync.Resolver(self, "PipelineResolver",
-            api=api,
-            type_name="typeName",
-            field_name="fieldName",
-            code=appsync.Code.from_inline("""
-                    // The before step
-                    export function request(...args) {
-                      console.log(args);
-                      return {}
-                    }
+        # Direct Lambda data source for publish handler
+        api.add_channel_namespace("lambda-direct-ns",
+            publish_handler_config=appsync.HandlerConfig(
+                data_source=lambda_data_source,
+                direct=True
+            )
+        )
         
-                    // The after step
-                    export function response(ctx) {
-                      return ctx.prev.result
-                    }
-                  """),
-            runtime=appsync.FunctionRuntime.JS_1_0_0,
-            pipeline_config=[my_js_function]
+        api.add_channel_namespace("lambda-direct-async-ns",
+            publish_handler_config=appsync.HandlerConfig(
+                data_source=lambda_data_source,
+                direct=True,
+                lambda_invoke_type=appsync.LambdaInvokeType.EVENT
+            )
         )
     '''
 
@@ -13454,11 +14796,11 @@ class DomainOptions:
     jsii_type="aws-cdk-lib.aws_appsync.EventApiAttributes",
     jsii_struct_bases=[],
     name_mapping={
-        "api_arn": "apiArn",
         "api_id": "apiId",
-        "api_name": "apiName",
         "http_dns": "httpDns",
         "realtime_dns": "realtimeDns",
+        "api_arn": "apiArn",
+        "api_name": "apiName",
         "auth_provider_types": "authProviderTypes",
     },
 )
@@ -13466,20 +14808,20 @@ class EventApiAttributes:
     def __init__(
         self,
         *,
-        api_arn: builtins.str,
         api_id: builtins.str,
-        api_name: builtins.str,
         http_dns: builtins.str,
         realtime_dns: builtins.str,
+        api_arn: typing.Optional[builtins.str] = None,
+        api_name: typing.Optional[builtins.str] = None,
         auth_provider_types: typing.Optional[typing.Sequence[AppSyncAuthorizationType]] = None,
     ) -> None:
         '''Attributes for Event API imports.
 
-        :param api_arn: the ARN of the Event API.
         :param api_id: an unique AWS AppSync Event API identifier i.e. 'lxz775lwdrgcndgz3nurvac7oa'.
-        :param api_name: the name of the Event API.
         :param http_dns: the domain name of the Api's HTTP endpoint.
         :param realtime_dns: the domain name of the Api's real-time endpoint.
+        :param api_arn: the ARN of the Event API. Default: - constructed arn
+        :param api_name: the name of the Event API. Default: - not needed to import API
         :param auth_provider_types: The Authorization Types for this Event Api. Default: - none, required to construct event rules from imported APIs
 
         :exampleMetadata: fixture=_generated
@@ -13491,53 +14833,41 @@ class EventApiAttributes:
             from aws_cdk import aws_appsync as appsync
             
             event_api_attributes = appsync.EventApiAttributes(
-                api_arn="apiArn",
                 api_id="apiId",
-                api_name="apiName",
                 http_dns="httpDns",
                 realtime_dns="realtimeDns",
             
                 # the properties below are optional
+                api_arn="apiArn",
+                api_name="apiName",
                 auth_provider_types=[appsync.AppSyncAuthorizationType.API_KEY]
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__900a23f47420600a580e47e0593acaae03add40da975841188f63784348f1470)
-            check_type(argname="argument api_arn", value=api_arn, expected_type=type_hints["api_arn"])
             check_type(argname="argument api_id", value=api_id, expected_type=type_hints["api_id"])
-            check_type(argname="argument api_name", value=api_name, expected_type=type_hints["api_name"])
             check_type(argname="argument http_dns", value=http_dns, expected_type=type_hints["http_dns"])
             check_type(argname="argument realtime_dns", value=realtime_dns, expected_type=type_hints["realtime_dns"])
+            check_type(argname="argument api_arn", value=api_arn, expected_type=type_hints["api_arn"])
+            check_type(argname="argument api_name", value=api_name, expected_type=type_hints["api_name"])
             check_type(argname="argument auth_provider_types", value=auth_provider_types, expected_type=type_hints["auth_provider_types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "api_arn": api_arn,
             "api_id": api_id,
-            "api_name": api_name,
             "http_dns": http_dns,
             "realtime_dns": realtime_dns,
         }
+        if api_arn is not None:
+            self._values["api_arn"] = api_arn
+        if api_name is not None:
+            self._values["api_name"] = api_name
         if auth_provider_types is not None:
             self._values["auth_provider_types"] = auth_provider_types
-
-    @builtins.property
-    def api_arn(self) -> builtins.str:
-        '''the ARN of the Event API.'''
-        result = self._values.get("api_arn")
-        assert result is not None, "Required property 'api_arn' is missing"
-        return typing.cast(builtins.str, result)
 
     @builtins.property
     def api_id(self) -> builtins.str:
         '''an unique AWS AppSync Event API identifier i.e. 'lxz775lwdrgcndgz3nurvac7oa'.'''
         result = self._values.get("api_id")
         assert result is not None, "Required property 'api_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def api_name(self) -> builtins.str:
-        '''the name of the Event API.'''
-        result = self._values.get("api_name")
-        assert result is not None, "Required property 'api_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
@@ -13553,6 +14883,24 @@ class EventApiAttributes:
         result = self._values.get("realtime_dns")
         assert result is not None, "Required property 'realtime_dns' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def api_arn(self) -> typing.Optional[builtins.str]:
+        '''the ARN of the Event API.
+
+        :default: - constructed arn
+        '''
+        result = self._values.get("api_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_name(self) -> typing.Optional[builtins.str]:
+        '''the name of the Event API.
+
+        :default: - not needed to import API
+        '''
+        result = self._values.get("api_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auth_provider_types(
@@ -13738,29 +15086,28 @@ class EventApiProps:
 
         Example::
 
-            import aws_cdk.aws_logs as logs
+            import aws_cdk.aws_lambda as lambda_
+            # handler: lambda.Function
             
+            
+            iam_provider = appsync.AppSyncAuthProvider(
+                authorization_type=appsync.AppSyncAuthorizationType.IAM
+            )
             
             api_key_provider = appsync.AppSyncAuthProvider(
                 authorization_type=appsync.AppSyncAuthorizationType.API_KEY
             )
             
+            # API with IAM and API Key providers.
+            # Connection, default publish and default subscribe
+            # can be done with either IAM and API Key.
+            #
             api = appsync.EventApi(self, "api",
-                api_name="Api",
-                owner_contact="OwnerContact",
+                api_name="api",
                 authorization_config=appsync.EventApiAuthConfig(
-                    auth_providers=[api_key_provider
-                    ],
-                    connection_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
-                    ],
-                    default_publish_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
-                    ],
-                    default_subscribe_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
+                    # set auth providers
+                    auth_providers=[iam_provider, api_key_provider
                     ]
-                ),
-                log_config=appsync.AppSyncLogConfig(
-                    field_log_level=appsync.AppSyncFieldLogLevel.INFO,
-                    retention=logs.RetentionDays.ONE_WEEK
                 )
             )
             
@@ -14823,6 +16170,111 @@ class GraphqlApiProps:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.HandlerBehavior")
+class HandlerBehavior(enum.Enum):
+    '''Enumerated type for the handler behavior for a channel namespace.'''
+
+    CODE = "CODE"
+    '''Code handler.'''
+    DIRECT = "DIRECT"
+    '''Direct integration handler.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.HandlerConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source": "dataSource",
+        "direct": "direct",
+        "lambda_invoke_type": "lambdaInvokeType",
+    },
+)
+class HandlerConfig:
+    def __init__(
+        self,
+        *,
+        data_source: typing.Optional["AppSyncBackedDataSource"] = None,
+        direct: typing.Optional[builtins.bool] = None,
+        lambda_invoke_type: typing.Optional["LambdaInvokeType"] = None,
+    ) -> None:
+        '''Handler configuration construct for onPublish and onSubscribe.
+
+        :param data_source: The Event Handler data source. Default: - no data source is used
+        :param direct: If the Event Handler should invoke the data source directly. Default: - false
+        :param lambda_invoke_type: The Lambda invocation type for direct integrations. Default: - LambdaInvokeType.REQUEST_RESPONSE
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # api: appsync.EventApi
+            # ddb_data_source: appsync.AppSyncDynamoDbDataSource
+            # eb_data_source: appsync.AppSyncEventBridgeDataSource
+            
+            
+            # DynamoDB data source for publish handler
+            api.add_channel_namespace("ddb-eb-ns",
+                code=appsync.Code.from_inline("/* event handler code here.*/"),
+                publish_handler_config=appsync.HandlerConfig(
+                    data_source=ddb_data_source
+                ),
+                subscribe_handler_config=appsync.HandlerConfig(
+                    data_source=eb_data_source
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fb03fa50deffccc4e8f6c45aa60418e0b3ef37dd0c1bb3f3c3956da4dd0e5af)
+            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
+            check_type(argname="argument direct", value=direct, expected_type=type_hints["direct"])
+            check_type(argname="argument lambda_invoke_type", value=lambda_invoke_type, expected_type=type_hints["lambda_invoke_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if data_source is not None:
+            self._values["data_source"] = data_source
+        if direct is not None:
+            self._values["direct"] = direct
+        if lambda_invoke_type is not None:
+            self._values["lambda_invoke_type"] = lambda_invoke_type
+
+    @builtins.property
+    def data_source(self) -> typing.Optional["AppSyncBackedDataSource"]:
+        '''The Event Handler data source.
+
+        :default: - no data source is used
+        '''
+        result = self._values.get("data_source")
+        return typing.cast(typing.Optional["AppSyncBackedDataSource"], result)
+
+    @builtins.property
+    def direct(self) -> typing.Optional[builtins.bool]:
+        '''If the Event Handler should invoke the data source directly.
+
+        :default: - false
+        '''
+        result = self._values.get("direct")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def lambda_invoke_type(self) -> typing.Optional["LambdaInvokeType"]:
+        '''The Lambda invocation type for direct integrations.
+
+        :default: - LambdaInvokeType.REQUEST_RESPONSE
+        '''
+        result = self._values.get("lambda_invoke_type")
+        return typing.cast(typing.Optional["LambdaInvokeType"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HandlerConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appsync.HttpDataSourceOptions",
     jsii_struct_bases=[DataSourceOptions],
@@ -15226,6 +16678,8 @@ class IEventApi(IApi, typing_extensions.Protocol):
         authorization_config: typing.Optional[typing.Union["NamespaceAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         channel_namespace_name: typing.Optional[builtins.str] = None,
         code: typing.Optional[Code] = None,
+        publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "ChannelNamespace":
         '''add a new channel namespace.
 
@@ -15233,8 +16687,124 @@ class IEventApi(IApi, typing_extensions.Protocol):
         :param authorization_config: Authorization config for channel namespace. Default: - defaults to Event API default auth config
         :param channel_namespace_name: The Channel Namespace name. Default: - the construct's id will be used
         :param code: The Event Handler code. Default: - no code is used
+        :param publish_handler_config: onPublish handler config. Default: - no handler config
+        :param subscribe_handler_config: onSubscribe handler config. Default: - no handler config
 
         :return: the channel namespace
+        '''
+        ...
+
+    @jsii.member(jsii_name="addDynamoDbDataSource")
+    def add_dynamo_db_data_source(
+        self,
+        id: builtins.str,
+        table: _ITable_504fd401,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncDynamoDbDataSource":
+        '''Add a new DynamoDB data source to this API.
+
+        :param id: The data source's id.
+        :param table: The DynamoDB table backing this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        ...
+
+    @jsii.member(jsii_name="addEventBridgeDataSource")
+    def add_event_bridge_data_source(
+        self,
+        id: builtins.str,
+        event_bus: _IEventBus_88d13111,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncEventBridgeDataSource":
+        '''Add an EventBridge data source to this api.
+
+        :param id: The data source's id.
+        :param event_bus: The EventBridge EventBus on which to put events.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        ...
+
+    @jsii.member(jsii_name="addHttpDataSource")
+    def add_http_data_source(
+        self,
+        id: builtins.str,
+        endpoint: builtins.str,
+        *,
+        authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncHttpDataSource":
+        '''add a new http data source to this API.
+
+        :param id: The data source's id.
+        :param endpoint: The http endpoint.
+        :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        ...
+
+    @jsii.member(jsii_name="addLambdaDataSource")
+    def add_lambda_data_source(
+        self,
+        id: builtins.str,
+        lambda_function: _IFunction_6adb0ab8,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncLambdaDataSource":
+        '''add a new Lambda data source to this API.
+
+        :param id: The data source's id.
+        :param lambda_function: The Lambda function to call to interact with this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        ...
+
+    @jsii.member(jsii_name="addOpenSearchDataSource")
+    def add_open_search_data_source(
+        self,
+        id: builtins.str,
+        domain: _IDomain_3c13cbdd,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncOpenSearchDataSource":
+        '''Add a new OpenSearch data source to this API.
+
+        :param id: The data source's id.
+        :param domain: The OpenSearch domain for this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        ...
+
+    @jsii.member(jsii_name="addRdsDataSource")
+    def add_rds_data_source(
+        self,
+        id: builtins.str,
+        serverless_cluster: typing.Union[_IDatabaseCluster_6554c32b, _IServerlessCluster_adbbb720],
+        secret_store: _ISecret_6e020e6a,
+        database_name: typing.Optional[builtins.str] = None,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncRdsDataSource":
+        '''add a new Rds data source to this API.
+
+        :param id: The data source's id.
+        :param serverless_cluster: The database cluster to interact with this data source.
+        :param secret_store: The secret store that contains the username and password for the database cluster.
+        :param database_name: The optional name of the database to use within the cluster.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
         '''
         ...
 
@@ -15328,6 +16898,8 @@ class _IEventApiProxy(
         authorization_config: typing.Optional[typing.Union["NamespaceAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         channel_namespace_name: typing.Optional[builtins.str] = None,
         code: typing.Optional[Code] = None,
+        publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "ChannelNamespace":
         '''add a new channel namespace.
 
@@ -15335,6 +16907,8 @@ class _IEventApiProxy(
         :param authorization_config: Authorization config for channel namespace. Default: - defaults to Event API default auth config
         :param channel_namespace_name: The Channel Namespace name. Default: - the construct's id will be used
         :param code: The Event Handler code. Default: - no code is used
+        :param publish_handler_config: onPublish handler config. Default: - no handler config
+        :param subscribe_handler_config: onSubscribe handler config. Default: - no handler config
 
         :return: the channel namespace
         '''
@@ -15345,9 +16919,167 @@ class _IEventApiProxy(
             authorization_config=authorization_config,
             channel_namespace_name=channel_namespace_name,
             code=code,
+            publish_handler_config=publish_handler_config,
+            subscribe_handler_config=subscribe_handler_config,
         )
 
         return typing.cast("ChannelNamespace", jsii.invoke(self, "addChannelNamespace", [id, options]))
+
+    @jsii.member(jsii_name="addDynamoDbDataSource")
+    def add_dynamo_db_data_source(
+        self,
+        id: builtins.str,
+        table: _ITable_504fd401,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncDynamoDbDataSource":
+        '''Add a new DynamoDB data source to this API.
+
+        :param id: The data source's id.
+        :param table: The DynamoDB table backing this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38cd0e6e6d6cd8495dc87898651850d0562b3ba85ca2377896229718c284533b)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument table", value=table, expected_type=type_hints["table"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast("AppSyncDynamoDbDataSource", jsii.invoke(self, "addDynamoDbDataSource", [id, table, options]))
+
+    @jsii.member(jsii_name="addEventBridgeDataSource")
+    def add_event_bridge_data_source(
+        self,
+        id: builtins.str,
+        event_bus: _IEventBus_88d13111,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncEventBridgeDataSource":
+        '''Add an EventBridge data source to this api.
+
+        :param id: The data source's id.
+        :param event_bus: The EventBridge EventBus on which to put events.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4bd8e7cd6c1bb6fce3c176e7134a5035873dc2420929e59715d0321e53cc22b)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast("AppSyncEventBridgeDataSource", jsii.invoke(self, "addEventBridgeDataSource", [id, event_bus, options]))
+
+    @jsii.member(jsii_name="addHttpDataSource")
+    def add_http_data_source(
+        self,
+        id: builtins.str,
+        endpoint: builtins.str,
+        *,
+        authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncHttpDataSource":
+        '''add a new http data source to this API.
+
+        :param id: The data source's id.
+        :param endpoint: The http endpoint.
+        :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c885b4334d83e85d3724e4422f3a5d112d8d0b2b1ef8c5503b9e7952c4da0e5b)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+        options = AppSyncHttpDataSourceOptions(
+            authorization_config=authorization_config,
+            description=description,
+            name=name,
+        )
+
+        return typing.cast("AppSyncHttpDataSource", jsii.invoke(self, "addHttpDataSource", [id, endpoint, options]))
+
+    @jsii.member(jsii_name="addLambdaDataSource")
+    def add_lambda_data_source(
+        self,
+        id: builtins.str,
+        lambda_function: _IFunction_6adb0ab8,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncLambdaDataSource":
+        '''add a new Lambda data source to this API.
+
+        :param id: The data source's id.
+        :param lambda_function: The Lambda function to call to interact with this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__742f5fb5b2542bd0ea9aa513d073513b52b71e49d52fccbb7f3cc349dd0888c2)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast("AppSyncLambdaDataSource", jsii.invoke(self, "addLambdaDataSource", [id, lambda_function, options]))
+
+    @jsii.member(jsii_name="addOpenSearchDataSource")
+    def add_open_search_data_source(
+        self,
+        id: builtins.str,
+        domain: _IDomain_3c13cbdd,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncOpenSearchDataSource":
+        '''Add a new OpenSearch data source to this API.
+
+        :param id: The data source's id.
+        :param domain: The OpenSearch domain for this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4142afd53187ea025664fd1dc1a28cff0cdc1c34b0991c7d68a3fe45e1293517)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast("AppSyncOpenSearchDataSource", jsii.invoke(self, "addOpenSearchDataSource", [id, domain, options]))
+
+    @jsii.member(jsii_name="addRdsDataSource")
+    def add_rds_data_source(
+        self,
+        id: builtins.str,
+        serverless_cluster: typing.Union[_IDatabaseCluster_6554c32b, _IServerlessCluster_adbbb720],
+        secret_store: _ISecret_6e020e6a,
+        database_name: typing.Optional[builtins.str] = None,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> "AppSyncRdsDataSource":
+        '''add a new Rds data source to this API.
+
+        :param id: The data source's id.
+        :param serverless_cluster: The database cluster to interact with this data source.
+        :param secret_store: The secret store that contains the username and password for the database cluster.
+        :param database_name: The optional name of the database to use within the cluster.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7dd4f5befa6458c9b47e2b00fc5d18f504fc50721860d4e5413444ff0c66d23e)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
+            check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast("AppSyncRdsDataSource", jsii.invoke(self, "addRdsDataSource", [id, serverless_cluster, secret_store, database_name, options]))
 
     @jsii.member(jsii_name="grant")
     def grant(
@@ -16684,6 +18416,49 @@ class LambdaAuthorizerConfig:
         return "LambdaAuthorizerConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.LambdaInvokeType")
+class LambdaInvokeType(enum.Enum):
+    '''Invoke types for direct Lambda data sources.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # api: appsync.EventApi
+        # lambda_data_source: appsync.AppSyncLambdaDataSource
+        
+        
+        # Lambda data source for publish handler
+        api.add_channel_namespace("lambda-ns",
+            code=appsync.Code.from_inline("/* event handler code here.*/"),
+            publish_handler_config=appsync.HandlerConfig(
+                data_source=lambda_data_source
+            )
+        )
+        
+        # Direct Lambda data source for publish handler
+        api.add_channel_namespace("lambda-direct-ns",
+            publish_handler_config=appsync.HandlerConfig(
+                data_source=lambda_data_source,
+                direct=True
+            )
+        )
+        
+        api.add_channel_namespace("lambda-direct-async-ns",
+            publish_handler_config=appsync.HandlerConfig(
+                data_source=lambda_data_source,
+                direct=True,
+                lambda_invoke_type=appsync.LambdaInvokeType.EVENT
+            )
+        )
+    '''
+
+    EVENT = "EVENT"
+    '''Invoke function asynchronously.'''
+    REQUEST_RESPONSE = "REQUEST_RESPONSE"
+    '''Invoke function synchronously.'''
 
 
 @jsii.data_type(
@@ -18988,6 +20763,1616 @@ class _ApiBaseProxy(
 typing.cast(typing.Any, ApiBase).__jsii_proxy_class__ = lambda : _ApiBaseProxy
 
 
+@jsii.implements(_IGrantable_71c4f5de)
+class AppSyncBackedDataSource(
+    AppSyncBaseDataSource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncBackedDataSource",
+):
+    '''Abstract AppSync datasource implementation.
+
+    Do not use directly but use subclasses for resource backed datasources
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # api: appsync.EventApi
+        # ddb_data_source: appsync.AppSyncDynamoDbDataSource
+        # eb_data_source: appsync.AppSyncEventBridgeDataSource
+        
+        
+        # DynamoDB data source for publish handler
+        api.add_channel_namespace("ddb-eb-ns",
+            code=appsync.Code.from_inline("/* event handler code here.*/"),
+            publish_handler_config=appsync.HandlerConfig(
+                data_source=ddb_data_source
+            ),
+            subscribe_handler_config=appsync.HandlerConfig(
+                data_source=eb_data_source
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        props: typing.Union["AppSyncBackedDataSourceProps", typing.Dict[builtins.str, typing.Any]],
+        *,
+        type: AppSyncDataSourceType,
+        dynamo_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DynamoDBConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_bridge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.EventBridgeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        http_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.HttpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_search_service_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.OpenSearchServiceConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        relational_database_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.RelationalDatabaseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param props: -
+        :param type: The type of the AppSync datasource.
+        :param dynamo_db_config: Configuration for DynamoDB Datasource. Default: - No config
+        :param event_bridge_config: Configuration for EventBridge Datasource. Default: - No config
+        :param http_config: Configuration for HTTP Datasource. Default: - No config
+        :param lambda_config: Configuration for Lambda Datasource. Default: - No config
+        :param open_search_service_config: Configuration for OpenSearch data source. Default: - No config
+        :param relational_database_config: Configuration for RDS Datasource. Default: - No config
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2635987984d671876790f1b9916827c51702b8353c8bb7af6c5487729b1b381)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        extended = AppSyncExtendedDataSourceProps(
+            type=type,
+            dynamo_db_config=dynamo_db_config,
+            event_bridge_config=event_bridge_config,
+            http_config=http_config,
+            lambda_config=lambda_config,
+            open_search_service_config=open_search_service_config,
+            relational_database_config=relational_database_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props, extended])
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> _IPrincipal_539bb2fd:
+        '''The principal of the data source to be IGrantable.'''
+        return typing.cast(_IPrincipal_539bb2fd, jsii.get(self, "grantPrincipal"))
+
+
+class _AppSyncBackedDataSourceProxy(
+    AppSyncBackedDataSource,
+    jsii.proxy_for(AppSyncBaseDataSource), # type: ignore[misc]
+):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, AppSyncBackedDataSource).__jsii_proxy_class__ = lambda : _AppSyncBackedDataSourceProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncBackedDataSourceProps",
+    jsii_struct_bases=[AppSyncBaseDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+    },
+)
+class AppSyncBackedDataSourceProps(AppSyncBaseDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+    ) -> None:
+        '''Properties for an AppSync datasource backed by a resource.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_iam as iam
+            
+            # api: appsync.IApi
+            # role: iam.Role
+            
+            app_sync_backed_data_source_props = appsync.AppSyncBackedDataSourceProps(
+                api=api,
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                service_role=role
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f6e3305d2e511cd982e7e9c99e379247e0c7cfe78eb565d9f221fd42534a19b)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncBackedDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppSyncDynamoDbDataSource(
+    AppSyncBackedDataSource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncDynamoDbDataSource",
+):
+    '''An AppSync datasource backed by a DynamoDB table.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        api = appsync.EventApi(self, "EventApiDynamoDB",
+            api_name="DynamoDBEventApi"
+        )
+        
+        table = dynamodb.Table(self, "table",
+            table_name="event-messages",
+            partition_key=dynamodb.Attribute(
+                name="id",
+                type=dynamodb.AttributeType.STRING
+            )
+        )
+        
+        data_source = api.add_dynamo_db_data_source("ddbsource", table)
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        table: _ITable_504fd401,
+        read_only_access: typing.Optional[builtins.bool] = None,
+        use_caller_credentials: typing.Optional[builtins.bool] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param table: The DynamoDB table backing this data source.
+        :param read_only_access: Specify whether this Data Source is read only or has read and write permissions to the DynamoDB table. Default: false
+        :param use_caller_credentials: Use credentials of caller to access DynamoDB. Default: false
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e3205022ee6f0dc9f2f97372b4cbf8675fc7fe75c1e1a9913fe0ccfc9aaacea)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AppSyncDynamoDbDataSourceProps(
+            table=table,
+            read_only_access=read_only_access,
+            use_caller_credentials=use_caller_credentials,
+            service_role=service_role,
+            api=api,
+            description=description,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncDynamoDbDataSourceProps",
+    jsii_struct_bases=[AppSyncBackedDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+        "table": "table",
+        "read_only_access": "readOnlyAccess",
+        "use_caller_credentials": "useCallerCredentials",
+    },
+)
+class AppSyncDynamoDbDataSourceProps(AppSyncBackedDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        table: _ITable_504fd401,
+        read_only_access: typing.Optional[builtins.bool] = None,
+        use_caller_credentials: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Properties for an AppSync DynamoDB datasource.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param table: The DynamoDB table backing this data source.
+        :param read_only_access: Specify whether this Data Source is read only or has read and write permissions to the DynamoDB table. Default: false
+        :param use_caller_credentials: Use credentials of caller to access DynamoDB. Default: false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_dynamodb as dynamodb
+            from aws_cdk import aws_iam as iam
+            
+            # api: appsync.IApi
+            # role: iam.Role
+            # table: dynamodb.Table
+            
+            app_sync_dynamo_db_data_source_props = appsync.AppSyncDynamoDbDataSourceProps(
+                api=api,
+                table=table,
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                read_only_access=False,
+                service_role=role,
+                use_caller_credentials=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4482a19c025dd759c4a5aed8914a6cb81ebccddfee2f8adfe940ea0ac69e0756)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument table", value=table, expected_type=type_hints["table"])
+            check_type(argname="argument read_only_access", value=read_only_access, expected_type=type_hints["read_only_access"])
+            check_type(argname="argument use_caller_credentials", value=use_caller_credentials, expected_type=type_hints["use_caller_credentials"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "table": table,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+        if read_only_access is not None:
+            self._values["read_only_access"] = read_only_access
+        if use_caller_credentials is not None:
+            self._values["use_caller_credentials"] = use_caller_credentials
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def table(self) -> _ITable_504fd401:
+        '''The DynamoDB table backing this data source.'''
+        result = self._values.get("table")
+        assert result is not None, "Required property 'table' is missing"
+        return typing.cast(_ITable_504fd401, result)
+
+    @builtins.property
+    def read_only_access(self) -> typing.Optional[builtins.bool]:
+        '''Specify whether this Data Source is read only or has read and write permissions to the DynamoDB table.
+
+        :default: false
+        '''
+        result = self._values.get("read_only_access")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_caller_credentials(self) -> typing.Optional[builtins.bool]:
+        '''Use credentials of caller to access DynamoDB.
+
+        :default: false
+        '''
+        result = self._values.get("use_caller_credentials")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncDynamoDbDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppSyncEventBridgeDataSource(
+    AppSyncBackedDataSource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncEventBridgeDataSource",
+):
+    '''An AppSync datasource backed by EventBridge.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_events as events
+        
+        
+        api = appsync.EventApi(self, "EventApiEventBridge",
+            api_name="EventBridgeEventApi"
+        )
+        
+        event_bus = events.EventBus(self, "test-bus")
+        
+        data_source = api.add_event_bridge_data_source("eventbridgeds", event_bus)
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        event_bus: _IEventBus_88d13111,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param event_bus: The EventBridge EventBus.
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__751e9252df0f4dec6b9673ceb1252eeb40bdadeb4b99c3c137f43883348c5a45)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AppSyncEventBridgeDataSourceProps(
+            event_bus=event_bus,
+            service_role=service_role,
+            api=api,
+            description=description,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncEventBridgeDataSourceProps",
+    jsii_struct_bases=[AppSyncBackedDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+        "event_bus": "eventBus",
+    },
+)
+class AppSyncEventBridgeDataSourceProps(AppSyncBackedDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        event_bus: _IEventBus_88d13111,
+    ) -> None:
+        '''Properties for an AppSync EventBridge datasource.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param event_bus: The EventBridge EventBus.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_events as events
+            from aws_cdk import aws_iam as iam
+            
+            # api: appsync.IApi
+            # event_bus: events.EventBus
+            # role: iam.Role
+            
+            app_sync_event_bridge_data_source_props = appsync.AppSyncEventBridgeDataSourceProps(
+                api=api,
+                event_bus=event_bus,
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                service_role=role
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26cb85c4a1a35b8c2988b9cf87941489373d3aecf9bb5d79fde3c9bae1188534)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "event_bus": event_bus,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def event_bus(self) -> _IEventBus_88d13111:
+        '''The EventBridge EventBus.'''
+        result = self._values.get("event_bus")
+        assert result is not None, "Required property 'event_bus' is missing"
+        return typing.cast(_IEventBus_88d13111, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncEventBridgeDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppSyncHttpDataSource(
+    AppSyncBackedDataSource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncHttpDataSource",
+):
+    '''An AppSync datasource backed by a http endpoint.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_apigateway as apigw
+        
+        
+        api = appsync.EventApi(self, "EventApiHttp",
+            api_name="HttpEventApi"
+        )
+        
+        random_api = apigw.RestApi(self, "RandomApi")
+        random_route = random_api.root.add_resource("random")
+        random_route.add_method("GET", apigw.MockIntegration(
+            integration_responses=[apigw.IntegrationResponse(
+                status_code="200",
+                response_templates={
+                    "application/json": "my-random-value"
+                }
+            )],
+            passthrough_behavior=apigw.PassthroughBehavior.NEVER,
+            request_templates={
+                "application/json": "{ \"statusCode\": 200 }"
+            }
+        ),
+            method_responses=[apigw.MethodResponse(status_code="200")]
+        )
+        
+        data_source = api.add_http_data_source("httpsource", f"https://{randomApi.restApiId}.execute-api.{this.region}.amazonaws.com")
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        endpoint: builtins.str,
+        authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param endpoint: The http endpoint.
+        :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ccf0d7058c4e612ecff60cbb4c6cbd550eaded275ea288336ff11796584a032)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AppSyncHttpDataSourceProps(
+            endpoint=endpoint,
+            authorization_config=authorization_config,
+            service_role=service_role,
+            api=api,
+            description=description,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncHttpDataSourceProps",
+    jsii_struct_bases=[AppSyncBackedDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+        "endpoint": "endpoint",
+        "authorization_config": "authorizationConfig",
+    },
+)
+class AppSyncHttpDataSourceProps(AppSyncBackedDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        endpoint: builtins.str,
+        authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Properties for an AppSync http datasource.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param endpoint: The http endpoint.
+        :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_iam as iam
+            
+            # api: appsync.IApi
+            # role: iam.Role
+            
+            app_sync_http_data_source_props = appsync.AppSyncHttpDataSourceProps(
+                api=api,
+                endpoint="endpoint",
+            
+                # the properties below are optional
+                authorization_config=appsync.AppSyncAwsIamConfig(
+                    signing_region="signingRegion",
+                    signing_service_name="signingServiceName"
+                ),
+                description="description",
+                name="name",
+                service_role=role
+            )
+        '''
+        if isinstance(authorization_config, dict):
+            authorization_config = AppSyncAwsIamConfig(**authorization_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b2ed0da8cb5963be25790630dbf330501d1f595ba353f2ce4c07dfb06641d02)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+            check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "endpoint": endpoint,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+        if authorization_config is not None:
+            self._values["authorization_config"] = authorization_config
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def endpoint(self) -> builtins.str:
+        '''The http endpoint.'''
+        result = self._values.get("endpoint")
+        assert result is not None, "Required property 'endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authorization_config(self) -> typing.Optional[AppSyncAwsIamConfig]:
+        '''The authorization config in case the HTTP endpoint requires authorization.
+
+        :default: - none
+        '''
+        result = self._values.get("authorization_config")
+        return typing.cast(typing.Optional[AppSyncAwsIamConfig], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncHttpDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppSyncLambdaDataSource(
+    AppSyncBackedDataSource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncLambdaDataSource",
+):
+    '''An AppSync datasource backed by a Lambda function.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_lambda as lambda_
+        
+        # lambda_ds: lambda.Function
+        
+        
+        api = appsync.EventApi(self, "EventApiLambda",
+            api_name="LambdaEventApi"
+        )
+        
+        data_source = api.add_lambda_data_source("lambdads", lambda_ds)
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        lambda_function: _IFunction_6adb0ab8,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param lambda_function: The Lambda function to call to interact with this data source.
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6570e71a473fb67648ebccadc18077d6b695534f3b200dcdde0141a738ff7a3b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AppSyncLambdaDataSourceProps(
+            lambda_function=lambda_function,
+            service_role=service_role,
+            api=api,
+            description=description,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncLambdaDataSourceProps",
+    jsii_struct_bases=[AppSyncBackedDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+        "lambda_function": "lambdaFunction",
+    },
+)
+class AppSyncLambdaDataSourceProps(AppSyncBackedDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        lambda_function: _IFunction_6adb0ab8,
+    ) -> None:
+        '''Properties for an AppSync Lambda datasource.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param lambda_function: The Lambda function to call to interact with this data source.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_iam as iam
+            from aws_cdk import aws_lambda as lambda_
+            
+            # api: appsync.IApi
+            # function_: lambda.Function
+            # role: iam.Role
+            
+            app_sync_lambda_data_source_props = appsync.AppSyncLambdaDataSourceProps(
+                api=api,
+                lambda_function=function_,
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                service_role=role
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__200b21ee48c8af5030c949707e06e3236c3405921281c9da3283da4c709fe855)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "lambda_function": lambda_function,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def lambda_function(self) -> _IFunction_6adb0ab8:
+        '''The Lambda function to call to interact with this data source.'''
+        result = self._values.get("lambda_function")
+        assert result is not None, "Required property 'lambda_function' is missing"
+        return typing.cast(_IFunction_6adb0ab8, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncLambdaDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppSyncOpenSearchDataSource(
+    AppSyncBackedDataSource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncOpenSearchDataSource",
+):
+    '''An Appsync datasource backed by OpenSearch.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_opensearchservice as opensearch
+        
+        
+        domain = opensearch.Domain(self, "Domain",
+            version=opensearch.EngineVersion.OPENSEARCH_2_17,
+            encryption_at_rest=opensearch.EncryptionAtRestOptions(
+                enabled=True
+            ),
+            node_to_node_encryption=True,
+            enforce_https=True,
+            capacity=opensearch.CapacityConfig(
+                multi_az_with_standby_enabled=False
+            ),
+            ebs=opensearch.EbsOptions(
+                enabled=True,
+                volume_size=10
+            )
+        )
+        api = appsync.EventApi(self, "EventApiOpenSearch",
+            api_name="OpenSearchEventApi"
+        )
+        
+        data_source = api.add_open_search_data_source("opensearchds", domain)
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        domain: _IDomain_3c13cbdd,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param domain: The OpenSearch domain containing the endpoint for the data source.
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88cfa235d90702f5ee16305d7ffe9689757c3fd46618d484c32d16c0e899c46f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AppSyncOpenSearchDataSourceProps(
+            domain=domain,
+            service_role=service_role,
+            api=api,
+            description=description,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncOpenSearchDataSourceProps",
+    jsii_struct_bases=[AppSyncBackedDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+        "domain": "domain",
+    },
+)
+class AppSyncOpenSearchDataSourceProps(AppSyncBackedDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        domain: _IDomain_3c13cbdd,
+    ) -> None:
+        '''Properties for the OpenSearch Data Source.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param domain: The OpenSearch domain containing the endpoint for the data source.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_iam as iam
+            from aws_cdk import aws_opensearchservice as opensearchservice
+            
+            # api: appsync.IApi
+            # domain: opensearchservice.Domain
+            # role: iam.Role
+            
+            app_sync_open_search_data_source_props = appsync.AppSyncOpenSearchDataSourceProps(
+                api=api,
+                domain=domain,
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                service_role=role
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a676730e1235a7cc00912af7bd8abae3b884363a210d1ff618c3490739a974a)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "domain": domain,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def domain(self) -> _IDomain_3c13cbdd:
+        '''The OpenSearch domain containing the endpoint for the data source.'''
+        result = self._values.get("domain")
+        assert result is not None, "Required property 'domain' is missing"
+        return typing.cast(_IDomain_3c13cbdd, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncOpenSearchDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppSyncRdsDataSource(
+    AppSyncBackedDataSource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncRdsDataSource",
+):
+    '''An AppSync datasource backed by RDS.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_secretsmanager as secretsmanager
+        
+        # vpc: ec2.Vpc
+        
+        database_name = "mydb"
+        cluster = rds.DatabaseCluster(self, "Cluster",
+            engine=rds.DatabaseClusterEngine.aurora_postgres(version=rds.AuroraPostgresEngineVersion.VER_16_6),
+            writer=rds.ClusterInstance.serverless_v2("writer"),
+            vpc=vpc,
+            credentials={"username": "clusteradmin"},
+            default_database_name=database_name,
+            enable_data_api=True
+        )
+        
+        secret = secretsmanager.Secret.from_secret_name_v2(self, "Secret", "db-secretName")
+        
+        api = appsync.EventApi(self, "EventApiRds",
+            api_name="RdsEventApi"
+        )
+        
+        data_source = api.add_rds_data_source("rdsds", cluster, secret, database_name)
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        secret_store: _ISecret_6e020e6a,
+        serverless_cluster: _IServerlessCluster_adbbb720,
+        database_name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param secret_store: The secret containing the credentials for the database.
+        :param serverless_cluster: The serverless cluster to call to interact with this data source.
+        :param database_name: The name of the database to use within the cluster. Default: - None
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddbc89ded9404d51fd44ef8e474fdc5da0707ee33332ac5e2af8fe34b14f7b21)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AppSyncRdsDataSourceProps(
+            secret_store=secret_store,
+            serverless_cluster=serverless_cluster,
+            database_name=database_name,
+            service_role=service_role,
+            api=api,
+            description=description,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncRdsDataSourceProps",
+    jsii_struct_bases=[AppSyncBackedDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+        "secret_store": "secretStore",
+        "serverless_cluster": "serverlessCluster",
+        "database_name": "databaseName",
+    },
+)
+class AppSyncRdsDataSourceProps(AppSyncBackedDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        secret_store: _ISecret_6e020e6a,
+        serverless_cluster: _IServerlessCluster_adbbb720,
+        database_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for an AppSync RDS datasource Aurora Serverless V1.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param secret_store: The secret containing the credentials for the database.
+        :param serverless_cluster: The serverless cluster to call to interact with this data source.
+        :param database_name: The name of the database to use within the cluster. Default: - None
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_iam as iam
+            from aws_cdk import aws_rds as rds
+            from aws_cdk import aws_secretsmanager as secretsmanager
+            
+            # api: appsync.IApi
+            # role: iam.Role
+            # secret: secretsmanager.Secret
+            # serverless_cluster: rds.ServerlessCluster
+            
+            app_sync_rds_data_source_props = appsync.AppSyncRdsDataSourceProps(
+                api=api,
+                secret_store=secret,
+                serverless_cluster=serverless_cluster,
+            
+                # the properties below are optional
+                database_name="databaseName",
+                description="description",
+                name="name",
+                service_role=role
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6401699728fce6d8c5255208e28cfb4acbff752cc526b9a6d781597df21daba)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
+            check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "secret_store": secret_store,
+            "serverless_cluster": serverless_cluster,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+        if database_name is not None:
+            self._values["database_name"] = database_name
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def secret_store(self) -> _ISecret_6e020e6a:
+        '''The secret containing the credentials for the database.'''
+        result = self._values.get("secret_store")
+        assert result is not None, "Required property 'secret_store' is missing"
+        return typing.cast(_ISecret_6e020e6a, result)
+
+    @builtins.property
+    def serverless_cluster(self) -> _IServerlessCluster_adbbb720:
+        '''The serverless cluster to call to interact with this data source.'''
+        result = self._values.get("serverless_cluster")
+        assert result is not None, "Required property 'serverless_cluster' is missing"
+        return typing.cast(_IServerlessCluster_adbbb720, result)
+
+    @builtins.property
+    def database_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the database to use within the cluster.
+
+        :default: - None
+        '''
+        result = self._values.get("database_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncRdsDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.AppSyncRdsDataSourcePropsV2",
+    jsii_struct_bases=[AppSyncBackedDataSourceProps],
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "name": "name",
+        "service_role": "serviceRole",
+        "secret_store": "secretStore",
+        "serverless_cluster": "serverlessCluster",
+        "database_name": "databaseName",
+    },
+)
+class AppSyncRdsDataSourcePropsV2(AppSyncBackedDataSourceProps):
+    def __init__(
+        self,
+        *,
+        api: IApi,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role: typing.Optional[_IRole_235f5d8e] = None,
+        secret_store: _ISecret_6e020e6a,
+        serverless_cluster: _IDatabaseCluster_6554c32b,
+        database_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for an AppSync RDS datasource Aurora Serverless V2.
+
+        :param api: The API to attach this data source to.
+        :param description: The description of the data source. Default: - None
+        :param name: The name of the data source. The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}. Any invalid characters will be automatically removed. Default: - id of data source
+        :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
+        :param secret_store: The secret containing the credentials for the database.
+        :param serverless_cluster: The serverless cluster to call to interact with this data source.
+        :param database_name: The name of the database to use within the cluster. Default: - None
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appsync as appsync
+            from aws_cdk import aws_iam as iam
+            from aws_cdk import aws_rds as rds
+            from aws_cdk import aws_secretsmanager as secretsmanager
+            
+            # api: appsync.IApi
+            # database_cluster: rds.DatabaseCluster
+            # role: iam.Role
+            # secret: secretsmanager.Secret
+            
+            app_sync_rds_data_source_props_v2 = appsync.AppSyncRdsDataSourcePropsV2(
+                api=api,
+                secret_store=secret,
+                serverless_cluster=database_cluster,
+            
+                # the properties below are optional
+                database_name="databaseName",
+                description="description",
+                name="name",
+                service_role=role
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81af3fcfcbbb79bfe6e2de7efc857612f0718089ff8e07ede9e3d1b4b3056e71)
+            check_type(argname="argument api", value=api, expected_type=type_hints["api"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
+            check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api": api,
+            "secret_store": secret_store,
+            "serverless_cluster": serverless_cluster,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if service_role is not None:
+            self._values["service_role"] = service_role
+        if database_name is not None:
+            self._values["database_name"] = database_name
+
+    @builtins.property
+    def api(self) -> IApi:
+        '''The API to attach this data source to.'''
+        result = self._values.get("api")
+        assert result is not None, "Required property 'api' is missing"
+        return typing.cast(IApi, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :default: - None
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data source.
+
+        The only allowed pattern is: {[_A-Za-z][_0-9A-Za-z]*}.
+        Any invalid characters will be automatically removed.
+
+        :default: - id of data source
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM service role to be assumed by AppSync to interact with the data source.
+
+        :default: - Create a new role
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def secret_store(self) -> _ISecret_6e020e6a:
+        '''The secret containing the credentials for the database.'''
+        result = self._values.get("secret_store")
+        assert result is not None, "Required property 'secret_store' is missing"
+        return typing.cast(_ISecret_6e020e6a, result)
+
+    @builtins.property
+    def serverless_cluster(self) -> _IDatabaseCluster_6554c32b:
+        '''The serverless cluster to call to interact with this data source.'''
+        result = self._values.get("serverless_cluster")
+        assert result is not None, "Required property 'serverless_cluster' is missing"
+        return typing.cast(_IDatabaseCluster_6554c32b, result)
+
+    @builtins.property
+    def database_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the database to use within the cluster.
+
+        :default: - None
+        '''
+        result = self._values.get("database_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppSyncRdsDataSourcePropsV2(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(IAppsyncFunction)
 class AppsyncFunction(
     _Resource_45bc6135,
@@ -19640,6 +23025,8 @@ class ChannelNamespace(
         authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         channel_namespace_name: typing.Optional[builtins.str] = None,
         code: typing.Optional[Code] = None,
+        publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19648,6 +23035,8 @@ class ChannelNamespace(
         :param authorization_config: Authorization config for channel namespace. Default: - defaults to Event API default auth config
         :param channel_namespace_name: the name of the channel namespace. Default: - the construct's id will be used
         :param code: The Event Handler code. Default: - no code is used
+        :param publish_handler_config: onPublish handler config. Default: - no handler config
+        :param subscribe_handler_config: onSubscribe handler config. Default: - no handler config
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c63ca084071634790991a11fd884d6f2542ba95ef4b5580def3cb5a4a2e24f0)
@@ -19658,6 +23047,8 @@ class ChannelNamespace(
             authorization_config=authorization_config,
             channel_namespace_name=channel_namespace_name,
             code=code,
+            publish_handler_config=publish_handler_config,
+            subscribe_handler_config=subscribe_handler_config,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -20232,6 +23623,8 @@ class EventApiBase(
         authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         channel_namespace_name: typing.Optional[builtins.str] = None,
         code: typing.Optional[Code] = None,
+        publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> ChannelNamespace:
         '''add a new Channel Namespace to this API.
 
@@ -20239,6 +23632,8 @@ class EventApiBase(
         :param authorization_config: Authorization config for channel namespace. Default: - defaults to Event API default auth config
         :param channel_namespace_name: The Channel Namespace name. Default: - the construct's id will be used
         :param code: The Event Handler code. Default: - no code is used
+        :param publish_handler_config: onPublish handler config. Default: - no handler config
+        :param subscribe_handler_config: onSubscribe handler config. Default: - no handler config
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e25797cc1017f654d6acb9de12be76a5707a1bac70c60cb1ec3571f6ecfca5b)
@@ -20247,9 +23642,167 @@ class EventApiBase(
             authorization_config=authorization_config,
             channel_namespace_name=channel_namespace_name,
             code=code,
+            publish_handler_config=publish_handler_config,
+            subscribe_handler_config=subscribe_handler_config,
         )
 
         return typing.cast(ChannelNamespace, jsii.invoke(self, "addChannelNamespace", [id, options]))
+
+    @jsii.member(jsii_name="addDynamoDbDataSource")
+    def add_dynamo_db_data_source(
+        self,
+        id: builtins.str,
+        table: _ITable_504fd401,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> AppSyncDynamoDbDataSource:
+        '''add a new DynamoDB data source to this API.
+
+        :param id: The data source's id.
+        :param table: The DynamoDB table backing this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61d2adda991764cc3205375bfdf13553444c87aed1e739d3e777a546d56d7187)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument table", value=table, expected_type=type_hints["table"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast(AppSyncDynamoDbDataSource, jsii.invoke(self, "addDynamoDbDataSource", [id, table, options]))
+
+    @jsii.member(jsii_name="addEventBridgeDataSource")
+    def add_event_bridge_data_source(
+        self,
+        id: builtins.str,
+        event_bus: _IEventBus_88d13111,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> AppSyncEventBridgeDataSource:
+        '''Add an EventBridge data source to this api.
+
+        :param id: The data source's id.
+        :param event_bus: The EventBridge EventBus on which to put events.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78ed93586c17a02c30624c1d2227ad0a12969c709e657c8fc9099488bb3791e8)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast(AppSyncEventBridgeDataSource, jsii.invoke(self, "addEventBridgeDataSource", [id, event_bus, options]))
+
+    @jsii.member(jsii_name="addHttpDataSource")
+    def add_http_data_source(
+        self,
+        id: builtins.str,
+        endpoint: builtins.str,
+        *,
+        authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> AppSyncHttpDataSource:
+        '''add a new http data source to this API.
+
+        :param id: The data source's id.
+        :param endpoint: The http endpoint.
+        :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db8bccfc0d64e7db26fb12592c40329b9c89d02203e3dfc466a7a6a0b8c85236)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+        options = AppSyncHttpDataSourceOptions(
+            authorization_config=authorization_config,
+            description=description,
+            name=name,
+        )
+
+        return typing.cast(AppSyncHttpDataSource, jsii.invoke(self, "addHttpDataSource", [id, endpoint, options]))
+
+    @jsii.member(jsii_name="addLambdaDataSource")
+    def add_lambda_data_source(
+        self,
+        id: builtins.str,
+        lambda_function: _IFunction_6adb0ab8,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> AppSyncLambdaDataSource:
+        '''add a new Lambda data source to this API.
+
+        :param id: The data source's id.
+        :param lambda_function: The Lambda function to call to interact with this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ddcfa73f67ddb23df596d4201524ca5081d137a9ea4f0dcaf0c4a0b19a0625e)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast(AppSyncLambdaDataSource, jsii.invoke(self, "addLambdaDataSource", [id, lambda_function, options]))
+
+    @jsii.member(jsii_name="addOpenSearchDataSource")
+    def add_open_search_data_source(
+        self,
+        id: builtins.str,
+        domain: _IDomain_3c13cbdd,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> AppSyncOpenSearchDataSource:
+        '''add a new OpenSearch data source to this API.
+
+        :param id: The data source's id.
+        :param domain: The OpenSearch domain for this data source.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25ed7ee27597f08894dd415f820f6d792e581fe182725e6598ce3ecbe019cd1b)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast(AppSyncOpenSearchDataSource, jsii.invoke(self, "addOpenSearchDataSource", [id, domain, options]))
+
+    @jsii.member(jsii_name="addRdsDataSource")
+    def add_rds_data_source(
+        self,
+        id: builtins.str,
+        serverless_cluster: typing.Union[_IDatabaseCluster_6554c32b, _IServerlessCluster_adbbb720],
+        secret_store: _ISecret_6e020e6a,
+        database_name: typing.Optional[builtins.str] = None,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> AppSyncRdsDataSource:
+        '''add a new Rds data source to this API.
+
+        :param id: The data source's id.
+        :param serverless_cluster: The database cluster to interact with this data source.
+        :param secret_store: The secret store that contains the username and password for the database cluster.
+        :param database_name: The optional name of the database to use within the cluster.
+        :param description: The description of the data source. Default: - No description
+        :param name: The name of the data source, overrides the id given by CDK. Default: - generated by CDK given the id
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3751c74c689e0f067411d4d21b81b25c8b341e0450d31bbccef5a8b541d805ea)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
+            check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+        options = AppSyncDataSourceOptions(description=description, name=name)
+
+        return typing.cast(AppSyncRdsDataSource, jsii.invoke(self, "addRdsDataSource", [id, serverless_cluster, secret_store, database_name, options]))
 
     @jsii.member(jsii_name="grant")
     def grant(
@@ -22134,29 +25687,28 @@ class EventApi(
 
     Example::
 
-        import aws_cdk.aws_logs as logs
+        import aws_cdk.aws_lambda as lambda_
+        # handler: lambda.Function
         
+        
+        iam_provider = appsync.AppSyncAuthProvider(
+            authorization_type=appsync.AppSyncAuthorizationType.IAM
+        )
         
         api_key_provider = appsync.AppSyncAuthProvider(
             authorization_type=appsync.AppSyncAuthorizationType.API_KEY
         )
         
+        # API with IAM and API Key providers.
+        # Connection, default publish and default subscribe
+        # can be done with either IAM and API Key.
+        #
         api = appsync.EventApi(self, "api",
-            api_name="Api",
-            owner_contact="OwnerContact",
+            api_name="api",
             authorization_config=appsync.EventApiAuthConfig(
-                auth_providers=[api_key_provider
-                ],
-                connection_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
-                ],
-                default_publish_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
-                ],
-                default_subscribe_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
+                # set auth providers
+                auth_providers=[iam_provider, api_key_provider
                 ]
-            ),
-            log_config=appsync.AppSyncLogConfig(
-                field_log_level=appsync.AppSyncFieldLogLevel.INFO,
-                retention=logs.RetentionDays.ONE_WEEK
             )
         )
         
@@ -22204,22 +25756,22 @@ class EventApi(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        api_arn: builtins.str,
         api_id: builtins.str,
-        api_name: builtins.str,
         http_dns: builtins.str,
         realtime_dns: builtins.str,
+        api_arn: typing.Optional[builtins.str] = None,
+        api_name: typing.Optional[builtins.str] = None,
         auth_provider_types: typing.Optional[typing.Sequence[AppSyncAuthorizationType]] = None,
     ) -> IEventApi:
         '''Import a Event API through this function.
 
         :param scope: scope.
         :param id: id.
-        :param api_arn: the ARN of the Event API.
         :param api_id: an unique AWS AppSync Event API identifier i.e. 'lxz775lwdrgcndgz3nurvac7oa'.
-        :param api_name: the name of the Event API.
         :param http_dns: the domain name of the Api's HTTP endpoint.
         :param realtime_dns: the domain name of the Api's real-time endpoint.
+        :param api_arn: the ARN of the Event API. Default: - constructed arn
+        :param api_name: the name of the Event API. Default: - not needed to import API
         :param auth_provider_types: The Authorization Types for this Event Api. Default: - none, required to construct event rules from imported APIs
         '''
         if __debug__:
@@ -22227,11 +25779,11 @@ class EventApi(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = EventApiAttributes(
-            api_arn=api_arn,
             api_id=api_id,
-            api_name=api_name,
             http_dns=http_dns,
             realtime_dns=realtime_dns,
+            api_arn=api_arn,
+            api_name=api_name,
             auth_provider_types=auth_provider_types,
         )
 
@@ -22553,13 +26105,35 @@ __all__ = [
     "AppSyncApiKeyConfig",
     "AppSyncAuthProvider",
     "AppSyncAuthorizationType",
+    "AppSyncAwsIamConfig",
+    "AppSyncBackedDataSource",
+    "AppSyncBackedDataSourceProps",
+    "AppSyncBaseDataSource",
+    "AppSyncBaseDataSourceProps",
     "AppSyncCognitoConfig",
+    "AppSyncDataSourceOptions",
+    "AppSyncDataSourceType",
     "AppSyncDomainOptions",
+    "AppSyncDynamoDbDataSource",
+    "AppSyncDynamoDbDataSourceProps",
+    "AppSyncEventBridgeDataSource",
+    "AppSyncEventBridgeDataSourceProps",
     "AppSyncEventResource",
+    "AppSyncExtendedDataSourceProps",
     "AppSyncFieldLogLevel",
+    "AppSyncHttpDataSource",
+    "AppSyncHttpDataSourceOptions",
+    "AppSyncHttpDataSourceProps",
     "AppSyncLambdaAuthorizerConfig",
+    "AppSyncLambdaDataSource",
+    "AppSyncLambdaDataSourceProps",
     "AppSyncLogConfig",
     "AppSyncOpenIdConnectConfig",
+    "AppSyncOpenSearchDataSource",
+    "AppSyncOpenSearchDataSourceProps",
+    "AppSyncRdsDataSource",
+    "AppSyncRdsDataSourceProps",
+    "AppSyncRdsDataSourcePropsV2",
     "AppsyncFunction",
     "AppsyncFunctionAttributes",
     "AppsyncFunctionProps",
@@ -22631,6 +26205,8 @@ __all__ = [
     "GraphqlApiAttributes",
     "GraphqlApiBase",
     "GraphqlApiProps",
+    "HandlerBehavior",
+    "HandlerConfig",
     "HttpDataSource",
     "HttpDataSourceOptions",
     "HttpDataSourceProps",
@@ -22650,6 +26226,7 @@ __all__ = [
     "LambdaAuthorizerConfig",
     "LambdaDataSource",
     "LambdaDataSourceProps",
+    "LambdaInvokeType",
     "LogConfig",
     "MappingTemplate",
     "MergeType",
@@ -22714,10 +26291,63 @@ def _typecheckingstub__8edc49e34a97ebaa9dc2586acdff5b6895639cdcc86050ff2c69ffecc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3a7d4c67b23a7b735cc6bf15c108f208253fed65876babb603435fb53a79480a(
+    *,
+    signing_region: builtins.str,
+    signing_service_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9a115c0bc90ba5e2ef17fead7a4acaac9daab3299023326c5c1e16512132b44(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    props: typing.Union[AppSyncBackedDataSourceProps, typing.Dict[builtins.str, typing.Any]],
+    *,
+    type: AppSyncDataSourceType,
+    dynamo_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DynamoDBConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bridge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.EventBridgeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.HttpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_search_service_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.OpenSearchServiceConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    relational_database_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.RelationalDatabaseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de6bea57418b88ece312be09368872f556250ca6065af55b1df45d455af90294(
+    value: IApi,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0696048b430ec2cd7bcb73334c99f876ecdb0a5a047acd07237fee239f7b556(
+    value: typing.Optional[_IRole_235f5d8e],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bea0eee61b1cea87b6622231b3f162a9ae91365fb99f3750a7d7ba668769f8fd(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__75da76fd2d8c4521688cfe2f85de355caeedf4c311e1f6a6da38a814369e490b(
     *,
     user_pool: _IUserPool_1f1029e2,
     app_id_client_regex: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4e890d2a8faf7c2137db999331361511f3634ef2833d6e1703e1880a5b6d647(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22738,6 +26368,28 @@ def _typecheckingstub__9a48653161b9fbbe0df26a10dbd4cb69675963bdf658c453c80d6ea67
 
 def _typecheckingstub__eaacf0fb1b5e4f1be8766fb84b3ffd25fd71bac909aaa0872c444b95478f0b90(
     api: EventApiBase,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__422e83387ace04fc4ab6fb1ad7696af007307662d4bfa0ceadbdcaf28ab74332(
+    *,
+    type: AppSyncDataSourceType,
+    dynamo_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DynamoDBConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bridge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.EventBridgeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.HttpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_search_service_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.OpenSearchServiceConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    relational_database_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.RelationalDatabaseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1484fc320839253b804df2abaef0e5e61d9f55e88b19ec4b5e7f2f5675b237f9(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22863,6 +26515,8 @@ def _typecheckingstub__3a88094ea14bdde4ccd0f369b0a3bad8511714f00dcd3c6473ecacef4
     authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     channel_namespace_name: typing.Optional[builtins.str] = None,
     code: typing.Optional[Code] = None,
+    publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23228,6 +26882,7 @@ def _typecheckingstub__a093c57f7353830d56f8cde41e8653e333d0f0b91da87dd9ca86d7246
     name: builtins.str,
     code_handlers: typing.Optional[builtins.str] = None,
     code_s3_location: typing.Optional[builtins.str] = None,
+    handler_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.HandlerConfigsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.AuthModeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     subscribe_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.AuthModeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23271,6 +26926,12 @@ def _typecheckingstub__0253aa38ea0ac168a1bb603d6239ae0cf4ece50f9019b6a9b531fc609
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__370c7c9ea6445a588ffb3df0332cccc87b2507390c3af4a48e682e101d555a3a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannelNamespace.HandlerConfigsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__58ae5ceea0ea0efa0414e907917c0f46364396fc667a67ea5eb4524ac6fa4d5d(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannelNamespace.AuthModeProperty]]]],
 ) -> None:
@@ -23296,12 +26957,44 @@ def _typecheckingstub__1f188b8b6c402829b1c2c91be4530734973b0af72e7cec71bb11fffe3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d21ce55a2e68e60d4e01e4a80f61bfb861aea82e45f95b30a2afa69bbde6c4d1(
+    *,
+    behavior: builtins.str,
+    integration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.IntegrationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c83b394375256eb51f01ca3f4e5523c684da9bb656d31dcbda4cde775040dd35(
+    *,
+    on_publish: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.HandlerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_subscribe: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.HandlerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b192479e83e89171d2db139f5cac20b6d97415946e88933257d0058b8b2ef87(
+    *,
+    data_source_name: builtins.str,
+    lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5894c383e26090ba966241c97dfc69c1c5c8467f15341af62605afbd33e54741(
+    *,
+    invoke_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3eedc5c3e1f83f431aa7bafffc93ab91843ace16bf993fccc5f6f8fe7b37f62c(
     *,
     api_id: builtins.str,
     name: builtins.str,
     code_handlers: typing.Optional[builtins.str] = None,
     code_s3_location: typing.Optional[builtins.str] = None,
+    handler_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.HandlerConfigsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.AuthModeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     subscribe_auth_modes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannelNamespace.AuthModeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -24351,6 +28044,8 @@ def _typecheckingstub__14d2f38f43e1d7bd64939cfe2744297c0bea47e8c7ddac5f1ebb9e69d
     authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     channel_namespace_name: typing.Optional[builtins.str] = None,
     code: typing.Optional[Code] = None,
+    publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24360,6 +28055,8 @@ def _typecheckingstub__707a4f93cb65552ff75faa567d97163d9e55d906a953ccabb13de215a
     authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     channel_namespace_name: typing.Optional[builtins.str] = None,
     code: typing.Optional[Code] = None,
+    publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     api: IEventApi,
 ) -> None:
     """Type checking stubs"""
@@ -24432,11 +28129,11 @@ def _typecheckingstub__666cedee7b74b7e32381dd1603bff8d92b24dd381d5f493f478126fb3
 
 def _typecheckingstub__900a23f47420600a580e47e0593acaae03add40da975841188f63784348f1470(
     *,
-    api_arn: builtins.str,
     api_id: builtins.str,
-    api_name: builtins.str,
     http_dns: builtins.str,
     realtime_dns: builtins.str,
+    api_arn: typing.Optional[builtins.str] = None,
+    api_name: typing.Optional[builtins.str] = None,
     auth_provider_types: typing.Optional[typing.Sequence[AppSyncAuthorizationType]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24530,6 +28227,15 @@ def _typecheckingstub__99ac2113ba86b3a60344e56ee0c5bb6cdf1bc20cd0d5aa52f9a94709f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6fb03fa50deffccc4e8f6c45aa60418e0b3ef37dd0c1bb3f3c3956da4dd0e5af(
+    *,
+    data_source: typing.Optional[AppSyncBackedDataSource] = None,
+    direct: typing.Optional[builtins.bool] = None,
+    lambda_invoke_type: typing.Optional[LambdaInvokeType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__892de8c32b5ee5c6cb5e65bc4b597f67297f1f675b608821b733eb9599975405(
     *,
     description: typing.Optional[builtins.str] = None,
@@ -24545,6 +28251,71 @@ def _typecheckingstub__9a1debea0ab80bd5826e5b82ddcae921fdb4911112b556fcf1f439a1a
     authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     channel_namespace_name: typing.Optional[builtins.str] = None,
     code: typing.Optional[Code] = None,
+    publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38cd0e6e6d6cd8495dc87898651850d0562b3ba85ca2377896229718c284533b(
+    id: builtins.str,
+    table: _ITable_504fd401,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4bd8e7cd6c1bb6fce3c176e7134a5035873dc2420929e59715d0321e53cc22b(
+    id: builtins.str,
+    event_bus: _IEventBus_88d13111,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c885b4334d83e85d3724e4422f3a5d112d8d0b2b1ef8c5503b9e7952c4da0e5b(
+    id: builtins.str,
+    endpoint: builtins.str,
+    *,
+    authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__742f5fb5b2542bd0ea9aa513d073513b52b71e49d52fccbb7f3cc349dd0888c2(
+    id: builtins.str,
+    lambda_function: _IFunction_6adb0ab8,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4142afd53187ea025664fd1dc1a28cff0cdc1c34b0991c7d68a3fe45e1293517(
+    id: builtins.str,
+    domain: _IDomain_3c13cbdd,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7dd4f5befa6458c9b47e2b00fc5d18f504fc50721860d4e5413444ff0c66d23e(
+    id: builtins.str,
+    serverless_cluster: typing.Union[_IDatabaseCluster_6554c32b, _IServerlessCluster_adbbb720],
+    secret_store: _ISecret_6e020e6a,
+    database_name: typing.Optional[builtins.str] = None,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25145,6 +28916,199 @@ def _typecheckingstub__54db123e32c75c925b5dce7adb77cc2ae1c7109fb8bf3ee3e0165956d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d2635987984d671876790f1b9916827c51702b8353c8bb7af6c5487729b1b381(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    props: typing.Union[AppSyncBackedDataSourceProps, typing.Dict[builtins.str, typing.Any]],
+    *,
+    type: AppSyncDataSourceType,
+    dynamo_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DynamoDBConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bridge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.EventBridgeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.HttpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_search_service_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.OpenSearchServiceConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    relational_database_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.RelationalDatabaseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f6e3305d2e511cd982e7e9c99e379247e0c7cfe78eb565d9f221fd42534a19b(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e3205022ee6f0dc9f2f97372b4cbf8675fc7fe75c1e1a9913fe0ccfc9aaacea(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    table: _ITable_504fd401,
+    read_only_access: typing.Optional[builtins.bool] = None,
+    use_caller_credentials: typing.Optional[builtins.bool] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4482a19c025dd759c4a5aed8914a6cb81ebccddfee2f8adfe940ea0ac69e0756(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    table: _ITable_504fd401,
+    read_only_access: typing.Optional[builtins.bool] = None,
+    use_caller_credentials: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__751e9252df0f4dec6b9673ceb1252eeb40bdadeb4b99c3c137f43883348c5a45(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    event_bus: _IEventBus_88d13111,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26cb85c4a1a35b8c2988b9cf87941489373d3aecf9bb5d79fde3c9bae1188534(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    event_bus: _IEventBus_88d13111,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ccf0d7058c4e612ecff60cbb4c6cbd550eaded275ea288336ff11796584a032(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    endpoint: builtins.str,
+    authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b2ed0da8cb5963be25790630dbf330501d1f595ba353f2ce4c07dfb06641d02(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    endpoint: builtins.str,
+    authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6570e71a473fb67648ebccadc18077d6b695534f3b200dcdde0141a738ff7a3b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    lambda_function: _IFunction_6adb0ab8,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__200b21ee48c8af5030c949707e06e3236c3405921281c9da3283da4c709fe855(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    lambda_function: _IFunction_6adb0ab8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88cfa235d90702f5ee16305d7ffe9689757c3fd46618d484c32d16c0e899c46f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain: _IDomain_3c13cbdd,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a676730e1235a7cc00912af7bd8abae3b884363a210d1ff618c3490739a974a(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    domain: _IDomain_3c13cbdd,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddbc89ded9404d51fd44ef8e474fdc5da0707ee33332ac5e2af8fe34b14f7b21(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    secret_store: _ISecret_6e020e6a,
+    serverless_cluster: _IServerlessCluster_adbbb720,
+    database_name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6401699728fce6d8c5255208e28cfb4acbff752cc526b9a6d781597df21daba(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    secret_store: _ISecret_6e020e6a,
+    serverless_cluster: _IServerlessCluster_adbbb720,
+    database_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81af3fcfcbbb79bfe6e2de7efc857612f0718089ff8e07ede9e3d1b4b3056e71(
+    *,
+    api: IApi,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    secret_store: _ISecret_6e020e6a,
+    serverless_cluster: _IDatabaseCluster_6554c32b,
+    database_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a23d4ed33443e24250ebba07a891e2279c2fad90dd6bdb7c0b41b485078d87f1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -25244,6 +29208,8 @@ def _typecheckingstub__4c63ca084071634790991a11fd884d6f2542ba95ef4b5580def3cb5a4
     authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     channel_namespace_name: typing.Optional[builtins.str] = None,
     code: typing.Optional[Code] = None,
+    publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25344,6 +29310,71 @@ def _typecheckingstub__2e25797cc1017f654d6acb9de12be76a5707a1bac70c60cb1ec3571f6
     authorization_config: typing.Optional[typing.Union[NamespaceAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     channel_namespace_name: typing.Optional[builtins.str] = None,
     code: typing.Optional[Code] = None,
+    publish_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    subscribe_handler_config: typing.Optional[typing.Union[HandlerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61d2adda991764cc3205375bfdf13553444c87aed1e739d3e777a546d56d7187(
+    id: builtins.str,
+    table: _ITable_504fd401,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78ed93586c17a02c30624c1d2227ad0a12969c709e657c8fc9099488bb3791e8(
+    id: builtins.str,
+    event_bus: _IEventBus_88d13111,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db8bccfc0d64e7db26fb12592c40329b9c89d02203e3dfc466a7a6a0b8c85236(
+    id: builtins.str,
+    endpoint: builtins.str,
+    *,
+    authorization_config: typing.Optional[typing.Union[AppSyncAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ddcfa73f67ddb23df596d4201524ca5081d137a9ea4f0dcaf0c4a0b19a0625e(
+    id: builtins.str,
+    lambda_function: _IFunction_6adb0ab8,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25ed7ee27597f08894dd415f820f6d792e581fe182725e6598ce3ecbe019cd1b(
+    id: builtins.str,
+    domain: _IDomain_3c13cbdd,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3751c74c689e0f067411d4d21b81b25c8b341e0450d31bbccef5a8b541d805ea(
+    id: builtins.str,
+    serverless_cluster: typing.Union[_IDatabaseCluster_6554c32b, _IServerlessCluster_adbbb720],
+    secret_store: _ISecret_6e020e6a,
+    database_name: typing.Optional[builtins.str] = None,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25706,11 +29737,11 @@ def _typecheckingstub__56641fd2110e4571637b38c4c6c79386104879b92edd37b362f1d00ef
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    api_arn: builtins.str,
     api_id: builtins.str,
-    api_name: builtins.str,
     http_dns: builtins.str,
     realtime_dns: builtins.str,
+    api_arn: typing.Optional[builtins.str] = None,
+    api_name: typing.Optional[builtins.str] = None,
     auth_provider_types: typing.Optional[typing.Sequence[AppSyncAuthorizationType]] = None,
 ) -> None:
     """Type checking stubs"""

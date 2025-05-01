@@ -1,7 +1,7 @@
 r'''
 # `datadog_api_key`
 
-Refer to the Terraform Registry for docs: [`datadog_api_key`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key).
+Refer to the Terraform Registry for docs: [`datadog_api_key`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.apiKey.ApiKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key datadog_api_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key datadog_api_key}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class ApiKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key datadog_api_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key datadog_api_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name for API Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key#name ApiKey#name}
-        :param remote_config_read_enabled: Whether the API key is used for remote config. Set to true only if remote config is enabled in ``/organization-settings/remote-config``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key#remote_config_read_enabled ApiKey#remote_config_read_enabled}
+        :param name: Name for API Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key#name ApiKey#name}
+        :param remote_config_read_enabled: Whether the API key is used for remote config. Set to true only if remote config is enabled in ``/organization-settings/remote-config``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key#remote_config_read_enabled ApiKey#remote_config_read_enabled}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class ApiKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiKey to import.
-        :param import_from_id: The id of the existing ApiKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiKey to import is found.
         '''
         if __debug__:
@@ -223,8 +223,8 @@ class ApiKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name for API Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key#name ApiKey#name}
-        :param remote_config_read_enabled: Whether the API key is used for remote config. Set to true only if remote config is enabled in ``/organization-settings/remote-config``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key#remote_config_read_enabled ApiKey#remote_config_read_enabled}
+        :param name: Name for API Key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key#name ApiKey#name}
+        :param remote_config_read_enabled: Whether the API key is used for remote config. Set to true only if remote config is enabled in ``/organization-settings/remote-config``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key#remote_config_read_enabled ApiKey#remote_config_read_enabled}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -327,7 +327,7 @@ class ApiKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name for API Key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key#name ApiKey#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key#name ApiKey#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -341,7 +341,7 @@ class ApiKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set to true only if remote config is enabled in ``/organization-settings/remote-config``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/api_key#remote_config_read_enabled ApiKey#remote_config_read_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/api_key#remote_config_read_enabled ApiKey#remote_config_read_enabled}
         '''
         result = self._values.get("remote_config_read_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

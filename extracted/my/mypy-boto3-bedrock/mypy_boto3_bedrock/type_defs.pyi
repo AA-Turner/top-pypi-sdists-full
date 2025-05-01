@@ -45,6 +45,7 @@ from .literals import (
     GuardrailWordActionType,
     InferenceProfileTypeType,
     InferenceTypeType,
+    JobStatusDetailsType,
     ModelCopyJobStatusType,
     ModelCustomizationJobStatusType,
     ModelCustomizationType,
@@ -117,6 +118,7 @@ __all__ = (
     "CustomModelSummaryTypeDef",
     "CustomModelUnitsTypeDef",
     "CustomizationConfigTypeDef",
+    "DataProcessingDetailsTypeDef",
     "DeleteCustomModelRequestTypeDef",
     "DeleteGuardrailRequestTypeDef",
     "DeleteImportedModelRequestTypeDef",
@@ -324,6 +326,7 @@ __all__ = (
     "S3ObjectDocTypeDef",
     "SageMakerEndpointOutputTypeDef",
     "SageMakerEndpointTypeDef",
+    "StatusDetailsTypeDef",
     "StopEvaluationJobRequestTypeDef",
     "StopModelCustomizationJobRequestTypeDef",
     "StopModelInvocationJobRequestTypeDef",
@@ -336,6 +339,7 @@ __all__ = (
     "TrainingDataConfigOutputTypeDef",
     "TrainingDataConfigTypeDef",
     "TrainingDataConfigUnionTypeDef",
+    "TrainingDetailsTypeDef",
     "TrainingMetricsTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateGuardrailRequestTypeDef",
@@ -346,6 +350,7 @@ __all__ = (
     "ValidationDataConfigOutputTypeDef",
     "ValidationDataConfigTypeDef",
     "ValidationDataConfigUnionTypeDef",
+    "ValidationDetailsTypeDef",
     "ValidatorMetricTypeDef",
     "ValidatorTypeDef",
     "VpcConfigOutputTypeDef",
@@ -425,6 +430,11 @@ class CustomModelSummaryTypeDef(TypedDict):
 class CustomModelUnitsTypeDef(TypedDict):
     customModelUnitsPerModelCopy: NotRequired[int]
     customModelUnitsVersion: NotRequired[str]
+
+class DataProcessingDetailsTypeDef(TypedDict):
+    status: NotRequired[JobStatusDetailsType]
+    creationTime: NotRequired[datetime]
+    lastModifiedTime: NotRequired[datetime]
 
 class DeleteCustomModelRequestTypeDef(TypedDict):
     modelIdentifier: str
@@ -782,18 +792,6 @@ class MarketplaceModelEndpointSummaryTypeDef(TypedDict):
     status: NotRequired[StatusType]
     statusMessage: NotRequired[str]
 
-class ModelCustomizationJobSummaryTypeDef(TypedDict):
-    jobArn: str
-    baseModelArn: str
-    jobName: str
-    status: ModelCustomizationJobStatusType
-    creationTime: datetime
-    lastModifiedTime: NotRequired[datetime]
-    endTime: NotRequired[datetime]
-    customModelArn: NotRequired[str]
-    customModelName: NotRequired[str]
-    customizationType: NotRequired[CustomizationTypeType]
-
 class ModelImportJobSummaryTypeDef(TypedDict):
     jobArn: str
     jobName: str
@@ -869,6 +867,16 @@ class RequestMetadataBaseFiltersTypeDef(TypedDict):
 class VpcConfigTypeDef(TypedDict):
     subnetIds: Sequence[str]
     securityGroupIds: Sequence[str]
+
+class TrainingDetailsTypeDef(TypedDict):
+    status: NotRequired[JobStatusDetailsType]
+    creationTime: NotRequired[datetime]
+    lastModifiedTime: NotRequired[datetime]
+
+class ValidationDetailsTypeDef(TypedDict):
+    status: NotRequired[JobStatusDetailsType]
+    creationTime: NotRequired[datetime]
+    lastModifiedTime: NotRequired[datetime]
 
 class StopEvaluationJobRequestTypeDef(TypedDict):
     jobIdentifier: str
@@ -1451,11 +1459,6 @@ class ListMarketplaceModelEndpointsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class ListModelCustomizationJobsResponseTypeDef(TypedDict):
-    modelCustomizationJobSummaries: List[ModelCustomizationJobSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class ListModelImportJobsResponseTypeDef(TypedDict):
     modelImportJobSummaries: List[ModelImportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1502,6 +1505,11 @@ class SageMakerEndpointTypeDef(TypedDict):
     vpc: NotRequired[VpcConfigTypeDef]
 
 VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
+
+class StatusDetailsTypeDef(TypedDict):
+    validationDetails: NotRequired[ValidationDetailsTypeDef]
+    dataProcessingDetails: NotRequired[DataProcessingDetailsTypeDef]
+    trainingDetails: NotRequired[TrainingDetailsTypeDef]
 
 class ValidationDataConfigOutputTypeDef(TypedDict):
     validators: List[ValidatorTypeDef]
@@ -1777,6 +1785,19 @@ class CreateModelInvocationJobRequestTypeDef(TypedDict):
     timeoutDurationInHours: NotRequired[int]
     tags: NotRequired[Sequence[TagTypeDef]]
 
+class ModelCustomizationJobSummaryTypeDef(TypedDict):
+    jobArn: str
+    baseModelArn: str
+    jobName: str
+    status: ModelCustomizationJobStatusType
+    creationTime: datetime
+    lastModifiedTime: NotRequired[datetime]
+    statusDetails: NotRequired[StatusDetailsTypeDef]
+    endTime: NotRequired[datetime]
+    customModelArn: NotRequired[str]
+    customModelName: NotRequired[str]
+    customizationType: NotRequired[CustomizationTypeType]
+
 ValidationDataConfigUnionTypeDef = Union[
     ValidationDataConfigTypeDef, ValidationDataConfigOutputTypeDef
 ]
@@ -1851,6 +1872,11 @@ class TrainingDataConfigTypeDef(TypedDict):
 
 EndpointConfigUnionTypeDef = Union[EndpointConfigTypeDef, EndpointConfigOutputTypeDef]
 
+class ListModelCustomizationJobsResponseTypeDef(TypedDict):
+    modelCustomizationJobSummaries: List[ModelCustomizationJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class KnowledgeBaseRetrieveAndGenerateConfigurationOutputTypeDef(TypedDict):
     knowledgeBaseId: str
     modelArn: str
@@ -1924,6 +1950,7 @@ class GetModelCustomizationJobResponseTypeDef(TypedDict):
     roleArn: str
     status: ModelCustomizationJobStatusType
     failureMessage: str
+    statusDetails: StatusDetailsTypeDef
     creationTime: datetime
     lastModifiedTime: datetime
     endTime: datetime

@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_user_notification_rule`
 
-Refer to the Terraform Registry for docs: [`pagerduty_user_notification_rule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule).
+Refer to the Terraform Registry for docs: [`pagerduty_user_notification_rule`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class UserNotificationRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.userNotificationRule.UserNotificationRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule pagerduty_user_notification_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule pagerduty_user_notification_rule}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class UserNotificationRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule pagerduty_user_notification_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule pagerduty_user_notification_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param contact_method: contact_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#contact_method UserNotificationRule#contact_method}
-        :param start_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#start_delay_in_minutes UserNotificationRule#start_delay_in_minutes}.
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#urgency UserNotificationRule#urgency}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#user_id UserNotificationRule#user_id}.
+        :param contact_method: contact_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#contact_method UserNotificationRule#contact_method}
+        :param start_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#start_delay_in_minutes UserNotificationRule#start_delay_in_minutes}.
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#urgency UserNotificationRule#urgency}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#user_id UserNotificationRule#user_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class UserNotificationRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the UserNotificationRule to import.
-        :param import_from_id: The id of the existing UserNotificationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing UserNotificationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the UserNotificationRule to import is found.
         '''
         if __debug__:
@@ -126,8 +126,8 @@ class UserNotificationRule(
     @jsii.member(jsii_name="putContactMethod")
     def put_contact_method(self, *, id: builtins.str, type: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#id UserNotificationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#type UserNotificationRule#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#id UserNotificationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#type UserNotificationRule#type}.
         '''
         value = UserNotificationRuleContactMethod(id=id, type=type)
 
@@ -256,10 +256,10 @@ class UserNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param contact_method: contact_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#contact_method UserNotificationRule#contact_method}
-        :param start_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#start_delay_in_minutes UserNotificationRule#start_delay_in_minutes}.
-        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#urgency UserNotificationRule#urgency}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#user_id UserNotificationRule#user_id}.
+        :param contact_method: contact_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#contact_method UserNotificationRule#contact_method}
+        :param start_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#start_delay_in_minutes UserNotificationRule#start_delay_in_minutes}.
+        :param urgency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#urgency UserNotificationRule#urgency}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#user_id UserNotificationRule#user_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -367,7 +367,7 @@ class UserNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def contact_method(self) -> "UserNotificationRuleContactMethod":
         '''contact_method block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#contact_method UserNotificationRule#contact_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#contact_method UserNotificationRule#contact_method}
         '''
         result = self._values.get("contact_method")
         assert result is not None, "Required property 'contact_method' is missing"
@@ -375,21 +375,21 @@ class UserNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def start_delay_in_minutes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#start_delay_in_minutes UserNotificationRule#start_delay_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#start_delay_in_minutes UserNotificationRule#start_delay_in_minutes}.'''
         result = self._values.get("start_delay_in_minutes")
         assert result is not None, "Required property 'start_delay_in_minutes' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def urgency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#urgency UserNotificationRule#urgency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#urgency UserNotificationRule#urgency}.'''
         result = self._values.get("urgency")
         assert result is not None, "Required property 'urgency' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#user_id UserNotificationRule#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#user_id UserNotificationRule#user_id}.'''
         result = self._values.get("user_id")
         assert result is not None, "Required property 'user_id' is missing"
         return typing.cast(builtins.str, result)
@@ -414,8 +414,8 @@ class UserNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class UserNotificationRuleContactMethod:
     def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#id UserNotificationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#type UserNotificationRule#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#id UserNotificationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#type UserNotificationRule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__885913943510052e1e93fb0e36e520979072302141192e74e40a0e8a7459bcaf)
@@ -428,7 +428,7 @@ class UserNotificationRuleContactMethod:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#id UserNotificationRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#id UserNotificationRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -439,7 +439,7 @@ class UserNotificationRuleContactMethod:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.24.2/docs/resources/user_notification_rule#type UserNotificationRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.25.0/docs/resources/user_notification_rule#type UserNotificationRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)

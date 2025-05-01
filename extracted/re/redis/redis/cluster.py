@@ -4,26 +4,31 @@ import sys
 import threading
 import time
 from collections import OrderedDict
+from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from redis._parsers import CommandsParser, Encoder
 from redis._parsers.helpers import parse_scan
-from redis.backoff import default_backoff
+from redis.backoff import ExponentialWithJitterBackoff, NoBackoff
 from redis.cache import CacheConfig, CacheFactory, CacheFactoryInterface, CacheInterface
 from redis.client import CaseInsensitiveDict, PubSub, Redis
 from redis.commands import READ_COMMANDS, RedisClusterCommands
 from redis.commands.helpers import list_or_args
-from redis.connection import ConnectionPool, DefaultParser, parse_url
+from redis.connection import ConnectionPool, parse_url
 from redis.crc import REDIS_CLUSTER_HASH_SLOTS, key_slot
+from redis.event import (
+    AfterPooledConnectionsInstantiationEvent,
+    AfterPubSubConnectionInstantiationEvent,
+    ClientType,
+    EventDispatcher,
+)
 from redis.exceptions import (
     AskError,
     AuthenticationError,
-    ClusterCrossSlotError,
     ClusterDownError,
     ClusterError,
     ConnectionError,
     DataError,
-    MasterDownError,
     MovedError,
     RedisClusterException,
     RedisError,
@@ -36,11 +41,13 @@ from redis.lock import Lock
 from redis.retry import Retry
 from redis.utils import (
     HIREDIS_AVAILABLE,
+    deprecated_args,
     dict_merge,
     list_keys_to_dict,
     merge_result,
     safe_str,
     str_if_bytes,
+    truncate_text,
 )
 
 
@@ -48,10 +55,13 @@ def get_node_name(host: str, port: Union[str, int]) -> str:
     return f"{host}:{port}"
 
 
+@deprecated_args(
+    allowed_args=["redis_node"],
+    reason="Use get_connection(redis_node) instead",
+    version="5.3.0",
+)
 def get_connection(redis_node, *args, **options):
-    return redis_node.connection or redis_node.connection_pool.get_connection(
-        args[0], **options
-    )
+    return redis_node.connection or redis_node.connection_pool.get_connection()
 
 
 def parse_scan_result(command, res, **options):
@@ -132,7 +142,6 @@ REPLICA = "replica"
 SLOT_ID = "slot-id"
 
 REDIS_ALLOWED_KEYS = (
-    "charset",
     "connection_class",
     "connection_pool",
     "connection_pool_class",
@@ -142,7 +151,6 @@ REDIS_ALLOWED_KEYS = (
     "decode_responses",
     "encoding",
     "encoding_errors",
-    "errors",
     "host",
     "lib_name",
     "lib_version",
@@ -171,7 +179,7 @@ REDIS_ALLOWED_KEYS = (
     "cache",
     "cache_config",
 )
-KWARGS_DISABLED_KEYS = ("host", "port")
+KWARGS_DISABLED_KEYS = ("host", "port", "retry")
 
 
 def cleanup_kwargs(**kwargs):
@@ -185,20 +193,6 @@ def cleanup_kwargs(**kwargs):
     }
 
     return connection_kwargs
-
-
-class ClusterParser(DefaultParser):
-    EXCEPTION_CLASSES = dict_merge(
-        DefaultParser.EXCEPTION_CLASSES,
-        {
-            "ASK": AskError,
-            "TRYAGAIN": TryAgainError,
-            "MOVED": MovedError,
-            "CLUSTERDOWN": ClusterDownError,
-            "CROSSSLOT": ClusterCrossSlotError,
-            "MASTERDOWN": MasterDownError,
-        },
-    )
 
 
 class AbstractRedisCluster:
@@ -294,7 +288,6 @@ class AbstractRedisCluster:
                 "TFUNCTION LIST",
                 "TFCALL",
                 "TFCALLASYNC",
-                "GRAPH.CONFIG",
                 "LATENCY HISTORY",
                 "LATENCY LATEST",
                 "LATENCY RESET",
@@ -314,7 +307,6 @@ class AbstractRedisCluster:
                 "FUNCTION LIST",
                 "FUNCTION LOAD",
                 "FUNCTION RESTORE",
-                "REDISGEARS_2.REFRESHCLUSTER",
                 "SCAN",
                 "SCRIPT EXISTS",
                 "SCRIPT FLUSH",
@@ -418,7 +410,12 @@ class AbstractRedisCluster:
         list_keys_to_dict(["SCRIPT FLUSH"], lambda command, res: all(res.values())),
     )
 
-    ERRORS_ALLOW_RETRY = (ConnectionError, TimeoutError, ClusterDownError)
+    ERRORS_ALLOW_RETRY = (
+        ConnectionError,
+        TimeoutError,
+        ClusterDownError,
+        SlotNotCoveredError,
+    )
 
     def replace_default_node(self, target_node: "ClusterNode" = None) -> None:
         """Replace the default cluster node.
@@ -439,7 +436,7 @@ class AbstractRedisCluster:
                 # Choose a primary if the cluster contains different primaries
                 self.nodes_manager.default_node = random.choice(primaries)
             else:
-                # Otherwise, hoose a primary if the cluster contains different primaries
+                # Otherwise, choose a primary if the cluster contains different primaries
                 replicas = [node for node in self.get_replicas() if node != curr_node]
                 if replicas:
                     self.nodes_manager.default_node = random.choice(replicas)
@@ -490,6 +487,18 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         """
         return cls(url=url, **kwargs)
 
+    @deprecated_args(
+        args_to_warn=["read_from_replicas"],
+        reason="Please configure the 'load_balancing_strategy' instead",
+        version="5.3.0",
+    )
+    @deprecated_args(
+        args_to_warn=[
+            "cluster_error_retry_attempts",
+        ],
+        reason="Please configure the 'retry' object instead",
+        version="6.0.0",
+    )
     def __init__(
         self,
         host: Optional[str] = None,
@@ -497,14 +506,16 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         startup_nodes: Optional[List["ClusterNode"]] = None,
         cluster_error_retry_attempts: int = 3,
         retry: Optional["Retry"] = None,
-        require_full_coverage: bool = False,
+        require_full_coverage: bool = True,
         reinitialize_steps: int = 5,
         read_from_replicas: bool = False,
+        load_balancing_strategy: Optional["LoadBalancingStrategy"] = None,
         dynamic_startup_nodes: bool = True,
         url: Optional[str] = None,
         address_remap: Optional[Callable[[Tuple[str, int]], Tuple[str, int]]] = None,
         cache: Optional[CacheInterface] = None,
         cache_config: Optional[CacheConfig] = None,
+        event_dispatcher: Optional[EventDispatcher] = None,
         **kwargs,
     ):
         """
@@ -527,11 +538,16 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
             cluster client. If not all slots are covered, RedisClusterException
             will be thrown.
         :param read_from_replicas:
+             @deprecated - please use load_balancing_strategy instead
              Enable read from replicas in READONLY mode. You can read possibly
              stale data.
              When set to true, read commands will be assigned between the
              primary and its replications in a Round-Robin manner.
-         :param dynamic_startup_nodes:
+        :param load_balancing_strategy:
+             Enable read from replicas in READONLY mode and defines the load balancing
+             strategy that will be used for cluster node selection.
+             The data read from replicas is eventually consistent with the data in primary nodes.
+        :param dynamic_startup_nodes:
              Set the RedisCluster's startup nodes to all of the discovered nodes.
              If true (default value), the cluster's discovered nodes will be used to
              determine the cluster nodes-slots mapping in the next topology refresh.
@@ -540,9 +556,19 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
              If you use dynamic DNS endpoints for startup nodes but CLUSTER SLOTS lists
              specific IP addresses, it is best to set it to false.
         :param cluster_error_retry_attempts:
+             @deprecated - Please configure the 'retry' object instead
+             In case 'retry' object is set - this argument is ignored!
+
              Number of times to retry before raising an error when
-             :class:`~.TimeoutError` or :class:`~.ConnectionError` or
+             :class:`~.TimeoutError` or :class:`~.ConnectionError`, :class:`~.SlotNotCoveredError` or
              :class:`~.ClusterDownError` are encountered
+        :param retry:
+            A retry object that defines the retry strategy and the number of
+            retries for the cluster client.
+            In current implementation for the cluster client (starting form redis-py version 6.0.0)
+            the retry object is not yet fully utilized, instead it is used just to determine
+            the number of retries for the cluster client.
+            In the future releases the retry object will be used to handle the cluster client retries!
         :param reinitialize_steps:
             Specifies the number of MOVED errors that need to occur before
             reinitializing the whole cluster topology. If a MOVED error occurs
@@ -562,7 +588,8 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
 
          :**kwargs:
              Extra arguments that will be sent into Redis instance when created
-             (See Official redis-py doc for supported kwargs
+             (See Official redis-py doc for supported kwargs - the only limitation
+              is that you can't provide 'retry' object as part of kwargs.
          [https://github.com/andymccurdy/redis-py/blob/master/redis/client.py])
              Some kwargs are not supported and will raise a
              RedisClusterException:
@@ -575,6 +602,15 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
             # Argument 'db' is not possible to use in cluster mode
             raise RedisClusterException(
                 "Argument 'db' is not possible to use in cluster mode"
+            )
+
+        if "retry" in kwargs:
+            # Argument 'retry' is not possible to be used in kwargs when in cluster mode
+            # the kwargs are set to the lower level connections to the cluster nodes
+            # and there we provide retry configuration without retries allowed.
+            # The retries should be handled on cluster client level.
+            raise RedisClusterException(
+                "The 'retry' argument cannot be used in kwargs when running in cluster mode."
             )
 
         # Get the startup node/s
@@ -619,9 +655,11 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         kwargs = cleanup_kwargs(**kwargs)
         if retry:
             self.retry = retry
-            kwargs.update({"retry": self.retry})
         else:
-            kwargs.update({"retry": Retry(default_backoff(), 0)})
+            self.retry = Retry(
+                backoff=ExponentialWithJitterBackoff(base=1, cap=10),
+                retries=cluster_error_retry_attempts,
+            )
 
         self.encoder = Encoder(
             kwargs.get("encoding", "utf-8"),
@@ -632,12 +670,16 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         if (cache_config or cache) and protocol not in [3, "3"]:
             raise RedisError("Client caching is only supported with RESP version 3")
 
-        self.cluster_error_retry_attempts = cluster_error_retry_attempts
         self.command_flags = self.__class__.COMMAND_FLAGS.copy()
         self.node_flags = self.__class__.NODE_FLAGS.copy()
         self.read_from_replicas = read_from_replicas
+        self.load_balancing_strategy = load_balancing_strategy
         self.reinitialize_counter = 0
         self.reinitialize_steps = reinitialize_steps
+        if event_dispatcher is None:
+            self._event_dispatcher = EventDispatcher()
+        else:
+            self._event_dispatcher = event_dispatcher
         self.nodes_manager = NodesManager(
             startup_nodes=startup_nodes,
             from_url=from_url,
@@ -646,6 +688,7 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
             address_remap=address_remap,
             cache=cache,
             cache_config=cache_config,
+            event_dispatcher=self._event_dispatcher,
             **kwargs,
         )
 
@@ -664,7 +707,10 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         self.close()
 
     def __del__(self):
-        self.close()
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def disconnect_connection_pools(self):
         for node in self.get_nodes():
@@ -680,10 +726,9 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         Initialize the connection, authenticate and select a database and send
          READONLY if it is set during object initialization.
         """
-        connection.set_parser(ClusterParser)
         connection.on_connect()
 
-        if self.read_from_replicas:
+        if self.read_from_replicas or self.load_balancing_strategy:
             # Sending READONLY command to server to configure connection as
             # readonly. Since each cluster node may change its server type due
             # to a failover, we should establish a READONLY connection
@@ -755,13 +800,8 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         self.nodes_manager.default_node = node
         return True
 
-    def get_retry(self) -> Optional["Retry"]:
-        return self.retry
-
-    def set_retry(self, retry: "Retry") -> None:
+    def set_retry(self, retry: Retry) -> None:
         self.retry = retry
-        for node in self.get_nodes():
-            node.redis_connection.set_retry(retry)
 
     def monitor(self, target_node=None):
         """
@@ -808,9 +848,11 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
             startup_nodes=self.nodes_manager.startup_nodes,
             result_callbacks=self.result_callbacks,
             cluster_response_callbacks=self.cluster_response_callbacks,
-            cluster_error_retry_attempts=self.cluster_error_retry_attempts,
+            cluster_error_retry_attempts=self.retry.get_retries(),
             read_from_replicas=self.read_from_replicas,
+            load_balancing_strategy=self.load_balancing_strategy,
             reinitialize_steps=self.reinitialize_steps,
+            retry=self.retry,
             lock=self._lock,
         )
 
@@ -823,6 +865,7 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         blocking_timeout=None,
         lock_class=None,
         thread_local=True,
+        raise_on_release_error: bool = True,
     ):
         """
         Return a new Lock object using key ``name`` that mimics
@@ -869,6 +912,11 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
                      thread-1 would see the token value as "xyz" and would be
                      able to successfully release the thread-2's lock.
 
+        ``raise_on_release_error`` indicates whether to raise an exception when
+        the lock is no longer owned when exiting the context manager. By default,
+        this is True, meaning an exception will be raised. If False, the warning
+        will be logged and the exception will be suppressed.
+
         In some use cases it's necessary to disable thread local storage. For
         example, if you have code where one thread acquires a lock and passes
         that lock instance to a worker thread to release later. If thread
@@ -886,6 +934,7 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
             blocking=blocking,
             blocking_timeout=blocking_timeout,
             thread_local=thread_local,
+            raise_on_release_error=raise_on_release_error,
         )
 
     def set_response_callback(self, command, callback):
@@ -927,7 +976,9 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
             # get the node that holds the key's slot
             slot = self.determine_slot(*args)
             node = self.nodes_manager.get_node_from_slot(
-                slot, self.read_from_replicas and command in READ_COMMANDS
+                slot,
+                self.read_from_replicas and command in READ_COMMANDS,
+                self.load_balancing_strategy if command in READ_COMMANDS else None,
             )
             return [node]
 
@@ -1063,8 +1114,8 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         """
         Wrapper for ERRORS_ALLOW_RETRY error handling.
 
-        It will try the number of times specified by the config option
-        "self.cluster_error_retry_attempts" which defaults to 3 unless manually
+        It will try the number of times specified by the retries property from
+        config option "self.retry" which defaults to 3 unless manually
         configured.
 
         If it reaches the number of times, the command will raise the exception
@@ -1090,9 +1141,7 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
         # execution since the nodes may not be valid anymore after the tables
         # were reinitialized. So in case of passed target nodes,
         # retry_attempts will be set to 0.
-        retry_attempts = (
-            0 if target_nodes_specified else self.cluster_error_retry_attempts
-        )
+        retry_attempts = 0 if target_nodes_specified else self.retry.get_retries()
         # Add one for the first execution
         execute_attempts = 1 + retry_attempts
         for _ in range(execute_attempts):
@@ -1151,12 +1200,16 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
                     # refresh the target node
                     slot = self.determine_slot(*args)
                     target_node = self.nodes_manager.get_node_from_slot(
-                        slot, self.read_from_replicas and command in READ_COMMANDS
+                        slot,
+                        self.read_from_replicas and command in READ_COMMANDS,
+                        self.load_balancing_strategy
+                        if command in READ_COMMANDS
+                        else None,
                     )
                     moved = False
 
                 redis_node = self.get_redis_connection(target_node)
-                connection = get_connection(redis_node, *args, **kwargs)
+                connection = get_connection(redis_node)
                 if asking:
                     connection.send_command("ASKING")
                     redis_node.parse_response(connection, "ASKING", **kwargs)
@@ -1213,13 +1266,19 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
             except AskError as e:
                 redirect_addr = get_node_name(host=e.host, port=e.port)
                 asking = True
-            except ClusterDownError as e:
+            except (ClusterDownError, SlotNotCoveredError):
                 # ClusterDownError can occur during a failover and to get
                 # self-healed, we will try to reinitialize the cluster layout
                 # and retry executing the command
+
+                # SlotNotCoveredError can occur when the cluster is not fully
+                # initialized or can be temporary issue.
+                # We will try to reinitialize the cluster topology
+                # and retry executing the command
+
                 time.sleep(0.25)
                 self.nodes_manager.initialize()
-                raise e
+                raise
             except ResponseError:
                 raise
             except Exception as e:
@@ -1232,7 +1291,7 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands):
 
         raise ClusterError("TTL exhausted.")
 
-    def close(self):
+    def close(self) -> None:
         try:
             with self._lock:
                 if self.nodes_manager:
@@ -1296,8 +1355,18 @@ class ClusterNode:
         return isinstance(obj, ClusterNode) and obj.name == self.name
 
     def __del__(self):
-        if self.redis_connection is not None:
-            self.redis_connection.close()
+        try:
+            if self.redis_connection is not None:
+                self.redis_connection.close()
+        except Exception:
+            # Ignore errors when closing the connection
+            pass
+
+
+class LoadBalancingStrategy(Enum):
+    ROUND_ROBIN = "round_robin"
+    ROUND_ROBIN_REPLICAS = "round_robin_replicas"
+    RANDOM_REPLICA = "random_replica"
 
 
 class LoadBalancer:
@@ -1309,14 +1378,37 @@ class LoadBalancer:
         self.primary_to_idx = {}
         self.start_index = start_index
 
-    def get_server_index(self, primary: str, list_size: int) -> int:
-        server_index = self.primary_to_idx.setdefault(primary, self.start_index)
-        # Update the index
-        self.primary_to_idx[primary] = (server_index + 1) % list_size
-        return server_index
+    def get_server_index(
+        self,
+        primary: str,
+        list_size: int,
+        load_balancing_strategy: LoadBalancingStrategy = LoadBalancingStrategy.ROUND_ROBIN,
+    ) -> int:
+        if load_balancing_strategy == LoadBalancingStrategy.RANDOM_REPLICA:
+            return self._get_random_replica_index(list_size)
+        else:
+            return self._get_round_robin_index(
+                primary,
+                list_size,
+                load_balancing_strategy == LoadBalancingStrategy.ROUND_ROBIN_REPLICAS,
+            )
 
     def reset(self) -> None:
         self.primary_to_idx.clear()
+
+    def _get_random_replica_index(self, list_size: int) -> int:
+        return random.randint(1, list_size - 1)
+
+    def _get_round_robin_index(
+        self, primary: str, list_size: int, replicas_only: bool
+    ) -> int:
+        server_index = self.primary_to_idx.setdefault(primary, self.start_index)
+        if replicas_only and server_index == 0:
+            # skip the primary node index
+            server_index = 1
+        # Update the index for the next round
+        self.primary_to_idx[primary] = (server_index + 1) % list_size
+        return server_index
 
 
 class NodesManager:
@@ -1332,6 +1424,7 @@ class NodesManager:
         cache: Optional[CacheInterface] = None,
         cache_config: Optional[CacheConfig] = None,
         cache_factory: Optional[CacheFactoryInterface] = None,
+        event_dispatcher: Optional[EventDispatcher] = None,
         **kwargs,
     ):
         self.nodes_cache = {}
@@ -1353,6 +1446,13 @@ class NodesManager:
         if lock is None:
             lock = threading.Lock()
         self._lock = lock
+        if event_dispatcher is None:
+            self._event_dispatcher = EventDispatcher()
+        else:
+            self._event_dispatcher = event_dispatcher
+        self._credential_provider = self.connection_kwargs.get(
+            "credential_provider", None
+        )
         self.initialize()
 
     def get_node(self, host=None, port=None, node_name=None):
@@ -1413,7 +1513,21 @@ class NodesManager:
         # Reset moved_exception
         self._moved_exception = None
 
-    def get_node_from_slot(self, slot, read_from_replicas=False, server_type=None):
+    @deprecated_args(
+        args_to_warn=["server_type"],
+        reason=(
+            "In case you need select some load balancing strategy "
+            "that will use replicas, please set it through 'load_balancing_strategy'"
+        ),
+        version="5.3.0",
+    )
+    def get_node_from_slot(
+        self,
+        slot,
+        read_from_replicas=False,
+        load_balancing_strategy=None,
+        server_type=None,
+    ):
         """
         Gets a node that servers this hash slot
         """
@@ -1428,11 +1542,14 @@ class NodesManager:
                 f'"require_full_coverage={self._require_full_coverage}"'
             )
 
-        if read_from_replicas is True:
-            # get the server index in a Round-Robin manner
+        if read_from_replicas is True and load_balancing_strategy is None:
+            load_balancing_strategy = LoadBalancingStrategy.ROUND_ROBIN
+
+        if len(self.slots_cache[slot]) > 1 and load_balancing_strategy:
+            # get the server index using the strategy defined in load_balancing_strategy
             primary_name = self.slots_cache[slot][0].name
             node_idx = self.read_load_balancer.get_server_index(
-                primary_name, len(self.slots_cache[slot])
+                primary_name, len(self.slots_cache[slot]), load_balancing_strategy
             )
         elif (
             server_type is None
@@ -1479,24 +1596,47 @@ class NodesManager:
         """
         This function will create a redis connection to all nodes in :nodes:
         """
+        connection_pools = []
         for node in nodes:
             if node.redis_connection is None:
                 node.redis_connection = self.create_redis_node(
                     host=node.host, port=node.port, **self.connection_kwargs
                 )
+                connection_pools.append(node.redis_connection.connection_pool)
+
+        self._event_dispatcher.dispatch(
+            AfterPooledConnectionsInstantiationEvent(
+                connection_pools, ClientType.SYNC, self._credential_provider
+            )
+        )
 
     def create_redis_node(self, host, port, **kwargs):
+        # We are configuring the connection pool not to retry
+        # connections on lower level clients to avoid retrying
+        # connections to nodes that are not reachable
+        # and to avoid blocking the connection pool.
+        # The only error that will have some handling in the lower
+        # level clients is ConnectionError which will trigger disconnection
+        # of the socket.
+        # The retries will be handled on cluster client level
+        # where we will have proper handling of the cluster topology
+        node_retry_config = Retry(
+            backoff=NoBackoff(), retries=0, supported_errors=(ConnectionError,)
+        )
+
         if self.from_url:
             # Create a redis node with a costumed connection pool
             kwargs.update({"host": host})
             kwargs.update({"port": port})
             kwargs.update({"cache": self._cache})
+            kwargs.update({"retry": node_retry_config})
             r = Redis(connection_pool=self.connection_pool_class(**kwargs))
         else:
             r = Redis(
                 host=host,
                 port=port,
                 cache=self._cache,
+                retry=node_retry_config,
                 **kwargs,
             )
         return r
@@ -1613,7 +1753,7 @@ class NodesManager:
                             if len(disagreements) > 5:
                                 raise RedisClusterException(
                                     f"startup_nodes could not agree on a valid "
-                                    f'slots cache: {", ".join(disagreements)}'
+                                    f"slots cache: {', '.join(disagreements)}"
                                 )
 
             fully_covered = self.check_slots_coverage(tmp_slots)
@@ -1658,7 +1798,7 @@ class NodesManager:
         # If initialize was called after a MovedError, clear it
         self._moved_exception = None
 
-    def close(self):
+    def close(self) -> None:
         self.default_node = None
         for node in self.nodes_cache.values():
             if node.redis_connection:
@@ -1698,6 +1838,7 @@ class ClusterPubSub(PubSub):
         host=None,
         port=None,
         push_handler_func=None,
+        event_dispatcher: Optional["EventDispatcher"] = None,
         **kwargs,
     ):
         """
@@ -1706,7 +1847,7 @@ class ClusterPubSub(PubSub):
         first command execution. The node will be determined by:
          1. Hashing the channel name in the request to find its keyslot
          2. Selecting a node that handles the keyslot: If read_from_replicas is
-            set to true, a replica can be selected.
+            set to true or load_balancing_strategy is set, a replica can be selected.
 
         :type redis_cluster: RedisCluster
         :type node: ClusterNode
@@ -1723,10 +1864,15 @@ class ClusterPubSub(PubSub):
         self.cluster = redis_cluster
         self.node_pubsub_mapping = {}
         self._pubsubs_generator = self._pubsubs_generator()
+        if event_dispatcher is None:
+            self._event_dispatcher = EventDispatcher()
+        else:
+            self._event_dispatcher = event_dispatcher
         super().__init__(
             connection_pool=connection_pool,
             encoder=redis_cluster.encoder,
             push_handler_func=push_handler_func,
+            event_dispatcher=self._event_dispatcher,
             **kwargs,
         )
 
@@ -1797,7 +1943,9 @@ class ClusterPubSub(PubSub):
                     channel = args[1]
                     slot = self.cluster.keyslot(channel)
                     node = self.cluster.nodes_manager.get_node_from_slot(
-                        slot, self.cluster.read_from_replicas
+                        slot,
+                        self.cluster.read_from_replicas,
+                        self.cluster.load_balancing_strategy,
                     )
                 else:
                     # Get a random node
@@ -1805,14 +1953,17 @@ class ClusterPubSub(PubSub):
                 self.node = node
                 redis_connection = self.cluster.get_redis_connection(node)
                 self.connection_pool = redis_connection.connection_pool
-            self.connection = self.connection_pool.get_connection(
-                "pubsub", self.shard_hint
-            )
+            self.connection = self.connection_pool.get_connection()
             # register a callback that re-subscribes to any channels we
             # were listening to when we were disconnected
             self.connection.register_connect_callback(self.on_connect)
             if self.push_handler_func is not None and not HIREDIS_AVAILABLE:
                 self.connection._parser.set_pubsub_push_handler(self.push_handler_func)
+            self._event_dispatcher.dispatch(
+                AfterPubSubConnectionInstantiationEvent(
+                    self.connection, self.connection_pool, ClientType.SYNC, self._lock
+                )
+            )
         connection = self.connection
         self._execute(connection, connection.send_command, *args)
 
@@ -1929,6 +2080,13 @@ class ClusterPipeline(RedisCluster):
         TryAgainError,
     )
 
+    @deprecated_args(
+        args_to_warn=[
+            "cluster_error_retry_attempts",
+        ],
+        reason="Please configure the 'retry' object instead",
+        version="6.0.0",
+    )
     def __init__(
         self,
         nodes_manager: "NodesManager",
@@ -1937,8 +2095,10 @@ class ClusterPipeline(RedisCluster):
         cluster_response_callbacks: Optional[Dict[str, Callable]] = None,
         startup_nodes: Optional[List["ClusterNode"]] = None,
         read_from_replicas: bool = False,
+        load_balancing_strategy: Optional[LoadBalancingStrategy] = None,
         cluster_error_retry_attempts: int = 3,
         reinitialize_steps: int = 5,
+        retry: Optional[Retry] = None,
         lock=None,
         **kwargs,
     ):
@@ -1952,11 +2112,19 @@ class ClusterPipeline(RedisCluster):
         )
         self.startup_nodes = startup_nodes if startup_nodes else []
         self.read_from_replicas = read_from_replicas
+        self.load_balancing_strategy = load_balancing_strategy
         self.command_flags = self.__class__.COMMAND_FLAGS.copy()
         self.cluster_response_callbacks = cluster_response_callbacks
-        self.cluster_error_retry_attempts = cluster_error_retry_attempts
         self.reinitialize_counter = 0
         self.reinitialize_steps = reinitialize_steps
+        if retry is not None:
+            self.retry = retry
+        else:
+            self.retry = Retry(
+                backoff=ExponentialWithJitterBackoff(base=1, cap=10),
+                retries=self.cluster_error_retry_attempts,
+            )
+
         self.encoder = Encoder(
             kwargs.get("encoding", "utf-8"),
             kwargs.get("encoding_errors", "strict"),
@@ -2023,12 +2191,12 @@ class ClusterPipeline(RedisCluster):
         """
         cmd = " ".join(map(safe_str, command))
         msg = (
-            f"Command # {number} ({cmd}) of pipeline "
+            f"Command # {number} ({truncate_text(cmd)}) of pipeline "
             f"caused error: {exception.args[0]}"
         )
         exception.args = (msg,) + exception.args[1:]
 
-    def execute(self, raise_on_error=True):
+    def execute(self, raise_on_error: bool = True) -> List[Any]:
         """
         Execute all the commands in the current pipeline
         """
@@ -2082,7 +2250,7 @@ class ClusterPipeline(RedisCluster):
          - refereh_table_asap set to True
 
         It will try the number of times specified by
-        the config option "self.cluster_error_retry_attempts"
+        the retries in config option "self.retry"
         which defaults to 3 unless manually configured.
 
         If it reaches the number of times, the command will
@@ -2090,7 +2258,7 @@ class ClusterPipeline(RedisCluster):
         """
         if not stack:
             return []
-        retry_attempts = self.cluster_error_retry_attempts
+        retry_attempts = self.retry.get_retries()
         while True:
             try:
                 return self._send_cluster_commands(
@@ -2098,7 +2266,7 @@ class ClusterPipeline(RedisCluster):
                     raise_on_error=raise_on_error,
                     allow_redirections=allow_redirections,
                 )
-            except (ClusterDownError, ConnectionError) as e:
+            except RedisCluster.ERRORS_ALLOW_RETRY as e:
                 if retry_attempts > 0:
                     # Try again with the new cluster setup. All other errors
                     # should be raised.
@@ -2162,8 +2330,8 @@ class ClusterPipeline(RedisCluster):
                 if node_name not in nodes:
                     redis_node = self.get_redis_connection(node)
                     try:
-                        connection = get_connection(redis_node, c.args)
-                    except ConnectionError:
+                        connection = get_connection(redis_node)
+                    except (ConnectionError, TimeoutError):
                         for n in nodes.values():
                             n.connection_pool.release(n.connection)
                         # Connection retries are being handled in the node's

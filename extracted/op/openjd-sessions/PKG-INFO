@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openjd-sessions
-Version: 0.10.1
+Version: 0.10.2
 Summary: Provides a library that can be used to build a runtime that is able to run Jobs in a Session as defined by Open Job Description.
 Project-URL: Homepage, https://github.com/OpenJobDescription/openjd-sessions-for-python
 Project-URL: Source, https://github.com/OpenJobDescription/openjd-sessions-for-python
@@ -24,7 +24,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Requires-Dist: openjd-model<0.8,>=0.6
 Requires-Dist: psutil<7.1,>=5.9; platform_system == 'Windows'
-Requires-Dist: pywin32==308; platform_system == 'Windows'
+Requires-Dist: pywin32>=307; platform_system == 'Windows'
 Description-Content-Type: text/markdown
 
 # Open Job Description - Sessions for Python

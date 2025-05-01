@@ -1,7 +1,7 @@
 r'''
 # `datadog_synthetics_global_variable`
 
-Refer to the Terraform Registry for docs: [`datadog_synthetics_global_variable`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable).
+Refer to the Terraform Registry for docs: [`datadog_synthetics_global_variable`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsGlobalVariable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.syntheticsGlobalVariable.SyntheticsGlobalVariable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable datadog_synthetics_global_variable}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable datadog_synthetics_global_variable}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class SyntheticsGlobalVariable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable datadog_synthetics_global_variable} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable datadog_synthetics_global_variable} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Synthetics global variable name. Must be all uppercase with underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#name SyntheticsGlobalVariable#name}
-        :param description: Description of the global variable. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#description SyntheticsGlobalVariable#description}
-        :param is_fido: If set to true, the global variable is a FIDO variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#is_fido SyntheticsGlobalVariable#is_fido}
-        :param is_totp: If set to true, the global variable is a TOTP variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#is_totp SyntheticsGlobalVariable#is_totp}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#options SyntheticsGlobalVariable#options}
-        :param parse_test_id: Id of the Synthetics test to use for a variable from test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parse_test_id SyntheticsGlobalVariable#parse_test_id}
-        :param parse_test_options: parse_test_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parse_test_options SyntheticsGlobalVariable#parse_test_options}
-        :param restricted_roles: A list of role identifiers to associate with the Synthetics global variable. **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#restricted_roles SyntheticsGlobalVariable#restricted_roles}
-        :param secure: If set to true, the value of the global variable is hidden. This setting is automatically set to ``true`` if ``is_totp`` or ``is_fido`` is set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#secure SyntheticsGlobalVariable#secure}
-        :param tags: A list of tags to associate with your synthetics global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#tags SyntheticsGlobalVariable#tags}
-        :param value: The value of the global variable. Required unless ``is_fido`` is set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
+        :param name: Synthetics global variable name. Must be all uppercase with underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#name SyntheticsGlobalVariable#name}
+        :param description: Description of the global variable. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#description SyntheticsGlobalVariable#description}
+        :param is_fido: If set to true, the global variable is a FIDO variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#is_fido SyntheticsGlobalVariable#is_fido}
+        :param is_totp: If set to true, the global variable is a TOTP variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#is_totp SyntheticsGlobalVariable#is_totp}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#options SyntheticsGlobalVariable#options}
+        :param parse_test_id: Id of the Synthetics test to use for a variable from test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parse_test_id SyntheticsGlobalVariable#parse_test_id}
+        :param parse_test_options: parse_test_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parse_test_options SyntheticsGlobalVariable#parse_test_options}
+        :param restricted_roles: A list of role identifiers to associate with the Synthetics global variable. **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#restricted_roles SyntheticsGlobalVariable#restricted_roles}
+        :param secure: If set to true, the value of the global variable is hidden. This setting is automatically set to ``true`` if ``is_totp`` or ``is_fido`` is set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#secure SyntheticsGlobalVariable#secure}
+        :param tags: A list of tags to associate with your synthetics global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#tags SyntheticsGlobalVariable#tags}
+        :param value: The value of the global variable. Required unless ``is_fido`` is set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class SyntheticsGlobalVariable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsGlobalVariable to import.
-        :param import_from_id: The id of the existing SyntheticsGlobalVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsGlobalVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsGlobalVariable to import is found.
         '''
         if __debug__:
@@ -476,17 +476,17 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Synthetics global variable name. Must be all uppercase with underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#name SyntheticsGlobalVariable#name}
-        :param description: Description of the global variable. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#description SyntheticsGlobalVariable#description}
-        :param is_fido: If set to true, the global variable is a FIDO variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#is_fido SyntheticsGlobalVariable#is_fido}
-        :param is_totp: If set to true, the global variable is a TOTP variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#is_totp SyntheticsGlobalVariable#is_totp}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#options SyntheticsGlobalVariable#options}
-        :param parse_test_id: Id of the Synthetics test to use for a variable from test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parse_test_id SyntheticsGlobalVariable#parse_test_id}
-        :param parse_test_options: parse_test_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parse_test_options SyntheticsGlobalVariable#parse_test_options}
-        :param restricted_roles: A list of role identifiers to associate with the Synthetics global variable. **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#restricted_roles SyntheticsGlobalVariable#restricted_roles}
-        :param secure: If set to true, the value of the global variable is hidden. This setting is automatically set to ``true`` if ``is_totp`` or ``is_fido`` is set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#secure SyntheticsGlobalVariable#secure}
-        :param tags: A list of tags to associate with your synthetics global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#tags SyntheticsGlobalVariable#tags}
-        :param value: The value of the global variable. Required unless ``is_fido`` is set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
+        :param name: Synthetics global variable name. Must be all uppercase with underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#name SyntheticsGlobalVariable#name}
+        :param description: Description of the global variable. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#description SyntheticsGlobalVariable#description}
+        :param is_fido: If set to true, the global variable is a FIDO variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#is_fido SyntheticsGlobalVariable#is_fido}
+        :param is_totp: If set to true, the global variable is a TOTP variable. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#is_totp SyntheticsGlobalVariable#is_totp}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#options SyntheticsGlobalVariable#options}
+        :param parse_test_id: Id of the Synthetics test to use for a variable from test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parse_test_id SyntheticsGlobalVariable#parse_test_id}
+        :param parse_test_options: parse_test_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parse_test_options SyntheticsGlobalVariable#parse_test_options}
+        :param restricted_roles: A list of role identifiers to associate with the Synthetics global variable. **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#restricted_roles SyntheticsGlobalVariable#restricted_roles}
+        :param secure: If set to true, the value of the global variable is hidden. This setting is automatically set to ``true`` if ``is_totp`` or ``is_fido`` is set to ``true``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#secure SyntheticsGlobalVariable#secure}
+        :param tags: A list of tags to associate with your synthetics global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#tags SyntheticsGlobalVariable#tags}
+        :param value: The value of the global variable. Required unless ``is_fido`` is set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -616,7 +616,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Synthetics global variable name. Must be all uppercase with underscores.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#name SyntheticsGlobalVariable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#name SyntheticsGlobalVariable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -626,7 +626,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the global variable. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#description SyntheticsGlobalVariable#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#description SyntheticsGlobalVariable#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -637,7 +637,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, the global variable is a FIDO variable. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#is_fido SyntheticsGlobalVariable#is_fido}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#is_fido SyntheticsGlobalVariable#is_fido}
         '''
         result = self._values.get("is_fido")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -648,7 +648,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, the global variable is a TOTP variable. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#is_totp SyntheticsGlobalVariable#is_totp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#is_totp SyntheticsGlobalVariable#is_totp}
         '''
         result = self._values.get("is_totp")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -659,7 +659,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableOptions"]]]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#options SyntheticsGlobalVariable#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#options SyntheticsGlobalVariable#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableOptions"]]], result)
@@ -668,7 +668,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parse_test_id(self) -> typing.Optional[builtins.str]:
         '''Id of the Synthetics test to use for a variable from test.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parse_test_id SyntheticsGlobalVariable#parse_test_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parse_test_id SyntheticsGlobalVariable#parse_test_id}
         '''
         result = self._values.get("parse_test_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -679,7 +679,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableParseTestOptions"]]]:
         '''parse_test_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parse_test_options SyntheticsGlobalVariable#parse_test_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parse_test_options SyntheticsGlobalVariable#parse_test_options}
         '''
         result = self._values.get("parse_test_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableParseTestOptions"]]], result)
@@ -690,7 +690,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         **Deprecated.** This field is no longer supported by the Datadog API. Please use ``datadog_restriction_policy`` instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#restricted_roles SyntheticsGlobalVariable#restricted_roles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#restricted_roles SyntheticsGlobalVariable#restricted_roles}
         '''
         result = self._values.get("restricted_roles")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -703,7 +703,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This setting is automatically set to ``true`` if ``is_totp`` or ``is_fido`` is set to ``true``. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#secure SyntheticsGlobalVariable#secure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#secure SyntheticsGlobalVariable#secure}
         '''
         result = self._values.get("secure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -712,7 +712,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of tags to associate with your synthetics global variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#tags SyntheticsGlobalVariable#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#tags SyntheticsGlobalVariable#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -721,7 +721,7 @@ class SyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> typing.Optional[builtins.str]:
         '''The value of the global variable. Required unless ``is_fido`` is set to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -750,7 +750,7 @@ class SyntheticsGlobalVariableOptions:
         totp_parameters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SyntheticsGlobalVariableOptionsTotpParameters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param totp_parameters: totp_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#totp_parameters SyntheticsGlobalVariable#totp_parameters}
+        :param totp_parameters: totp_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#totp_parameters SyntheticsGlobalVariable#totp_parameters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6755b31a7df04a8db65d6898f0ef5aa4b064fe9b1caa7502bba98f1d772ccd3e)
@@ -765,7 +765,7 @@ class SyntheticsGlobalVariableOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableOptionsTotpParameters"]]]:
         '''totp_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#totp_parameters SyntheticsGlobalVariable#totp_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#totp_parameters SyntheticsGlobalVariable#totp_parameters}
         '''
         result = self._values.get("totp_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableOptionsTotpParameters"]]], result)
@@ -956,8 +956,8 @@ class SyntheticsGlobalVariableOptionsOutputReference(
 class SyntheticsGlobalVariableOptionsTotpParameters:
     def __init__(self, *, digits: jsii.Number, refresh_interval: jsii.Number) -> None:
         '''
-        :param digits: Number of digits for the OTP. Value must be between 4 and 10. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#digits SyntheticsGlobalVariable#digits}
-        :param refresh_interval: Interval for which to refresh the token (in seconds). Value must be between 0 and 999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#refresh_interval SyntheticsGlobalVariable#refresh_interval}
+        :param digits: Number of digits for the OTP. Value must be between 4 and 10. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#digits SyntheticsGlobalVariable#digits}
+        :param refresh_interval: Interval for which to refresh the token (in seconds). Value must be between 0 and 999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#refresh_interval SyntheticsGlobalVariable#refresh_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aac5605417c7af6025d3f2a58df590a0db1e967ab31fb237ef913c2a3cb09927)
@@ -972,7 +972,7 @@ class SyntheticsGlobalVariableOptionsTotpParameters:
     def digits(self) -> jsii.Number:
         '''Number of digits for the OTP. Value must be between 4 and 10.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#digits SyntheticsGlobalVariable#digits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#digits SyntheticsGlobalVariable#digits}
         '''
         result = self._values.get("digits")
         assert result is not None, "Required property 'digits' is missing"
@@ -982,7 +982,7 @@ class SyntheticsGlobalVariableOptionsTotpParameters:
     def refresh_interval(self) -> jsii.Number:
         '''Interval for which to refresh the token (in seconds). Value must be between 0 and 999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#refresh_interval SyntheticsGlobalVariable#refresh_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#refresh_interval SyntheticsGlobalVariable#refresh_interval}
         '''
         result = self._values.get("refresh_interval")
         assert result is not None, "Required property 'refresh_interval' is missing"
@@ -1191,10 +1191,10 @@ class SyntheticsGlobalVariableParseTestOptions:
         parser: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SyntheticsGlobalVariableParseTestOptionsParser", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param type: Defines the source to use to extract the value. Valid values are ``http_body``, ``http_header``, ``http_status_code``, ``local_variable``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
-        :param field: Required when type = ``http_header``. Defines the header to use to extract the value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#field SyntheticsGlobalVariable#field}
-        :param local_variable_name: When type is ``local_variable``, name of the local variable to use to extract the value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#local_variable_name SyntheticsGlobalVariable#local_variable_name}
-        :param parser: parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parser SyntheticsGlobalVariable#parser}
+        :param type: Defines the source to use to extract the value. Valid values are ``http_body``, ``http_header``, ``http_status_code``, ``local_variable``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
+        :param field: Required when type = ``http_header``. Defines the header to use to extract the value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#field SyntheticsGlobalVariable#field}
+        :param local_variable_name: When type is ``local_variable``, name of the local variable to use to extract the value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#local_variable_name SyntheticsGlobalVariable#local_variable_name}
+        :param parser: parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parser SyntheticsGlobalVariable#parser}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c891479c2ff58d4c7ee95c32ffb1c6e8113a005dc333ae5da8f69c0969c47b60)
@@ -1216,7 +1216,7 @@ class SyntheticsGlobalVariableParseTestOptions:
     def type(self) -> builtins.str:
         '''Defines the source to use to extract the value. Valid values are ``http_body``, ``http_header``, ``http_status_code``, ``local_variable``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1226,7 +1226,7 @@ class SyntheticsGlobalVariableParseTestOptions:
     def field(self) -> typing.Optional[builtins.str]:
         '''Required when type = ``http_header``. Defines the header to use to extract the value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#field SyntheticsGlobalVariable#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#field SyntheticsGlobalVariable#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1235,7 +1235,7 @@ class SyntheticsGlobalVariableParseTestOptions:
     def local_variable_name(self) -> typing.Optional[builtins.str]:
         '''When type is ``local_variable``, name of the local variable to use to extract the value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#local_variable_name SyntheticsGlobalVariable#local_variable_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#local_variable_name SyntheticsGlobalVariable#local_variable_name}
         '''
         result = self._values.get("local_variable_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1246,7 +1246,7 @@ class SyntheticsGlobalVariableParseTestOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableParseTestOptionsParser"]]]:
         '''parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#parser SyntheticsGlobalVariable#parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#parser SyntheticsGlobalVariable#parser}
         '''
         result = self._values.get("parser")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsGlobalVariableParseTestOptionsParser"]]], result)
@@ -1501,8 +1501,8 @@ class SyntheticsGlobalVariableParseTestOptionsParser:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of parser to extract the value. Valid values are ``raw``, ``json_path``, ``regex``, ``x_path``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
-        :param value: Value for the parser to use, required for type ``json_path`` or ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
+        :param type: Type of parser to extract the value. Valid values are ``raw``, ``json_path``, ``regex``, ``x_path``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
+        :param value: Value for the parser to use, required for type ``json_path`` or ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b61d4325df063e55e3376869c11f80e380138b0acca80b527a4305e8f7d8ecc)
@@ -1518,7 +1518,7 @@ class SyntheticsGlobalVariableParseTestOptionsParser:
     def type(self) -> builtins.str:
         '''Type of parser to extract the value. Valid values are ``raw``, ``json_path``, ``regex``, ``x_path``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#type SyntheticsGlobalVariable#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1528,7 +1528,7 @@ class SyntheticsGlobalVariableParseTestOptionsParser:
     def value(self) -> typing.Optional[builtins.str]:
         '''Value for the parser to use, required for type ``json_path`` or ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/synthetics_global_variable#value SyntheticsGlobalVariable#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)

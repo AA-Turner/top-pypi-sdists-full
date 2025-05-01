@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_datadog
-Version: 4.49.1
+Version: 4.50.0
 Summary: A Pulumi package for creating and managing Datadog resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

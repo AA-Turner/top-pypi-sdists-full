@@ -1,14 +1,11 @@
 import typing
 import warnings
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from typing import (
     Any,
-    Callable,
     ClassVar,
-    Optional,
-    Union,
 )
 
 import numpy as np
@@ -62,7 +59,6 @@ from napari.utils.events import EmitterGroup, Event
 from napari.utils.events.custom_types import Array
 from napari.utils.misc import StringEnum, _is_array_type
 from napari.utils.naming import magic_name
-from napari.utils.status_messages import generate_layer_coords_status
 from napari.utils.translations import trans
 
 __all__ = ('Labels',)
@@ -463,7 +459,7 @@ class Labels(ScalarFieldBase):
         return str(self._iso_gradient_mode)
 
     @iso_gradient_mode.setter
-    def iso_gradient_mode(self, value: Union[IsoCategoricalGradientMode, str]):
+    def iso_gradient_mode(self, value: IsoCategoricalGradientMode | str):
         self._iso_gradient_mode = IsoCategoricalGradientMode(value)
         self.events.iso_gradient_mode()
 
@@ -519,7 +515,7 @@ class Labels(ScalarFieldBase):
         )
         return abs(self.brush_size * min_scale)
 
-    def new_colormap(self, seed: Optional[int] = None):
+    def new_colormap(self, seed: int | None = None):
         if seed is None:
             seed = np.random.default_rng().integers(2**32 - 1)
 
@@ -568,12 +564,12 @@ class Labels(ScalarFieldBase):
         self.refresh(extent=False)
 
     @property
-    def data(self) -> Union[LayerDataProtocol, MultiScaleData]:
+    def data(self) -> LayerDataProtocol | MultiScaleData:
         """array: Image data."""
         return self._data
 
     @data.setter
-    def data(self, data: Union[LayerDataProtocol, MultiScaleData]):
+    def data(self, data: LayerDataProtocol | MultiScaleData):
         data = self._ensure_int_labels(data)
         self._data = data
         self._ndim = len(self._data.shape)
@@ -602,7 +598,7 @@ class Labels(ScalarFieldBase):
     @features.setter
     def features(
         self,
-        features: Union[dict[str, np.ndarray], pd.DataFrame],
+        features: dict[str, np.ndarray] | pd.DataFrame,
     ) -> None:
         self._feature_table.set_values(features)
         self._label_index = self._make_label_index()
@@ -712,8 +708,12 @@ class Labels(ScalarFieldBase):
     def selected_label(self, selected_label):
         if selected_label == self.selected_label:
             return
-
-        self._prev_selected_label = self.selected_label
+        # when setting the label to the background, store the previous
+        # otherwise, clear it
+        if selected_label == self.colormap.background_value:
+            self._prev_selected_label = self.selected_label
+        else:
+            self._prev_selected_label = None
         self.colormap.selection = selected_label
         self._selected_label = selected_label
         self._selected_color = self.get_color(selected_label)
@@ -860,7 +860,7 @@ class Labels(ScalarFieldBase):
 
     def _calculate_contour(
         self, labels: np.ndarray, data_slice: tuple[slice, ...]
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """Calculate the contour of a given label array within the specified data slice.
 
         Parameters
@@ -898,12 +898,12 @@ class Labels(ScalarFieldBase):
         # Remove the latest one-pixel border from the result
         delta_slice = tuple(
             slice(s1.start - s2.start, s1.stop - s2.start)
-            for s1, s2 in zip(data_slice, expanded_slice)
+            for s1, s2 in zip(data_slice, expanded_slice, strict=False)
         )
         return sliced_labels[delta_slice]
 
     def _raw_to_displayed(
-        self, raw, data_slice: Optional[tuple[slice, ...]] = None
+        self, raw, data_slice: tuple[slice, ...] | None = None
     ) -> np.ndarray:
         """Determine displayed image from a saved raw image and a saved seed.
 
@@ -1117,8 +1117,16 @@ class Labels(ScalarFieldBase):
 
         # If requested new label doesn't change old label then return
         old_label = np.asarray(self.data[int_coord]).item()
-        if old_label == new_label or (
+        if old_label == new_label:
+            return
+        # If preserve_labels is True, then we only want to fill:
+        # - pixels of the background label, filling with the new label
+        # - pixels of the previous label, filling with the background
+        # the previous label is stored when the selected label is set
+        # to the background, e.g. by swap_selected_and_background_labels
+        if (
             self.preserve_labels
+            and old_label != self._prev_selected_label
             and old_label != self.colormap.background_value
         ):
             return
@@ -1314,10 +1322,14 @@ class Labels(ScalarFieldBase):
 
         # slice coord is a tuple of coordinate arrays per dimension
         # subset it if we want to only paint into background/only erase
-        # current label
+        # current label, accounting for swap_selected_and_background_labels
         if self.preserve_labels:
             if new_label == self.colormap.background_value:
-                keep_coords = self.data[slice_coord] == self.selected_label
+                keep_coords = self.data[slice_coord] == (
+                    self._prev_selected_label
+                    if self._prev_selected_label
+                    else self.selected_label
+                )
             else:
                 keep_coords = (
                     self.data[slice_coord] == self.colormap.background_value
@@ -1441,7 +1453,9 @@ class Labels(ScalarFieldBase):
             self._updated_slice = tuple(
                 [
                     slice(min(s1.start, s2.start), max(s1.stop, s2.stop))
-                    for s1, s2 in zip(updated_slice, self._updated_slice)
+                    for s1, s2 in zip(
+                        updated_slice, self._updated_slice, strict=False
+                    )
                 ]
             )
 
@@ -1456,12 +1470,13 @@ class Labels(ScalarFieldBase):
 
     def get_status(
         self,
-        position: Optional[npt.ArrayLike] = None,
+        position: npt.ArrayLike | None = None,
         *,
-        view_direction: Optional[npt.ArrayLike] = None,
-        dims_displayed: Optional[list[int]] = None,
+        view_direction: npt.ArrayLike | None = None,
+        dims_displayed: list[int] | None = None,
         world: bool = False,
-    ) -> dict:
+        value: Any | None = None,
+    ) -> dict[str, str]:
         """Status message information of the data at a coordinate position.
 
         Parameters
@@ -1480,25 +1495,15 @@ class Labels(ScalarFieldBase):
 
         Returns
         -------
-        source_info : dict
+        status : dict
             Dict containing a information that can be used in a status update.
         """
-        if position is not None:
-            value = self.get_value(
-                position,
-                view_direction=view_direction,
-                dims_displayed=dims_displayed,
-                world=world,
-            )
-        else:
-            value = None
-
-        source_info = self._get_source_info()
-
-        pos = position
-        if pos is not None:
-            pos = np.asarray(pos)[-self.ndim :]
-        source_info['coordinates'] = generate_layer_coords_status(pos, value)
+        status = super().get_status(
+            position,
+            view_direction=view_direction,
+            dims_displayed=dims_displayed,
+            world=world,
+        )
 
         # if this labels layer has properties
         properties = self._get_properties(
@@ -1508,16 +1513,17 @@ class Labels(ScalarFieldBase):
             world=world,
         )
         if properties:
-            source_info['coordinates'] += '; ' + ', '.join(properties)
+            status['coordinates'] += '; ' + ', '.join(properties)
+            status['value'] += '; ' + ', '.join(properties)
 
-        return source_info
+        return status
 
     def _get_tooltip_text(
         self,
         position,
         *,
-        view_direction: Optional[np.ndarray] = None,
-        dims_displayed: Optional[list[int]] = None,
+        view_direction: np.ndarray | None = None,
+        dims_displayed: list[int] | None = None,
         world: bool = False,
     ):
         """
@@ -1555,8 +1561,8 @@ class Labels(ScalarFieldBase):
         self,
         position,
         *,
-        view_direction: Optional[np.ndarray] = None,
-        dims_displayed: Optional[list[int]] = None,
+        view_direction: np.ndarray | None = None,
+        dims_displayed: list[int] | None = None,
         world: bool = False,
     ) -> list:
         if len(self._label_index) == 0 or self.features.shape[1] == 0:

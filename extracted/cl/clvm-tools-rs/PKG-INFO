@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: clvm_tools_rs
-Version: 0.1.48
+Version: 0.2.0
 License-File: LICENSE
 Summary: tools for working with chialisp language; compiler, repl, python and wasm bindings
 Keywords: chia,chialisp,clvm

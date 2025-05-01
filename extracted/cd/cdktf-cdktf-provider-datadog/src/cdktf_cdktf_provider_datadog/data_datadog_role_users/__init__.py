@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_role_users`
 
-Refer to the Terraform Registry for docs: [`data_datadog_role_users`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users).
+Refer to the Terraform Registry for docs: [`data_datadog_role_users`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogRoleUsers(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogRoleUsers.DataDatadogRoleUsers",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users datadog_role_users}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users datadog_role_users}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataDatadogRoleUsers(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users datadog_role_users} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users datadog_role_users} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param role_id: The role's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#role_id DataDatadogRoleUsers#role_id}
-        :param exact_match: When true, ``filter_keyword`` string is exact matched against the user's ``name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#exact_match DataDatadogRoleUsers#exact_match}
-        :param filter: Search query, can be user name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#filter DataDatadogRoleUsers#filter}
+        :param role_id: The role's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#role_id DataDatadogRoleUsers#role_id}
+        :param exact_match: When true, ``filter_keyword`` string is exact matched against the user's ``name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#exact_match DataDatadogRoleUsers#exact_match}
+        :param filter: Search query, can be user name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#filter DataDatadogRoleUsers#filter}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataDatadogRoleUsers(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogRoleUsers to import.
-        :param import_from_id: The id of the existing DataDatadogRoleUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogRoleUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogRoleUsers to import is found.
         '''
         if __debug__:
@@ -247,9 +247,9 @@ class DataDatadogRoleUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param role_id: The role's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#role_id DataDatadogRoleUsers#role_id}
-        :param exact_match: When true, ``filter_keyword`` string is exact matched against the user's ``name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#exact_match DataDatadogRoleUsers#exact_match}
-        :param filter: Search query, can be user name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#filter DataDatadogRoleUsers#filter}
+        :param role_id: The role's identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#role_id DataDatadogRoleUsers#role_id}
+        :param exact_match: When true, ``filter_keyword`` string is exact matched against the user's ``name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#exact_match DataDatadogRoleUsers#exact_match}
+        :param filter: Search query, can be user name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#filter DataDatadogRoleUsers#filter}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -355,7 +355,7 @@ class DataDatadogRoleUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_id(self) -> builtins.str:
         '''The role's identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#role_id DataDatadogRoleUsers#role_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#role_id DataDatadogRoleUsers#role_id}
         '''
         result = self._values.get("role_id")
         assert result is not None, "Required property 'role_id' is missing"
@@ -367,7 +367,7 @@ class DataDatadogRoleUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, ``filter_keyword`` string is exact matched against the user's ``name``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#exact_match DataDatadogRoleUsers#exact_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#exact_match DataDatadogRoleUsers#exact_match}
         '''
         result = self._values.get("exact_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -376,7 +376,7 @@ class DataDatadogRoleUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional[builtins.str]:
         '''Search query, can be user name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/role_users#filter DataDatadogRoleUsers#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/role_users#filter DataDatadogRoleUsers#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)

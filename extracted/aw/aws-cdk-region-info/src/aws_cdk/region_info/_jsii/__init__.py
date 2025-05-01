@@ -29,7 +29,7 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
                 typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "@aws-cdk/region-info", "2.192.0", __name__[0:-6], "region-info@2.192.0.jsii.tgz"
+    "@aws-cdk/region-info", "2.193.0", __name__[0:-6], "region-info@2.193.0.jsii.tgz"
 )
 
 __all__ = [

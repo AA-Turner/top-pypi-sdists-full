@@ -83,13 +83,13 @@ pub trait SpecsAdapter: Send + Sync {
 }
 
 pub struct SpecsUpdate {
-    pub data: String,
+    pub data: Vec<u8>,
     pub source: SpecsSource,
     pub received_at: u64,
 }
 
 #[repr(C)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SpecsInfo {
     pub lcut: Option<u64>,
     pub checksum: Option<String>,

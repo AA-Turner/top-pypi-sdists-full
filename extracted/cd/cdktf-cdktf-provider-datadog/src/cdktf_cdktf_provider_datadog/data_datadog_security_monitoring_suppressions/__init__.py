@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_security_monitoring_suppressions`
 
-Refer to the Terraform Registry for docs: [`data_datadog_security_monitoring_suppressions`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/security_monitoring_suppressions).
+Refer to the Terraform Registry for docs: [`data_datadog_security_monitoring_suppressions`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/security_monitoring_suppressions).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogSecurityMonitoringSuppressions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogSecurityMonitoringSuppressions.DataDatadogSecurityMonitoringSuppressions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/security_monitoring_suppressions datadog_security_monitoring_suppressions}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/security_monitoring_suppressions datadog_security_monitoring_suppressions}.'''
 
     def __init__(
         self,
@@ -59,7 +59,7 @@ class DataDatadogSecurityMonitoringSuppressions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/security_monitoring_suppressions datadog_security_monitoring_suppressions} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/security_monitoring_suppressions datadog_security_monitoring_suppressions} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
@@ -100,7 +100,7 @@ class DataDatadogSecurityMonitoringSuppressions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogSecurityMonitoringSuppressions to import.
-        :param import_from_id: The id of the existing DataDatadogSecurityMonitoringSuppressions that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/security_monitoring_suppressions#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogSecurityMonitoringSuppressions that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/security_monitoring_suppressions#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogSecurityMonitoringSuppressions to import is found.
         '''
         if __debug__:

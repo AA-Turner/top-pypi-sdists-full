@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hcloud
-Version: 2.5.0
+Version: 2.5.1
 Summary: Official Hetzner Cloud python library
 Home-page: https://github.com/hetznercloud/hcloud-python
 Author: Hetzner Cloud GmbH

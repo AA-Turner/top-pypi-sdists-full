@@ -1,7 +1,7 @@
 r'''
 # `datadog_cloud_configuration_rule`
 
-Refer to the Terraform Registry for docs: [`datadog_cloud_configuration_rule`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule).
+Refer to the Terraform Registry for docs: [`datadog_cloud_configuration_rule`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudConfigurationRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.cloudConfigurationRule.CloudConfigurationRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule datadog_cloud_configuration_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule datadog_cloud_configuration_rule}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class CloudConfigurationRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule datadog_cloud_configuration_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule datadog_cloud_configuration_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Whether the cloud configuration rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#enabled CloudConfigurationRule#enabled}
-        :param message: The message associated to the rule that will be shown in findings and signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#message CloudConfigurationRule#message}
-        :param name: The name of the cloud configuration rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#name CloudConfigurationRule#name}
-        :param policy: Policy written in Rego format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#policy CloudConfigurationRule#policy}
-        :param resource_type: Main resource type to be checked by the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#resource_type CloudConfigurationRule#resource_type}
-        :param severity: Severity of the rule and associated signals. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#severity CloudConfigurationRule#severity}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#filter CloudConfigurationRule#filter}
+        :param enabled: Whether the cloud configuration rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#enabled CloudConfigurationRule#enabled}
+        :param message: The message associated to the rule that will be shown in findings and signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#message CloudConfigurationRule#message}
+        :param name: The name of the cloud configuration rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#name CloudConfigurationRule#name}
+        :param policy: Policy written in Rego format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#policy CloudConfigurationRule#policy}
+        :param resource_type: Main resource type to be checked by the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#resource_type CloudConfigurationRule#resource_type}
+        :param severity: Severity of the rule and associated signals. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#severity CloudConfigurationRule#severity}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#filter CloudConfigurationRule#filter}
         :param group_by: Defaults to empty list. This function will be deprecated soon. Use the notification rules function instead. Fields to group by when generating signals, e.g.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#id CloudConfigurationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notifications: This function will be deprecated soon. Use the notification rules function instead. Notification targets for signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#notifications CloudConfigurationRule#notifications}
-        :param related_resource_types: Related resource types to be checked by the rule. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#related_resource_types CloudConfigurationRule#related_resource_types}
-        :param tags: Tags of the rule, propagated to findings and signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#tags CloudConfigurationRule#tags}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#id CloudConfigurationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notifications: This function will be deprecated soon. Use the notification rules function instead. Notification targets for signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#notifications CloudConfigurationRule#notifications}
+        :param related_resource_types: Related resource types to be checked by the rule. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#related_resource_types CloudConfigurationRule#related_resource_types}
+        :param tags: Tags of the rule, propagated to findings and signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#tags CloudConfigurationRule#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class CloudConfigurationRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudConfigurationRule to import.
-        :param import_from_id: The id of the existing CloudConfigurationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudConfigurationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudConfigurationRule to import is found.
         '''
         if __debug__:
@@ -461,18 +461,18 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Whether the cloud configuration rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#enabled CloudConfigurationRule#enabled}
-        :param message: The message associated to the rule that will be shown in findings and signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#message CloudConfigurationRule#message}
-        :param name: The name of the cloud configuration rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#name CloudConfigurationRule#name}
-        :param policy: Policy written in Rego format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#policy CloudConfigurationRule#policy}
-        :param resource_type: Main resource type to be checked by the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#resource_type CloudConfigurationRule#resource_type}
-        :param severity: Severity of the rule and associated signals. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#severity CloudConfigurationRule#severity}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#filter CloudConfigurationRule#filter}
+        :param enabled: Whether the cloud configuration rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#enabled CloudConfigurationRule#enabled}
+        :param message: The message associated to the rule that will be shown in findings and signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#message CloudConfigurationRule#message}
+        :param name: The name of the cloud configuration rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#name CloudConfigurationRule#name}
+        :param policy: Policy written in Rego format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#policy CloudConfigurationRule#policy}
+        :param resource_type: Main resource type to be checked by the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#resource_type CloudConfigurationRule#resource_type}
+        :param severity: Severity of the rule and associated signals. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#severity CloudConfigurationRule#severity}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#filter CloudConfigurationRule#filter}
         :param group_by: Defaults to empty list. This function will be deprecated soon. Use the notification rules function instead. Fields to group by when generating signals, e.g.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#id CloudConfigurationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notifications: This function will be deprecated soon. Use the notification rules function instead. Notification targets for signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#notifications CloudConfigurationRule#notifications}
-        :param related_resource_types: Related resource types to be checked by the rule. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#related_resource_types CloudConfigurationRule#related_resource_types}
-        :param tags: Tags of the rule, propagated to findings and signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#tags CloudConfigurationRule#tags}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#id CloudConfigurationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notifications: This function will be deprecated soon. Use the notification rules function instead. Notification targets for signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#notifications CloudConfigurationRule#notifications}
+        :param related_resource_types: Related resource types to be checked by the rule. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#related_resource_types CloudConfigurationRule#related_resource_types}
+        :param tags: Tags of the rule, propagated to findings and signals. Defaults to empty list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#tags CloudConfigurationRule#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -600,7 +600,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the cloud configuration rule is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#enabled CloudConfigurationRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#enabled CloudConfigurationRule#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -610,7 +610,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def message(self) -> builtins.str:
         '''The message associated to the rule that will be shown in findings and signals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#message CloudConfigurationRule#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#message CloudConfigurationRule#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -620,7 +620,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the cloud configuration rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#name CloudConfigurationRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#name CloudConfigurationRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -630,7 +630,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy(self) -> builtins.str:
         '''Policy written in Rego format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#policy CloudConfigurationRule#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#policy CloudConfigurationRule#policy}
         '''
         result = self._values.get("policy")
         assert result is not None, "Required property 'policy' is missing"
@@ -640,7 +640,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_type(self) -> builtins.str:
         '''Main resource type to be checked by the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#resource_type CloudConfigurationRule#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#resource_type CloudConfigurationRule#resource_type}
         '''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
@@ -650,7 +650,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def severity(self) -> builtins.str:
         '''Severity of the rule and associated signals. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#severity CloudConfigurationRule#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#severity CloudConfigurationRule#severity}
         '''
         result = self._values.get("severity")
         assert result is not None, "Required property 'severity' is missing"
@@ -662,7 +662,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudConfigurationRuleFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#filter CloudConfigurationRule#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#filter CloudConfigurationRule#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudConfigurationRuleFilter"]]], result)
@@ -677,14 +677,14 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         .
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#group_by CloudConfigurationRule#group_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#group_by CloudConfigurationRule#group_by}
         '''
         result = self._values.get("group_by")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#id CloudConfigurationRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#id CloudConfigurationRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -698,7 +698,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Use the notification rules function instead. Notification targets for signals. Defaults to empty list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#notifications CloudConfigurationRule#notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#notifications CloudConfigurationRule#notifications}
         '''
         result = self._values.get("notifications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -707,7 +707,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def related_resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Related resource types to be checked by the rule. Defaults to empty list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#related_resource_types CloudConfigurationRule#related_resource_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#related_resource_types CloudConfigurationRule#related_resource_types}
         '''
         result = self._values.get("related_resource_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -716,7 +716,7 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags of the rule, propagated to findings and signals. Defaults to empty list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#tags CloudConfigurationRule#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#tags CloudConfigurationRule#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -741,8 +741,8 @@ class CloudConfigurationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CloudConfigurationRuleFilter:
     def __init__(self, *, action: builtins.str, query: builtins.str) -> None:
         '''
-        :param action: The type of filtering action. Valid values are ``require``, ``suppress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#action CloudConfigurationRule#action}
-        :param query: Query for selecting logs to apply the filtering action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#query CloudConfigurationRule#query}
+        :param action: The type of filtering action. Valid values are ``require``, ``suppress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#action CloudConfigurationRule#action}
+        :param query: Query for selecting logs to apply the filtering action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#query CloudConfigurationRule#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6cab78fedde90277b3c3a5790f1a77a075bdb2984c601d22f71e94aead7663f)
@@ -757,7 +757,7 @@ class CloudConfigurationRuleFilter:
     def action(self) -> builtins.str:
         '''The type of filtering action. Valid values are ``require``, ``suppress``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#action CloudConfigurationRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#action CloudConfigurationRule#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -767,7 +767,7 @@ class CloudConfigurationRuleFilter:
     def query(self) -> builtins.str:
         '''Query for selecting logs to apply the filtering action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/cloud_configuration_rule#query CloudConfigurationRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/cloud_configuration_rule#query CloudConfigurationRule#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"

@@ -1,7 +1,7 @@
 r'''
 # `datadog_logs_pipeline_order`
 
-Refer to the Terraform Registry for docs: [`datadog_logs_pipeline_order`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order).
+Refer to the Terraform Registry for docs: [`datadog_logs_pipeline_order`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogsPipelineOrder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.logsPipelineOrder.LogsPipelineOrder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order datadog_logs_pipeline_order}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order datadog_logs_pipeline_order}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class LogsPipelineOrder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order datadog_logs_pipeline_order} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order datadog_logs_pipeline_order} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name attribute in the resource ``datadog_logs_pipeline_order`` needs to be unique. It's recommended to use the same value as the resource name. No related field is available in `Logs Pipeline API <https://docs.datadoghq.com/api/v1/logs-pipelines/#get-pipeline-order>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#name LogsPipelineOrder#name}
-        :param pipelines: The pipeline IDs list. The order of pipeline IDs in this attribute defines the overall pipeline order for logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#pipelines LogsPipelineOrder#pipelines}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#id LogsPipelineOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name attribute in the resource ``datadog_logs_pipeline_order`` needs to be unique. It's recommended to use the same value as the resource name. No related field is available in `Logs Pipeline API <https://docs.datadoghq.com/api/v1/logs-pipelines/#get-pipeline-order>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#name LogsPipelineOrder#name}
+        :param pipelines: The pipeline IDs list. The order of pipeline IDs in this attribute defines the overall pipeline order for logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#pipelines LogsPipelineOrder#pipelines}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#id LogsPipelineOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class LogsPipelineOrder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogsPipelineOrder to import.
-        :param import_from_id: The id of the existing LogsPipelineOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogsPipelineOrder that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogsPipelineOrder to import is found.
         '''
         if __debug__:
@@ -228,9 +228,9 @@ class LogsPipelineOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name attribute in the resource ``datadog_logs_pipeline_order`` needs to be unique. It's recommended to use the same value as the resource name. No related field is available in `Logs Pipeline API <https://docs.datadoghq.com/api/v1/logs-pipelines/#get-pipeline-order>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#name LogsPipelineOrder#name}
-        :param pipelines: The pipeline IDs list. The order of pipeline IDs in this attribute defines the overall pipeline order for logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#pipelines LogsPipelineOrder#pipelines}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#id LogsPipelineOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name attribute in the resource ``datadog_logs_pipeline_order`` needs to be unique. It's recommended to use the same value as the resource name. No related field is available in `Logs Pipeline API <https://docs.datadoghq.com/api/v1/logs-pipelines/#get-pipeline-order>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#name LogsPipelineOrder#name}
+        :param pipelines: The pipeline IDs list. The order of pipeline IDs in this attribute defines the overall pipeline order for logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#pipelines LogsPipelineOrder#pipelines}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#id LogsPipelineOrder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -337,7 +337,7 @@ class LogsPipelineOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         It's recommended to use the same value as the resource name. No related field is available in `Logs Pipeline API <https://docs.datadoghq.com/api/v1/logs-pipelines/#get-pipeline-order>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#name LogsPipelineOrder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#name LogsPipelineOrder#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -347,7 +347,7 @@ class LogsPipelineOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pipelines(self) -> typing.List[builtins.str]:
         '''The pipeline IDs list. The order of pipeline IDs in this attribute defines the overall pipeline order for logs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#pipelines LogsPipelineOrder#pipelines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#pipelines LogsPipelineOrder#pipelines}
         '''
         result = self._values.get("pipelines")
         assert result is not None, "Required property 'pipelines' is missing"
@@ -355,7 +355,7 @@ class LogsPipelineOrderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/logs_pipeline_order#id LogsPipelineOrder#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/logs_pipeline_order#id LogsPipelineOrder#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ops
-Version: 2.21.0
+Version: 2.21.1
 Summary: The Python library behind great charms
 Author: The Charm Tech team at Canonical Ltd.
 Project-URL: Homepage, https://juju.is/docs/sdk
@@ -37,9 +37,9 @@ Requires-Dist: sphinx-tabs; extra == "docs"
 Requires-Dist: sphinxcontrib-jquery; extra == "docs"
 Requires-Dist: sphinxext-opengraph; extra == "docs"
 Provides-Extra: testing
-Requires-Dist: ops-scenario==7.21.0; extra == "testing"
+Requires-Dist: ops-scenario==7.21.1; extra == "testing"
 Provides-Extra: tracing
-Requires-Dist: ops-tracing==2.21.0; extra == "tracing"
+Requires-Dist: ops-tracing==2.21.1; extra == "tracing"
 Provides-Extra: harness
 Dynamic: license-file
 

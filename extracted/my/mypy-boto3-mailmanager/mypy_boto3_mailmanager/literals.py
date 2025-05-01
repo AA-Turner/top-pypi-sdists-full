@@ -80,6 +80,8 @@ __all__ = (
     "RuleVerdictType",
     "SearchStateType",
     "ServiceName",
+    "SnsNotificationEncodingType",
+    "SnsNotificationPayloadTypeType",
 )
 
 
@@ -168,6 +170,8 @@ RuleVerdictAttributeType = Literal["DKIM", "SPF"]
 RuleVerdictOperatorType = Literal["EQUALS", "NOT_EQUALS"]
 RuleVerdictType = Literal["FAIL", "GRAY", "PASS", "PROCESSING_FAILED"]
 SearchStateType = Literal["CANCELLED", "COMPLETED", "FAILED", "QUEUED", "RUNNING"]
+SnsNotificationEncodingType = Literal["BASE64", "UTF-8"]
+SnsNotificationPayloadTypeType = Literal["CONTENT", "HEADERS"]
 MailManagerServiceName = Literal["mailmanager"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -535,6 +539,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

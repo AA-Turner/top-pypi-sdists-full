@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sleipnirgroup-jormungandr
-Version: 0.0.1.dev459
+Version: 0.0.1.dev460
 Summary: A linearity-exploiting sparse nonlinear constrained optimization problem solver that uses the interior-point method.
 License: Copyright (c) Sleipnir contributors
         

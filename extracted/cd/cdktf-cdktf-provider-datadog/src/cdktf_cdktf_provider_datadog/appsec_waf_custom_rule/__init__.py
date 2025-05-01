@@ -1,7 +1,7 @@
 r'''
 # `datadog_appsec_waf_custom_rule`
 
-Refer to the Terraform Registry for docs: [`datadog_appsec_waf_custom_rule`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule).
+Refer to the Terraform Registry for docs: [`datadog_appsec_waf_custom_rule`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppsecWafCustomRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.appsecWafCustomRule.AppsecWafCustomRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule datadog_appsec_waf_custom_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule datadog_appsec_waf_custom_rule}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class AppsecWafCustomRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule datadog_appsec_waf_custom_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule datadog_appsec_waf_custom_rule} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param blocking: Indicates whether the WAF custom rule will block the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#blocking AppsecWafCustomRule#blocking}
-        :param enabled: Indicates whether the WAF custom rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#enabled AppsecWafCustomRule#enabled}
-        :param name: The Name of the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#name AppsecWafCustomRule#name}
-        :param tags: Tags associated with the WAF custom rule. ``category`` and ``type`` tags are required. Supported categories include ``business_logic``, ``attack_attempt`` and ``security_response``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#tags AppsecWafCustomRule#tags}
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#condition AppsecWafCustomRule#condition}
-        :param path_glob: The path glob for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#path_glob AppsecWafCustomRule#path_glob}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#scope AppsecWafCustomRule#scope}
+        :param blocking: Indicates whether the WAF custom rule will block the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#blocking AppsecWafCustomRule#blocking}
+        :param enabled: Indicates whether the WAF custom rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#enabled AppsecWafCustomRule#enabled}
+        :param name: The Name of the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#name AppsecWafCustomRule#name}
+        :param tags: Tags associated with the WAF custom rule. ``category`` and ``type`` tags are required. Supported categories include ``business_logic``, ``attack_attempt`` and ``security_response``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#tags AppsecWafCustomRule#tags}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#condition AppsecWafCustomRule#condition}
+        :param path_glob: The path glob for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#path_glob AppsecWafCustomRule#path_glob}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#scope AppsecWafCustomRule#scope}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class AppsecWafCustomRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppsecWafCustomRule to import.
-        :param import_from_id: The id of the existing AppsecWafCustomRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppsecWafCustomRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppsecWafCustomRule to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class AppsecWafCustomRule(
         parameters: typing.Optional[typing.Union["AppsecWafCustomRuleActionParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param action: Override the default action to take when the WAF custom rule would block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
+        :param action: Override the default action to take when the WAF custom rule would block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
         '''
         value = AppsecWafCustomRuleAction(action=action, parameters=parameters)
 
@@ -355,8 +355,8 @@ class AppsecWafCustomRuleAction:
         parameters: typing.Optional[typing.Union["AppsecWafCustomRuleActionParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param action: Override the default action to take when the WAF custom rule would block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
+        :param action: Override the default action to take when the WAF custom rule would block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
         '''
         if isinstance(parameters, dict):
             parameters = AppsecWafCustomRuleActionParameters(**parameters)
@@ -374,7 +374,7 @@ class AppsecWafCustomRuleAction:
     def action(self) -> typing.Optional[builtins.str]:
         '''Override the default action to take when the WAF custom rule would block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -383,7 +383,7 @@ class AppsecWafCustomRuleAction:
     def parameters(self) -> typing.Optional["AppsecWafCustomRuleActionParameters"]:
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional["AppsecWafCustomRuleActionParameters"], result)
@@ -428,8 +428,8 @@ class AppsecWafCustomRuleActionOutputReference(
         status_code: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param location: The location to redirect to when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#location AppsecWafCustomRule#location}
-        :param status_code: The status code to return when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#status_code AppsecWafCustomRule#status_code}
+        :param location: The location to redirect to when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#location AppsecWafCustomRule#location}
+        :param status_code: The status code to return when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#status_code AppsecWafCustomRule#status_code}
         '''
         value = AppsecWafCustomRuleActionParameters(
             location=location, status_code=status_code
@@ -505,8 +505,8 @@ class AppsecWafCustomRuleActionParameters:
         status_code: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param location: The location to redirect to when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#location AppsecWafCustomRule#location}
-        :param status_code: The status code to return when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#status_code AppsecWafCustomRule#status_code}
+        :param location: The location to redirect to when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#location AppsecWafCustomRule#location}
+        :param status_code: The status code to return when the WAF custom rule triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#status_code AppsecWafCustomRule#status_code}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c1e0d13196bf059e284982f05b8de0c25858d6bd5871acd418900c335fe42d0)
@@ -522,7 +522,7 @@ class AppsecWafCustomRuleActionParameters:
     def location(self) -> typing.Optional[builtins.str]:
         '''The location to redirect to when the WAF custom rule triggers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#location AppsecWafCustomRule#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#location AppsecWafCustomRule#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -531,7 +531,7 @@ class AppsecWafCustomRuleActionParameters:
     def status_code(self) -> typing.Optional[jsii.Number]:
         '''The status code to return when the WAF custom rule triggers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#status_code AppsecWafCustomRule#status_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#status_code AppsecWafCustomRule#status_code}
         '''
         result = self._values.get("status_code")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -641,8 +641,8 @@ class AppsecWafCustomRuleCondition:
         parameters: typing.Optional[typing.Union["AppsecWafCustomRuleConditionParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param operator: Operator to use for the WAF Condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#operator AppsecWafCustomRule#operator}
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
+        :param operator: Operator to use for the WAF Condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#operator AppsecWafCustomRule#operator}
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
         '''
         if isinstance(parameters, dict):
             parameters = AppsecWafCustomRuleConditionParameters(**parameters)
@@ -660,7 +660,7 @@ class AppsecWafCustomRuleCondition:
     def operator(self) -> typing.Optional[builtins.str]:
         '''Operator to use for the WAF Condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#operator AppsecWafCustomRule#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#operator AppsecWafCustomRule#operator}
         '''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -669,7 +669,7 @@ class AppsecWafCustomRuleCondition:
     def parameters(self) -> typing.Optional["AppsecWafCustomRuleConditionParameters"]:
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#parameters AppsecWafCustomRule#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional["AppsecWafCustomRuleConditionParameters"], result)
@@ -814,12 +814,12 @@ class AppsecWafCustomRuleConditionOutputReference(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data: Identifier of a list of data from the denylist. Can only be used as substitution from the list parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#data AppsecWafCustomRule#data}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#input AppsecWafCustomRule#input}
-        :param list: List of value to use with the condition. Only used with the phrase_match, !phrase_match, exact_match and !exact_match operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#list AppsecWafCustomRule#list}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#options AppsecWafCustomRule#options}
-        :param regex: Regex to use with the condition. Only used with match_regex and !match_regex operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#regex AppsecWafCustomRule#regex}
-        :param value: Store the captured value in the specified tag name. Only used with the capture_data operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#value AppsecWafCustomRule#value}
+        :param data: Identifier of a list of data from the denylist. Can only be used as substitution from the list parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#data AppsecWafCustomRule#data}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#input AppsecWafCustomRule#input}
+        :param list: List of value to use with the condition. Only used with the phrase_match, !phrase_match, exact_match and !exact_match operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#list AppsecWafCustomRule#list}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#options AppsecWafCustomRule#options}
+        :param regex: Regex to use with the condition. Only used with match_regex and !match_regex operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#regex AppsecWafCustomRule#regex}
+        :param value: Store the captured value in the specified tag name. Only used with the capture_data operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#value AppsecWafCustomRule#value}
         '''
         value_ = AppsecWafCustomRuleConditionParameters(
             data=data,
@@ -911,12 +911,12 @@ class AppsecWafCustomRuleConditionParameters:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data: Identifier of a list of data from the denylist. Can only be used as substitution from the list parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#data AppsecWafCustomRule#data}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#input AppsecWafCustomRule#input}
-        :param list: List of value to use with the condition. Only used with the phrase_match, !phrase_match, exact_match and !exact_match operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#list AppsecWafCustomRule#list}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#options AppsecWafCustomRule#options}
-        :param regex: Regex to use with the condition. Only used with match_regex and !match_regex operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#regex AppsecWafCustomRule#regex}
-        :param value: Store the captured value in the specified tag name. Only used with the capture_data operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#value AppsecWafCustomRule#value}
+        :param data: Identifier of a list of data from the denylist. Can only be used as substitution from the list parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#data AppsecWafCustomRule#data}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#input AppsecWafCustomRule#input}
+        :param list: List of value to use with the condition. Only used with the phrase_match, !phrase_match, exact_match and !exact_match operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#list AppsecWafCustomRule#list}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#options AppsecWafCustomRule#options}
+        :param regex: Regex to use with the condition. Only used with match_regex and !match_regex operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#regex AppsecWafCustomRule#regex}
+        :param value: Store the captured value in the specified tag name. Only used with the capture_data operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#value AppsecWafCustomRule#value}
         '''
         if isinstance(options, dict):
             options = AppsecWafCustomRuleConditionParametersOptions(**options)
@@ -946,7 +946,7 @@ class AppsecWafCustomRuleConditionParameters:
     def data(self) -> typing.Optional[builtins.str]:
         '''Identifier of a list of data from the denylist. Can only be used as substitution from the list parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#data AppsecWafCustomRule#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#data AppsecWafCustomRule#data}
         '''
         result = self._values.get("data")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -957,7 +957,7 @@ class AppsecWafCustomRuleConditionParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafCustomRuleConditionParametersInput"]]]:
         '''input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#input AppsecWafCustomRule#input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#input AppsecWafCustomRule#input}
         '''
         result = self._values.get("input")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafCustomRuleConditionParametersInput"]]], result)
@@ -966,7 +966,7 @@ class AppsecWafCustomRuleConditionParameters:
     def list(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of value to use with the condition. Only used with the phrase_match, !phrase_match, exact_match and !exact_match operator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#list AppsecWafCustomRule#list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#list AppsecWafCustomRule#list}
         '''
         result = self._values.get("list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -977,7 +977,7 @@ class AppsecWafCustomRuleConditionParameters:
     ) -> typing.Optional["AppsecWafCustomRuleConditionParametersOptions"]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#options AppsecWafCustomRule#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#options AppsecWafCustomRule#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional["AppsecWafCustomRuleConditionParametersOptions"], result)
@@ -986,7 +986,7 @@ class AppsecWafCustomRuleConditionParameters:
     def regex(self) -> typing.Optional[builtins.str]:
         '''Regex to use with the condition. Only used with match_regex and !match_regex operator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#regex AppsecWafCustomRule#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#regex AppsecWafCustomRule#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -995,7 +995,7 @@ class AppsecWafCustomRuleConditionParameters:
     def value(self) -> typing.Optional[builtins.str]:
         '''Store the captured value in the specified tag name. Only used with the capture_data operator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#value AppsecWafCustomRule#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#value AppsecWafCustomRule#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1025,8 +1025,8 @@ class AppsecWafCustomRuleConditionParametersInput:
         key_path: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param address: Input from the request on which the condition should apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#address AppsecWafCustomRule#address}
-        :param key_path: Specific path for the input. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#key_path AppsecWafCustomRule#key_path}
+        :param address: Input from the request on which the condition should apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#address AppsecWafCustomRule#address}
+        :param key_path: Specific path for the input. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#key_path AppsecWafCustomRule#key_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6516a11170ab82289979c31cace416cfd14f240186ed63a90449f0e8df95265d)
@@ -1042,7 +1042,7 @@ class AppsecWafCustomRuleConditionParametersInput:
     def address(self) -> typing.Optional[builtins.str]:
         '''Input from the request on which the condition should apply.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#address AppsecWafCustomRule#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#address AppsecWafCustomRule#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1051,7 +1051,7 @@ class AppsecWafCustomRuleConditionParametersInput:
     def key_path(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specific path for the input.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#key_path AppsecWafCustomRule#key_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#key_path AppsecWafCustomRule#key_path}
         '''
         result = self._values.get("key_path")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1260,8 +1260,8 @@ class AppsecWafCustomRuleConditionParametersOptions:
         min_length: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param case_sensitive: Evaluate the value as case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#case_sensitive AppsecWafCustomRule#case_sensitive}
-        :param min_length: Only evaluate this condition if the value has a minimum amount of characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#min_length AppsecWafCustomRule#min_length}
+        :param case_sensitive: Evaluate the value as case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#case_sensitive AppsecWafCustomRule#case_sensitive}
+        :param min_length: Only evaluate this condition if the value has a minimum amount of characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#min_length AppsecWafCustomRule#min_length}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a888a2e9d28875e10870102c3d90d5a8e71afa2ef5acc202dadd10dc2cae97fd)
@@ -1279,7 +1279,7 @@ class AppsecWafCustomRuleConditionParametersOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Evaluate the value as case sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#case_sensitive AppsecWafCustomRule#case_sensitive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#case_sensitive AppsecWafCustomRule#case_sensitive}
         '''
         result = self._values.get("case_sensitive")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1288,7 +1288,7 @@ class AppsecWafCustomRuleConditionParametersOptions:
     def min_length(self) -> typing.Optional[jsii.Number]:
         '''Only evaluate this condition if the value has a minimum amount of characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#min_length AppsecWafCustomRule#min_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#min_length AppsecWafCustomRule#min_length}
         '''
         result = self._values.get("min_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1433,8 +1433,8 @@ class AppsecWafCustomRuleConditionParametersOutputReference(
         min_length: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param case_sensitive: Evaluate the value as case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#case_sensitive AppsecWafCustomRule#case_sensitive}
-        :param min_length: Only evaluate this condition if the value has a minimum amount of characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#min_length AppsecWafCustomRule#min_length}
+        :param case_sensitive: Evaluate the value as case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#case_sensitive AppsecWafCustomRule#case_sensitive}
+        :param min_length: Only evaluate this condition if the value has a minimum amount of characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#min_length AppsecWafCustomRule#min_length}
         '''
         value = AppsecWafCustomRuleConditionParametersOptions(
             case_sensitive=case_sensitive, min_length=min_length
@@ -1625,14 +1625,14 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param blocking: Indicates whether the WAF custom rule will block the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#blocking AppsecWafCustomRule#blocking}
-        :param enabled: Indicates whether the WAF custom rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#enabled AppsecWafCustomRule#enabled}
-        :param name: The Name of the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#name AppsecWafCustomRule#name}
-        :param tags: Tags associated with the WAF custom rule. ``category`` and ``type`` tags are required. Supported categories include ``business_logic``, ``attack_attempt`` and ``security_response``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#tags AppsecWafCustomRule#tags}
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#condition AppsecWafCustomRule#condition}
-        :param path_glob: The path glob for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#path_glob AppsecWafCustomRule#path_glob}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#scope AppsecWafCustomRule#scope}
+        :param blocking: Indicates whether the WAF custom rule will block the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#blocking AppsecWafCustomRule#blocking}
+        :param enabled: Indicates whether the WAF custom rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#enabled AppsecWafCustomRule#enabled}
+        :param name: The Name of the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#name AppsecWafCustomRule#name}
+        :param tags: Tags associated with the WAF custom rule. ``category`` and ``type`` tags are required. Supported categories include ``business_logic``, ``attack_attempt`` and ``security_response``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#tags AppsecWafCustomRule#tags}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#condition AppsecWafCustomRule#condition}
+        :param path_glob: The path glob for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#path_glob AppsecWafCustomRule#path_glob}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#scope AppsecWafCustomRule#scope}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1752,7 +1752,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def blocking(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates whether the WAF custom rule will block the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#blocking AppsecWafCustomRule#blocking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#blocking AppsecWafCustomRule#blocking}
         '''
         result = self._values.get("blocking")
         assert result is not None, "Required property 'blocking' is missing"
@@ -1762,7 +1762,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates whether the WAF custom rule is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#enabled AppsecWafCustomRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#enabled AppsecWafCustomRule#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -1772,7 +1772,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The Name of the WAF custom rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#name AppsecWafCustomRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#name AppsecWafCustomRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1784,7 +1784,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         ``category`` and ``type`` tags are required. Supported categories include ``business_logic``, ``attack_attempt`` and ``security_response``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#tags AppsecWafCustomRule#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#tags AppsecWafCustomRule#tags}
         '''
         result = self._values.get("tags")
         assert result is not None, "Required property 'tags' is missing"
@@ -1794,7 +1794,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def action(self) -> typing.Optional[AppsecWafCustomRuleAction]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#action AppsecWafCustomRule#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[AppsecWafCustomRuleAction], result)
@@ -1805,7 +1805,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AppsecWafCustomRuleCondition]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#condition AppsecWafCustomRule#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#condition AppsecWafCustomRule#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AppsecWafCustomRuleCondition]]], result)
@@ -1814,7 +1814,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def path_glob(self) -> typing.Optional[builtins.str]:
         '''The path glob for the WAF custom rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#path_glob AppsecWafCustomRule#path_glob}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#path_glob AppsecWafCustomRule#path_glob}
         '''
         result = self._values.get("path_glob")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1825,7 +1825,7 @@ class AppsecWafCustomRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafCustomRuleScope"]]]:
         '''scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#scope AppsecWafCustomRule#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#scope AppsecWafCustomRule#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsecWafCustomRuleScope"]]], result)
@@ -1855,8 +1855,8 @@ class AppsecWafCustomRuleScope:
         service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param env: The environment scope for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#env AppsecWafCustomRule#env}
-        :param service: The service scope for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#service AppsecWafCustomRule#service}
+        :param env: The environment scope for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#env AppsecWafCustomRule#env}
+        :param service: The service scope for the WAF custom rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#service AppsecWafCustomRule#service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3fffa17c347ddb53ad58ac6c2bf8c4f08ab2e14d1ede8a6c793532badae7d1e)
@@ -1872,7 +1872,7 @@ class AppsecWafCustomRuleScope:
     def env(self) -> typing.Optional[builtins.str]:
         '''The environment scope for the WAF custom rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#env AppsecWafCustomRule#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#env AppsecWafCustomRule#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1881,7 +1881,7 @@ class AppsecWafCustomRuleScope:
     def service(self) -> typing.Optional[builtins.str]:
         '''The service scope for the WAF custom rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/appsec_waf_custom_rule#service AppsecWafCustomRule#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/appsec_waf_custom_rule#service AppsecWafCustomRule#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)

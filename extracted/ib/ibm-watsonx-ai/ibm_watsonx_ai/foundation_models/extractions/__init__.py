@@ -4,5 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 
 from .text_extractions import TextExtractions
+from .text_extractions_v2 import TextExtractionsV2
+from .text_extractions_v2_result_formats import TextExtractionsV2ResultFormats
 
-__all__ = ["TextExtractions"]
+__all__ = ["TextExtractions", "TextExtractionsV2", "TextExtractionsV2ResultFormats"]

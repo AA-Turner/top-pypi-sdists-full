@@ -8,7 +8,7 @@ import logging
 
 import numpy as np
 from scipy.interpolate import griddata, Rbf
-from scipy.spatial import cKDTree, ConvexHull, Delaunay, QhullError
+from scipy.spatial import ConvexHull, Delaunay, KDTree, QhullError
 
 from . import geometry, tools
 from ..package_tools import Exporter
@@ -43,7 +43,7 @@ def cressman_point(sq_dist, values, radius):
     weights = tools.cressman_weights(sq_dist, radius)
     total_weights = np.sum(weights)
 
-    return sum(v * (w / total_weights) for (w, v) in zip(weights, values))
+    return sum(v * (w / total_weights) for (w, v) in zip(weights, values, strict=False))
 
 
 def barnes_point(sq_dist, values, kappa, gamma=None):
@@ -82,7 +82,7 @@ def barnes_point(sq_dist, values, kappa, gamma=None):
     weights = tools.barnes_weights(sq_dist, kappa, gamma)
     total_weights = np.sum(weights)
 
-    return sum(v * (w / total_weights) for (w, v) in zip(weights, values))
+    return sum(v * (w / total_weights) for (w, v) in zip(weights, values, strict=False))
 
 
 def natural_neighbor_point(xp, yp, variable, grid_loc, tri, neighbors, circumcenters):
@@ -260,7 +260,7 @@ def inverse_distance_to_points(points, values, xi, r, gamma=None, kappa=None, mi
     else:
         raise ValueError(f'{kind} interpolation not supported.')
 
-    obs_tree = cKDTree(points)
+    obs_tree = KDTree(points)
     indices = obs_tree.query_ball_point(xi, r=r)
 
     if hasattr(values, 'units'):
@@ -271,7 +271,7 @@ def inverse_distance_to_points(points, values, xi, r, gamma=None, kappa=None, mi
 
     img = np.asarray([interp_func(geometry.dist_2(*grid, *obs_tree.data[matches].T),
                                   values[matches]) if len(matches) >= min_neighbors else np.nan
-                      for matches, grid in zip(indices, xi)])
+                      for matches, grid in zip(indices, xi, strict=False)])
 
     if org_units:
         img = units.Quantity(img, org_units)

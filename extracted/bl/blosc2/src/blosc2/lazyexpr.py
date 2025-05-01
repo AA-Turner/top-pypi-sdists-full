@@ -1481,7 +1481,8 @@ def reduce_slices(  # noqa: C901
             iter_disk = all_ndarray and any_persisted
             # Experiments say that iter_disk is faster than the regular path for reductions
             # even when all operands are in memory, so no need to check any_persisted
-            # New benchs are saying the contrary (> 10% slower), so this needs more investigation
+            # New benchmarks are saying the contrary (> 10% slower), so this needs more
+            # investigation
             # iter_disk = all_ndarray
         else:
             # WebAssembly does not support threading, so we cannot use the iter_disk option
@@ -1919,7 +1920,6 @@ class LazyExpr(LazyArray):
         if hasattr(value2, "_where_args"):
             value2 = value2.compute()
 
-        self._dtype = infer_dtype(op, value1, value2)
         if not isinstance(value1, LazyExpr) and not isinstance(value2, LazyExpr):
             # We converted some of the operands to NDArray (where() handling above)
             new_operands = {"o0": value1, "o1": value2}
@@ -2677,8 +2677,8 @@ class LazyExpr(LazyArray):
             _shape = new_expr.shape
             if isinstance(new_expr, blosc2.LazyExpr):
                 # Restore the original expression and operands
-                new_expr.expression = _expression
-                new_expr.expression_tosave = expression
+                new_expr.expression = f"({_expression})"  # forcibly add parenthesis
+                new_expr.expression_tosave = _expression
                 new_expr.operands = _operands
                 new_expr.operands_tosave = operands
             else:

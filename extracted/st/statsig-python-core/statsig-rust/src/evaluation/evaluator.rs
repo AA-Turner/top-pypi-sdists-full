@@ -10,9 +10,10 @@ use crate::evaluation::dynamic_value::DynamicValue;
 use crate::evaluation::evaluation_details::EvaluationDetails;
 use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluator_context::EvaluatorContext;
+use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueType};
 use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::ua_parser::UserAgentParser;
-use crate::spec_types::{Condition, Rule, Spec};
+use crate::specs_response::spec_types::{Condition, Rule, Spec};
 use crate::{dyn_value, log_e, unwrap_or_return, StatsigErr};
 
 use super::country_lookup::CountryLookup;
@@ -25,6 +26,8 @@ lazy_static! {
     static ref EMPTY_STR: String = String::new();
     static ref DEFAULT_RULE: String = "default".to_string();
     static ref DISABLED_RULE: String = "disabled".to_string();
+    static ref EMPTY_EVALUATOR_VALUE: EvaluatorValue =
+        EvaluatorValue::new(EvaluatorValueType::Null);
     static ref EMPTY_DYNAMIC_VALUE: DynamicValue = DynamicValue::new();
 }
 
@@ -237,7 +240,7 @@ fn try_apply_override(
     spec_type: &SpecType,
     opt_spec: Option<&Spec>,
 ) -> bool {
-    let adapter = match ctx.override_adapter {
+    let adapter = match &ctx.override_adapter {
         Some(adapter) => adapter,
         None => return false,
     };
@@ -292,14 +295,14 @@ fn evaluate_condition<'a>(
     ctx: &mut EvaluatorContext<'a>,
     condition: &'a Condition,
 ) -> Result<(), StatsigErr> {
-    let temp_value;
+    let temp_value: Option<DynamicValue>;
     let target_value = condition
         .target_value
         .as_ref()
-        .unwrap_or(&EMPTY_DYNAMIC_VALUE);
+        .unwrap_or(&EMPTY_EVALUATOR_VALUE);
     let condition_type = &condition.condition_type;
 
-    let value = match condition_type as &str {
+    let value: &DynamicValue = match condition_type as &str {
         "public" => {
             ctx.result.bool_value = true;
             return Ok(());
@@ -311,14 +314,15 @@ fn evaluate_condition<'a>(
         "ua_based" => match ctx.user.get_user_value(&condition.field) {
             Some(value) => Some(value),
             None => {
-                temp_value = UserAgentParser::get_value_from_user_agent(ctx.user, &condition.field);
+                temp_value =
+                    UserAgentParser::get_value_from_user_agent(ctx.user, &condition.field, ctx);
                 temp_value.as_ref()
             }
         },
         "ip_based" => match ctx.user.get_user_value(&condition.field) {
             Some(value) => Some(value),
             None => {
-                temp_value = CountryLookup::get_value_from_ip(ctx.user, &condition.field);
+                temp_value = CountryLookup::get_value_from_ip(ctx.user, &condition.field, ctx);
                 temp_value.as_ref()
             }
         },
@@ -337,7 +341,7 @@ fn evaluate_condition<'a>(
             temp_value = Some(get_hash_for_user_bucket(ctx, condition));
             temp_value.as_ref()
         }
-        "target_app" => *ctx.app_id,
+        "target_app" => ctx.app_id,
         "unit_id" => ctx.user.get_unit_id(&condition.id_type),
         _ => {
             ctx.result.unsupported = true;
@@ -380,8 +384,8 @@ fn evaluate_condition<'a>(
         "before" | "after" | "on" => compare_time(value, target_value, operator),
 
         // strict equals
-        "eq" => value == target_value,
-        "neq" => value != target_value,
+        "eq" => target_value.is_equal_to_dynamic_value(value),
+        "neq" => !target_value.is_equal_to_dynamic_value(value),
 
         // id_lists
         "in_segment_list" | "not_in_segment_list" => {
@@ -405,16 +409,16 @@ fn evaluate_condition<'a>(
 fn evaluate_id_list(
     ctx: &mut EvaluatorContext<'_>,
     op: &str,
-    target_value: &DynamicValue,
+    target_value: &EvaluatorValue,
     value: &DynamicValue,
 ) -> bool {
     let list_name = unwrap_or_return!(&target_value.string_value, false);
     let id_lists = &ctx.spec_store_data.id_lists;
 
-    let list = unwrap_or_return!(id_lists.get(list_name), false);
+    let list = unwrap_or_return!(id_lists.get(&list_name.value), false);
 
-    let value = unwrap_or_return!(&value.string_value, false);
-    let hashed = ctx.hashing.sha256(value);
+    let dyn_str = unwrap_or_return!(&value.string_value, false);
+    let hashed = ctx.hashing.sha256(&dyn_str.value);
     let lookup_id: String = hashed.chars().take(8).collect();
 
     let is_in_list = list.ids.contains(&lookup_id);
@@ -428,11 +432,11 @@ fn evaluate_id_list(
 
 fn evaluate_nested_gate<'a>(
     ctx: &mut EvaluatorContext<'a>,
-    target_value: &'a DynamicValue,
+    target_value: &'a EvaluatorValue,
     condition_type: &'a String,
 ) -> Result<(), StatsigErr> {
     let gate_name = if let Some(name) = target_value.string_value.as_ref() {
-        name
+        &name.value
     } else {
         log_e!(
             TAG,
@@ -532,7 +536,7 @@ fn get_hash_for_user_bucket(ctx: &mut EvaluatorContext, condition: &Condition) -
     let mut salt: &String = &EMPTY_STR;
 
     if let Some(add_values) = &condition.additional_values {
-        if let Some(v) = &add_values["salt"].string_value {
+        if let Some(v) = add_values.get("salt") {
             salt = v;
         }
     }

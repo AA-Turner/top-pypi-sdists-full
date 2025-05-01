@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_fastly_service`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_fastly_service`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service).
+Refer to the Terraform Registry for docs: [`datadog_integration_fastly_service`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationFastlyService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationFastlyService.IntegrationFastlyService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service datadog_integration_fastly_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service datadog_integration_fastly_service}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class IntegrationFastlyService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service datadog_integration_fastly_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service datadog_integration_fastly_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_id: The ID of the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#service_id IntegrationFastlyService#service_id}
-        :param account_id: Fastly Account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#account_id IntegrationFastlyService#account_id}
-        :param tags: A list of tags for the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#tags IntegrationFastlyService#tags}
+        :param service_id: The ID of the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#service_id IntegrationFastlyService#service_id}
+        :param account_id: Fastly Account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#account_id IntegrationFastlyService#account_id}
+        :param tags: A list of tags for the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#tags IntegrationFastlyService#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class IntegrationFastlyService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationFastlyService to import.
-        :param import_from_id: The id of the existing IntegrationFastlyService that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationFastlyService that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationFastlyService to import is found.
         '''
         if __debug__:
@@ -237,9 +237,9 @@ class IntegrationFastlyServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_id: The ID of the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#service_id IntegrationFastlyService#service_id}
-        :param account_id: Fastly Account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#account_id IntegrationFastlyService#account_id}
-        :param tags: A list of tags for the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#tags IntegrationFastlyService#tags}
+        :param service_id: The ID of the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#service_id IntegrationFastlyService#service_id}
+        :param account_id: Fastly Account id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#account_id IntegrationFastlyService#account_id}
+        :param tags: A list of tags for the Fastly service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#tags IntegrationFastlyService#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -345,7 +345,7 @@ class IntegrationFastlyServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_id(self) -> builtins.str:
         '''The ID of the Fastly service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#service_id IntegrationFastlyService#service_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#service_id IntegrationFastlyService#service_id}
         '''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
@@ -355,7 +355,7 @@ class IntegrationFastlyServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[builtins.str]:
         '''Fastly Account id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#account_id IntegrationFastlyService#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#account_id IntegrationFastlyService#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -364,7 +364,7 @@ class IntegrationFastlyServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of tags for the Fastly service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_fastly_service#tags IntegrationFastlyService#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_fastly_service#tags IntegrationFastlyService#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

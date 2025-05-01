@@ -95,7 +95,7 @@ def test_shape_list_outline():
 
     # Check return value for `int` and `list` are the same
     for value_by_idx, value_by_idx_list in zip(
-        outline_by_index, outline_by_index_list
+        outline_by_index, outline_by_index_list, strict=False
     ):
         assert np.array_equal(value_by_idx, value_by_idx_list)
 
@@ -105,7 +105,7 @@ def test_shape_list_outline():
 
     # Check return value for `int` and `numpy.int_` are the same
     for value_by_idx, value_by_idx_np in zip(
-        outline_by_index, outline_by_index_np
+        outline_by_index, outline_by_index_np, strict=False
     ):
         assert np.array_equal(value_by_idx, value_by_idx_np)
 
@@ -173,3 +173,58 @@ def test_inside():
     shape_list.add([shape1, shape2, shape3])
     shape_list.slice_key = (1,)
     assert shape_list.inside((0.5, 0.5)) == 1
+
+
+def test_visible_shapes_4d():
+    """Test _visible_shapes with 4D data like those from OME-Zarr/OMERO."""
+    shape1 = Polygon(
+        np.array(
+            [
+                [0, 0, 10, 10],
+                [0, 0, 10, 50],
+                [0, 0, 50, 50],
+                [0, 0, 50, 10],
+            ]
+        )
+    )
+    shape2 = Polygon(
+        np.array(
+            [
+                [0, 1, 10, 10],
+                [0, 1, 10, 50],
+                [0, 1, 50, 50],
+                [0, 1, 50, 10],
+            ]
+        )
+    )
+    shape3 = Polygon(
+        np.array(
+            [
+                [0, 0, 10, 10],
+                [0, 0, 10, 50],
+                [0, 1, 50, 50],
+                [0, 1, 50, 10],
+            ]
+        )
+    )
+
+    shape_list = ShapeList()
+    # set slice_key first to avoid empty array broadcasting error
+    shape_list.slice_key = np.array([0, 0])
+    shape_list.add([shape1, shape2, shape3])
+
+    # at (0,0) - should show shape1 and shape3
+    shape_list.slice_key = np.array([0, 0])
+    visible = shape_list._visible_shapes
+    assert len(visible) == 2
+    visible_shapes = [v[1] for v in visible]
+    assert shape1 in visible_shapes
+    assert shape3 in visible_shapes
+
+    # at (0,1) - should show shape2 and shape3
+    shape_list.slice_key = np.array([0, 1])
+    visible = shape_list._visible_shapes
+    assert len(visible) == 2
+    visible_shapes = [v[1] for v in visible]
+    assert shape2 in visible_shapes
+    assert shape3 in visible_shapes

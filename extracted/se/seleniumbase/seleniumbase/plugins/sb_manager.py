@@ -1372,7 +1372,11 @@ def SB(
         if undetectable and hasattr(sb, "_drivers_browser_map"):
             import asyncio
             for driver in sb._drivers_browser_map.keys():
-                if hasattr(driver, "cdp") and driver.cdp:
+                if (
+                    hasattr(driver, "cdp")
+                    and driver.cdp
+                    and hasattr(driver.cdp, "loop")
+                ):
                     asyncio.set_event_loop(driver.cdp.loop)
                     tasks = [tab.aclose() for tab in driver.cdp.get_tabs()]
                     tasks.append(driver.cdp.driver.connection.aclose())

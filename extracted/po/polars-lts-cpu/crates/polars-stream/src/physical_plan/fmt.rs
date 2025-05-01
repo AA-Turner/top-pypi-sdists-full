@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use polars_ops::frame::JoinType;
+use polars_plan::dsl::PartitionVariantIR;
 use polars_plan::plans::expr_ir::ExprIR;
 use polars_plan::plans::{AExpr, EscapeLabel};
 use polars_plan::prelude::FileType;
@@ -10,6 +11,62 @@ use polars_utils::slice_enum::Slice;
 use slotmap::{Key, SecondaryMap, SlotMap};
 
 use super::{PhysNode, PhysNodeKey, PhysNodeKind};
+
+/// A style of a graph node.
+enum NodeStyle {
+    InMemoryFallback,
+    MemoryIntensive,
+    Generic,
+}
+
+impl NodeStyle {
+    const COLOR_IN_MEM_FALLBACK: &str = "0.0 0.3 1.0"; // Pastel red
+    const COLOR_MEM_INTENSIVE: &str = "0.16 0.3 1.0"; // Pastel yellow
+
+    /// Returns a style for a node kind.
+    pub fn for_node_kind(kind: &PhysNodeKind) -> Self {
+        use PhysNodeKind as K;
+        match kind {
+            K::InMemoryMap { .. } => Self::InMemoryFallback,
+            K::InMemorySource { .. }
+            | K::InputIndependentSelect { .. }
+            | K::NegativeSlice { .. }
+            | K::InMemorySink { .. }
+            | K::Sort { .. }
+            | K::GroupBy { .. }
+            | K::EquiJoin { .. }
+            | K::SemiAntiJoin { .. }
+            | K::InMemoryJoin { .. }
+            | K::MergeSorted { .. }
+            | K::Multiplexer { .. } => Self::MemoryIntensive,
+            _ => Self::Generic,
+        }
+    }
+
+    /// Returns extra styling attributes (if any) for the graph node.
+    pub fn node_attrs(&self) -> Option<String> {
+        match self {
+            Self::InMemoryFallback => Some(format!(
+                "style=filled,fillcolor=\"{}\"",
+                Self::COLOR_IN_MEM_FALLBACK
+            )),
+            Self::MemoryIntensive => Some(format!(
+                "style=filled,fillcolor=\"{}\"",
+                Self::COLOR_MEM_INTENSIVE
+            )),
+            Self::Generic => None,
+        }
+    }
+
+    /// Returns a legend explaining the node style meaning.
+    pub fn legend() -> String {
+        format!(
+            "fontsize=\"10\"\nlabelloc=\"b\"\nlabel=<<BR/><BR/><B>Legend</B><BR/><BR/>◯ streaming engine node<FONT COLOR=\"{}\">⬤</FONT>potentially memory-intensive node<FONT COLOR=\"{}\">⬤</FONT>in-memory engine fallback>",
+            Self::COLOR_MEM_INTENSIVE,
+            Self::COLOR_IN_MEM_FALLBACK,
+        )
+    }
+}
 
 fn escape_graphviz(s: &str) -> String {
     s.replace('\\', "\\\\")
@@ -38,8 +95,10 @@ fn visualize_plan_rec(
     }
     visited.insert(node_key, ());
 
+    let kind = &phys_sm[node_key].kind;
+
     use std::slice::from_ref;
-    let (label, inputs) = match &phys_sm[node_key].kind {
+    let (label, inputs) = match kind {
         PhysNodeKind::InMemorySource { df } => (
             format!(
                 "in-memory-source\\ncols: {}",
@@ -124,23 +183,34 @@ fn visualize_plan_rec(
             #[cfg(feature = "csv")]
             FileType::Csv(_) => ("csv-sink".to_string(), from_ref(input)),
             #[cfg(feature = "json")]
-            FileType::Json(_) => ("json-sink".to_string(), from_ref(input)),
+            FileType::Json(_) => ("ndjson-sink".to_string(), from_ref(input)),
             #[allow(unreachable_patterns)]
             _ => todo!(),
         },
         PhysNodeKind::PartitionSink {
-            input, file_type, ..
-        } => match file_type {
-            #[cfg(feature = "parquet")]
-            FileType::Parquet(_) => ("parquet-partition-sink".to_string(), from_ref(input)),
-            #[cfg(feature = "ipc")]
-            FileType::Ipc(_) => ("ipc-partition-sink".to_string(), from_ref(input)),
-            #[cfg(feature = "csv")]
-            FileType::Csv(_) => ("csv-partition-sink".to_string(), from_ref(input)),
-            #[cfg(feature = "json")]
-            FileType::Json(_) => ("json-partition-sink".to_string(), from_ref(input)),
-            #[allow(unreachable_patterns)]
-            _ => todo!(),
+            input,
+            file_type,
+            variant,
+            ..
+        } => {
+            let variant = match variant {
+                PartitionVariantIR::ByKey { .. } => "partition-by-key-sink",
+                PartitionVariantIR::MaxSize { .. } => "partition-max-size-sink",
+                PartitionVariantIR::Parted { .. } => "partition-parted-sink",
+            };
+
+            match file_type {
+                #[cfg(feature = "parquet")]
+                FileType::Parquet(_) => (format!("{}[parquet]", variant), from_ref(input)),
+                #[cfg(feature = "ipc")]
+                FileType::Ipc(_) => (format!("{}[ipc]", variant), from_ref(input)),
+                #[cfg(feature = "csv")]
+                FileType::Csv(_) => (format!("{}[csv]", variant), from_ref(input)),
+                #[cfg(feature = "json")]
+                FileType::Json(_) => (format!("{}[ndjson]", variant), from_ref(input)),
+                #[allow(unreachable_patterns)]
+                _ => todo!(),
+            }
         },
         PhysNodeKind::InMemoryMap { input, map: _ } => {
             ("in-memory-map".to_string(), from_ref(input))
@@ -307,17 +377,24 @@ fn visualize_plan_rec(
             input_left,
             input_right,
             key,
-        } => (
-            format!("merge sorted on '{key}'"),
-            &[*input_left, *input_right][..],
-        ),
+        } => {
+            let mut out = "merge-sorted".to_string();
+            let mut f = EscapeLabel(&mut out);
+
+            write!(f, "\nkey: {}", key).unwrap();
+
+            (out, &[*input_left, *input_right][..])
+        },
     };
 
-    out.push(format!(
-        "{} [label=\"{}\"];",
-        node_key.data().as_ffi(),
-        label
-    ));
+    let node_id = node_key.data().as_ffi();
+    let style = NodeStyle::for_node_kind(kind);
+
+    if let Some(attrs) = style.node_attrs() {
+        out.push(format!("{node_id} [label=\"{label}\",{attrs}];"));
+    } else {
+        out.push(format!("{node_id} [label=\"{label}\"];"));
+    }
     for input in inputs {
         visualize_plan_rec(input.node, phys_sm, expr_arena, visited, out);
         out.push(format!(
@@ -334,8 +411,9 @@ pub fn visualize_plan(
     expr_arena: &Arena<AExpr>,
 ) -> String {
     let mut visited: SecondaryMap<PhysNodeKey, ()> = SecondaryMap::new();
-    let mut out = Vec::with_capacity(phys_sm.len() + 2);
+    let mut out = Vec::with_capacity(phys_sm.len() + 3);
     out.push("digraph polars {\nrankdir=\"BT\"".to_string());
+    out.push(NodeStyle::legend());
     visualize_plan_rec(root, phys_sm, expr_arena, &mut visited, &mut out);
     out.push("}".to_string());
     out.join("\n")

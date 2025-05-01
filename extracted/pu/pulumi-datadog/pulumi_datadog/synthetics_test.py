@@ -928,6 +928,9 @@ class _SyntheticsTestState:
 
 
 class SyntheticsTest(pulumi.CustomResource):
+
+    pulumi_type = "datadog:index/syntheticsTest:SyntheticsTest"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -1053,6 +1056,7 @@ class SyntheticsTest(pulumi.CustomResource):
                 },
                 "monitor_options": {
                     "renotify_interval": 120,
+                    "escalation_message": "test escalation message",
                 },
             })
         # Example Usage (Synthetics SSL test)
@@ -1759,6 +1763,7 @@ class SyntheticsTest(pulumi.CustomResource):
                 },
                 "monitor_options": {
                     "renotify_interval": 120,
+                    "escalation_message": "test escalation message",
                 },
             })
         # Example Usage (Synthetics SSL test)

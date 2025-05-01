@@ -30,7 +30,6 @@ import asyncio
 from worker_automate_hub.decorators.repeat import repeat
 from pytesseract import image_to_string
 from pywinauto import Desktop
-from pywinauto.findwindows import ElementNotFoundError
 
 pyautogui.PAUSE = 0.5
 pyautogui.FAILSAFE = False
@@ -40,25 +39,25 @@ console = Console()
 emsys = EMSys()
 
 
-@repeat(times=5, delay=2)
-async def wait_aguarde_window_closed(timeout=300):
-    console.print("Esperando janela 'Aguarde...' fechar")
+@repeat(times=10, delay=5)
+async def wait_aguarde_window_closed(app, timeout=60):
+    console.print("Verificando existencia de aguarde...")
     start_time = time.time()
 
     while time.time() - start_time < timeout:
-        await worker_sleep(4)
-        all_windows = Desktop(backend="uia").windows()
-        aguarde_aberta = any("aguarde" in w.window_text().lower() for w in all_windows)
+        janela_topo = app.top_window()
+        titulo = janela_topo.window_text()
+        console.print(f"Titulo da janela top:  ${titulo}")
+        await emsys.verify_warning_and_error("Aviso", "&Ok")
+        await worker_sleep(2)
 
-        if aguarde_aberta:
-            console.print("Janela 'Aguarde...' ainda aberta", style="bold yellow")
-            await worker_sleep(10)
-        else:
-            console.print("Janela 'Aguarde...' fechou", style="bold green")
-            await worker_sleep(2)
+        if "Gerar Registros" in titulo or "Movimento de Livro Fiscal" in titulo:
+            console.log("Fim de aguardando...")
             return
+        else:
+            console.log("Aguardando...")
 
-    console.log("Timeout esperando a janela 'Aguarde...' fechar.")
+    console.log("Timeout esperando a janela Aguarde...")
 
 
 def click_desconfirmar():
@@ -175,19 +174,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             # Esperando janela aguarde
             console.print("Aguardando tela de aguarde ser finalizada")
-            await wait_aguarde_window_closed()
-            await worker_sleep(15)
-
-            console.print("Fechando possivel janela de aviso...")
-            await emsys.verify_warning_and_error("Aviso", "&Ok")
-            await worker_sleep(5)
-
-            # Esperando janela aguarde registro de entrada
-            await wait_aguarde_window_closed()
-
-            # Fechando possivel tela de aviso após sumir o aguarde
-            console.print("Fechando possivel janela de aviso...")
-            await emsys.verify_warning_and_error("Aviso", "&Ok")
+            await wait_aguarde_window_closed(app)
             await worker_sleep(5)
 
             # Clicando sim em janela gerar Num Serie
@@ -204,8 +191,8 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             # Esperando janela aguarde
             console.print("Aguardando tela de aguarde ser finalizada")
-            await wait_aguarde_window_closed()
-            await worker_sleep(30)
+            await wait_aguarde_window_closed(app)
+            await worker_sleep(5)
 
             app.top_window().set_focus()
             await worker_sleep(5)

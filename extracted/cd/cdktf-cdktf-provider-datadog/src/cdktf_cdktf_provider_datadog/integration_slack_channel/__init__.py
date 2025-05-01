@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_slack_channel`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_slack_channel`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel).
+Refer to the Terraform Registry for docs: [`datadog_integration_slack_channel`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationSlackChannel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationSlackChannel.IntegrationSlackChannel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel datadog_integration_slack_channel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel datadog_integration_slack_channel}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class IntegrationSlackChannel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel datadog_integration_slack_channel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel datadog_integration_slack_channel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_name: Slack account name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#account_name IntegrationSlackChannel#account_name}
-        :param channel_name: Slack channel name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#channel_name IntegrationSlackChannel#channel_name}
-        :param display: display block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#display IntegrationSlackChannel#display}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#id IntegrationSlackChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param account_name: Slack account name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#account_name IntegrationSlackChannel#account_name}
+        :param channel_name: Slack channel name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#channel_name IntegrationSlackChannel#channel_name}
+        :param display: display block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#display IntegrationSlackChannel#display}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#id IntegrationSlackChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class IntegrationSlackChannel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationSlackChannel to import.
-        :param import_from_id: The id of the existing IntegrationSlackChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationSlackChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationSlackChannel to import is found.
         '''
         if __debug__:
@@ -134,11 +134,11 @@ class IntegrationSlackChannel(
         tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param message: Show the main body of the alert event. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#message IntegrationSlackChannel#message}
-        :param mute_buttons: Show interactive buttons to mute the alerting monitor. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#mute_buttons IntegrationSlackChannel#mute_buttons}
+        :param message: Show the main body of the alert event. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#message IntegrationSlackChannel#message}
+        :param mute_buttons: Show interactive buttons to mute the alerting monitor. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#mute_buttons IntegrationSlackChannel#mute_buttons}
         :param notified: Show the list of.
-        :param snapshot: Show the alert event's snapshot image. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#snapshot IntegrationSlackChannel#snapshot}
-        :param tags: Show the scopes on which the monitor alerted. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#tags IntegrationSlackChannel#tags}
+        :param snapshot: Show the alert event's snapshot image. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#snapshot IntegrationSlackChannel#snapshot}
+        :param tags: Show the scopes on which the monitor alerted. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#tags IntegrationSlackChannel#tags}
         '''
         value = IntegrationSlackChannelDisplay(
             message=message,
@@ -270,10 +270,10 @@ class IntegrationSlackChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_name: Slack account name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#account_name IntegrationSlackChannel#account_name}
-        :param channel_name: Slack channel name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#channel_name IntegrationSlackChannel#channel_name}
-        :param display: display block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#display IntegrationSlackChannel#display}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#id IntegrationSlackChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param account_name: Slack account name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#account_name IntegrationSlackChannel#account_name}
+        :param channel_name: Slack channel name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#channel_name IntegrationSlackChannel#channel_name}
+        :param display: display block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#display IntegrationSlackChannel#display}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#id IntegrationSlackChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -382,7 +382,7 @@ class IntegrationSlackChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_name(self) -> builtins.str:
         '''Slack account name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#account_name IntegrationSlackChannel#account_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#account_name IntegrationSlackChannel#account_name}
         '''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
@@ -392,7 +392,7 @@ class IntegrationSlackChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def channel_name(self) -> builtins.str:
         '''Slack channel name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#channel_name IntegrationSlackChannel#channel_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#channel_name IntegrationSlackChannel#channel_name}
         '''
         result = self._values.get("channel_name")
         assert result is not None, "Required property 'channel_name' is missing"
@@ -402,7 +402,7 @@ class IntegrationSlackChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display(self) -> "IntegrationSlackChannelDisplay":
         '''display block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#display IntegrationSlackChannel#display}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#display IntegrationSlackChannel#display}
         '''
         result = self._values.get("display")
         assert result is not None, "Required property 'display' is missing"
@@ -410,7 +410,7 @@ class IntegrationSlackChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#id IntegrationSlackChannel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#id IntegrationSlackChannel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -452,11 +452,11 @@ class IntegrationSlackChannelDisplay:
         tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param message: Show the main body of the alert event. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#message IntegrationSlackChannel#message}
-        :param mute_buttons: Show interactive buttons to mute the alerting monitor. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#mute_buttons IntegrationSlackChannel#mute_buttons}
+        :param message: Show the main body of the alert event. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#message IntegrationSlackChannel#message}
+        :param mute_buttons: Show interactive buttons to mute the alerting monitor. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#mute_buttons IntegrationSlackChannel#mute_buttons}
         :param notified: Show the list of.
-        :param snapshot: Show the alert event's snapshot image. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#snapshot IntegrationSlackChannel#snapshot}
-        :param tags: Show the scopes on which the monitor alerted. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#tags IntegrationSlackChannel#tags}
+        :param snapshot: Show the alert event's snapshot image. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#snapshot IntegrationSlackChannel#snapshot}
+        :param tags: Show the scopes on which the monitor alerted. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#tags IntegrationSlackChannel#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e481961346a5f3355154fcdf3bdd15568c8c2de64d9c534ced376f313ae97cd9)
@@ -483,7 +483,7 @@ class IntegrationSlackChannelDisplay:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Show the main body of the alert event. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#message IntegrationSlackChannel#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#message IntegrationSlackChannel#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -494,7 +494,7 @@ class IntegrationSlackChannelDisplay:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Show interactive buttons to mute the alerting monitor. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#mute_buttons IntegrationSlackChannel#mute_buttons}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#mute_buttons IntegrationSlackChannel#mute_buttons}
         '''
         result = self._values.get("mute_buttons")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -509,7 +509,7 @@ class IntegrationSlackChannelDisplay:
 
         -handles in the alert event. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#notified IntegrationSlackChannel#notified}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#notified IntegrationSlackChannel#notified}
         '''
         result = self._values.get("notified")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -520,7 +520,7 @@ class IntegrationSlackChannelDisplay:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Show the alert event's snapshot image. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#snapshot IntegrationSlackChannel#snapshot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#snapshot IntegrationSlackChannel#snapshot}
         '''
         result = self._values.get("snapshot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -531,7 +531,7 @@ class IntegrationSlackChannelDisplay:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Show the scopes on which the monitor alerted. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/integration_slack_channel#tags IntegrationSlackChannel#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/integration_slack_channel#tags IntegrationSlackChannel#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

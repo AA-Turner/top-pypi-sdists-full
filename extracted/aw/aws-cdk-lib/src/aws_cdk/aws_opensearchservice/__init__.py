@@ -806,14 +806,22 @@ class CapacityConfig:
 
         Example::
 
+            import aws_cdk.aws_opensearchservice as opensearch
+            
+            
             domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_0,
-                capacity=CapacityConfig(
-                    master_nodes=2,
-                    warm_nodes=2,
-                    warm_instance_type="ultrawarm1.medium.search"
-                ),
-                cold_storage_enabled=True
+                version=EngineVersion.OPENSEARCH_1_3,
+                capacity=opensearch.CapacityConfig(
+                    node_options=[opensearch.NodeOptions(
+                        node_type=opensearch.NodeType.COORDINATOR,
+                        node_config=opensearch.NodeConfig(
+                            enabled=True,
+                            count=2,
+                            type="m5.large.search"
+                        )
+                    )
+                    ]
+                )
             )
         '''
         if __debug__:
@@ -6269,14 +6277,19 @@ class EbsOptions:
         Example::
 
             domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_0,
+                version=EngineVersion.OPENSEARCH_1_3,
                 ebs=EbsOptions(
-                    volume_size=100,
-                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD
+                    volume_size=10,
+                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3
                 ),
-                node_to_node_encryption=True,
-                encryption_at_rest=EncryptionAtRestOptions(
-                    enabled=True
+                zone_awareness=ZoneAwarenessConfig(
+                    enabled=True,
+                    availability_zone_count=3
+                ),
+                capacity=CapacityConfig(
+                    multi_az_with_standby_enabled=True,
+                    master_nodes=3,
+                    data_nodes=3
                 )
             )
         '''
@@ -6391,22 +6404,29 @@ class EncryptionAtRestOptions:
 
         Example::
 
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_0,
-                enforce_https=True,
-                node_to_node_encryption=True,
-                encryption_at_rest=EncryptionAtRestOptions(
+            import aws_cdk.aws_opensearchservice as opensearch
+            
+            
+            domain = opensearch.Domain(self, "Domain",
+                version=opensearch.EngineVersion.OPENSEARCH_2_17,
+                encryption_at_rest=opensearch.EncryptionAtRestOptions(
                     enabled=True
                 ),
-                fine_grained_access_control=AdvancedSecurityOptions(
-                    master_user_name="master-user",
-                    saml_authentication_enabled=True,
-                    saml_authentication_options=SAMLOptionsProperty(
-                        idp_entity_id="entity-id",
-                        idp_metadata_content="metadata-content-with-quotes-escaped"
-                    )
+                node_to_node_encryption=True,
+                enforce_https=True,
+                capacity=opensearch.CapacityConfig(
+                    multi_az_with_standby_enabled=False
+                ),
+                ebs=opensearch.EbsOptions(
+                    enabled=True,
+                    volume_size=10
                 )
             )
+            api = appsync.EventApi(self, "EventApiOpenSearch",
+                api_name="OpenSearchEventApi"
+            )
+            
+            data_source = api.add_open_search_data_source("opensearchds", domain)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523)

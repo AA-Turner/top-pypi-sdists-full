@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.region-info
-Version: 2.192.0
+Version: 2.193.0
 Summary: AWS region information, such as service principal names
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services

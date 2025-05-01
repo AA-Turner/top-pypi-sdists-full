@@ -1,7 +1,7 @@
 r'''
 # `datadog_organization_settings`
 
-Refer to the Terraform Registry for docs: [`datadog_organization_settings`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings).
+Refer to the Terraform Registry for docs: [`datadog_organization_settings`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrganizationSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.organizationSettings.OrganizationSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings datadog_organization_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings datadog_organization_settings}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class OrganizationSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings datadog_organization_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings datadog_organization_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Name for Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#name OrganizationSettings#name}
-        :param security_contacts: List of emails used for security event notifications from the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#security_contacts OrganizationSettings#security_contacts}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#settings OrganizationSettings#settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Name for Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#name OrganizationSettings#name}
+        :param security_contacts: List of emails used for security event notifications from the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#security_contacts OrganizationSettings#security_contacts}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#settings OrganizationSettings#settings}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class OrganizationSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrganizationSettings to import.
-        :param import_from_id: The id of the existing OrganizationSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrganizationSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrganizationSettings to import is found.
         '''
         if __debug__:
@@ -135,12 +135,12 @@ class OrganizationSettings(
         saml_autocreate_access_role: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param saml: saml block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml OrganizationSettings#saml}
-        :param saml_autocreate_users_domains: saml_autocreate_users_domains block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_autocreate_users_domains OrganizationSettings#saml_autocreate_users_domains}
-        :param saml_idp_initiated_login: saml_idp_initiated_login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_idp_initiated_login OrganizationSettings#saml_idp_initiated_login}
-        :param saml_strict_mode: saml_strict_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_strict_mode OrganizationSettings#saml_strict_mode}
-        :param private_widget_share: Whether or not the organization users can share widgets outside of Datadog. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#private_widget_share OrganizationSettings#private_widget_share}
-        :param saml_autocreate_access_role: The access role of the user. Options are ``st`` (standard user), ``adm`` (admin user), or ``ro`` (read-only user). Allowed enum values: ``st``, ``adm`` , ``ro``, ``ERROR`` Defaults to ``"st"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_autocreate_access_role OrganizationSettings#saml_autocreate_access_role}
+        :param saml: saml block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml OrganizationSettings#saml}
+        :param saml_autocreate_users_domains: saml_autocreate_users_domains block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_autocreate_users_domains OrganizationSettings#saml_autocreate_users_domains}
+        :param saml_idp_initiated_login: saml_idp_initiated_login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_idp_initiated_login OrganizationSettings#saml_idp_initiated_login}
+        :param saml_strict_mode: saml_strict_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_strict_mode OrganizationSettings#saml_strict_mode}
+        :param private_widget_share: Whether or not the organization users can share widgets outside of Datadog. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#private_widget_share OrganizationSettings#private_widget_share}
+        :param saml_autocreate_access_role: The access role of the user. Options are ``st`` (standard user), ``adm`` (admin user), or ``ro`` (read-only user). Allowed enum values: ``st``, ``adm`` , ``ro``, ``ERROR`` Defaults to ``"st"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_autocreate_access_role OrganizationSettings#saml_autocreate_access_role}
         '''
         value = OrganizationSettingsSettings(
             saml=saml,
@@ -295,10 +295,10 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Name for Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#name OrganizationSettings#name}
-        :param security_contacts: List of emails used for security event notifications from the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#security_contacts OrganizationSettings#security_contacts}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#settings OrganizationSettings#settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Name for Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#name OrganizationSettings#name}
+        :param security_contacts: List of emails used for security event notifications from the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#security_contacts OrganizationSettings#security_contacts}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#settings OrganizationSettings#settings}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -407,7 +407,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#id OrganizationSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#id OrganizationSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -419,7 +419,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''Name for Organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#name OrganizationSettings#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#name OrganizationSettings#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -428,7 +428,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def security_contacts(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of emails used for security event notifications from the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#security_contacts OrganizationSettings#security_contacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#security_contacts OrganizationSettings#security_contacts}
         '''
         result = self._values.get("security_contacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -437,7 +437,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def settings(self) -> typing.Optional["OrganizationSettingsSettings"]:
         '''settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#settings OrganizationSettings#settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#settings OrganizationSettings#settings}
         '''
         result = self._values.get("settings")
         return typing.cast(typing.Optional["OrganizationSettingsSettings"], result)
@@ -478,12 +478,12 @@ class OrganizationSettingsSettings:
         saml_autocreate_access_role: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param saml: saml block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml OrganizationSettings#saml}
-        :param saml_autocreate_users_domains: saml_autocreate_users_domains block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_autocreate_users_domains OrganizationSettings#saml_autocreate_users_domains}
-        :param saml_idp_initiated_login: saml_idp_initiated_login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_idp_initiated_login OrganizationSettings#saml_idp_initiated_login}
-        :param saml_strict_mode: saml_strict_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_strict_mode OrganizationSettings#saml_strict_mode}
-        :param private_widget_share: Whether or not the organization users can share widgets outside of Datadog. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#private_widget_share OrganizationSettings#private_widget_share}
-        :param saml_autocreate_access_role: The access role of the user. Options are ``st`` (standard user), ``adm`` (admin user), or ``ro`` (read-only user). Allowed enum values: ``st``, ``adm`` , ``ro``, ``ERROR`` Defaults to ``"st"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_autocreate_access_role OrganizationSettings#saml_autocreate_access_role}
+        :param saml: saml block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml OrganizationSettings#saml}
+        :param saml_autocreate_users_domains: saml_autocreate_users_domains block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_autocreate_users_domains OrganizationSettings#saml_autocreate_users_domains}
+        :param saml_idp_initiated_login: saml_idp_initiated_login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_idp_initiated_login OrganizationSettings#saml_idp_initiated_login}
+        :param saml_strict_mode: saml_strict_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_strict_mode OrganizationSettings#saml_strict_mode}
+        :param private_widget_share: Whether or not the organization users can share widgets outside of Datadog. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#private_widget_share OrganizationSettings#private_widget_share}
+        :param saml_autocreate_access_role: The access role of the user. Options are ``st`` (standard user), ``adm`` (admin user), or ``ro`` (read-only user). Allowed enum values: ``st``, ``adm`` , ``ro``, ``ERROR`` Defaults to ``"st"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_autocreate_access_role OrganizationSettings#saml_autocreate_access_role}
         '''
         if isinstance(saml, dict):
             saml = OrganizationSettingsSettingsSaml(**saml)
@@ -516,7 +516,7 @@ class OrganizationSettingsSettings:
     def saml(self) -> "OrganizationSettingsSettingsSaml":
         '''saml block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml OrganizationSettings#saml}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml OrganizationSettings#saml}
         '''
         result = self._values.get("saml")
         assert result is not None, "Required property 'saml' is missing"
@@ -528,7 +528,7 @@ class OrganizationSettingsSettings:
     ) -> "OrganizationSettingsSettingsSamlAutocreateUsersDomains":
         '''saml_autocreate_users_domains block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_autocreate_users_domains OrganizationSettings#saml_autocreate_users_domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_autocreate_users_domains OrganizationSettings#saml_autocreate_users_domains}
         '''
         result = self._values.get("saml_autocreate_users_domains")
         assert result is not None, "Required property 'saml_autocreate_users_domains' is missing"
@@ -540,7 +540,7 @@ class OrganizationSettingsSettings:
     ) -> "OrganizationSettingsSettingsSamlIdpInitiatedLogin":
         '''saml_idp_initiated_login block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_idp_initiated_login OrganizationSettings#saml_idp_initiated_login}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_idp_initiated_login OrganizationSettings#saml_idp_initiated_login}
         '''
         result = self._values.get("saml_idp_initiated_login")
         assert result is not None, "Required property 'saml_idp_initiated_login' is missing"
@@ -550,7 +550,7 @@ class OrganizationSettingsSettings:
     def saml_strict_mode(self) -> "OrganizationSettingsSettingsSamlStrictMode":
         '''saml_strict_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_strict_mode OrganizationSettings#saml_strict_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_strict_mode OrganizationSettings#saml_strict_mode}
         '''
         result = self._values.get("saml_strict_mode")
         assert result is not None, "Required property 'saml_strict_mode' is missing"
@@ -562,7 +562,7 @@ class OrganizationSettingsSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the organization users can share widgets outside of Datadog. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#private_widget_share OrganizationSettings#private_widget_share}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#private_widget_share OrganizationSettings#private_widget_share}
         '''
         result = self._values.get("private_widget_share")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -573,7 +573,7 @@ class OrganizationSettingsSettings:
 
         Options are ``st`` (standard user), ``adm`` (admin user), or ``ro`` (read-only user). Allowed enum values: ``st``, ``adm`` , ``ro``, ``ERROR`` Defaults to ``"st"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#saml_autocreate_access_role OrganizationSettings#saml_autocreate_access_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#saml_autocreate_access_role OrganizationSettings#saml_autocreate_access_role}
         '''
         result = self._values.get("saml_autocreate_access_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -617,7 +617,7 @@ class OrganizationSettingsSettingsOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not SAML is enabled for this organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param enabled: Whether or not SAML is enabled for this organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         value = OrganizationSettingsSettingsSaml(enabled=enabled)
 
@@ -631,8 +631,8 @@ class OrganizationSettingsSettingsOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param domains: List of domains where the SAML automated user creation is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#domains OrganizationSettings#domains}
-        :param enabled: Whether or not the automated user creation based on SAML domain is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param domains: List of domains where the SAML automated user creation is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#domains OrganizationSettings#domains}
+        :param enabled: Whether or not the automated user creation based on SAML domain is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         value = OrganizationSettingsSettingsSamlAutocreateUsersDomains(
             domains=domains, enabled=enabled
@@ -647,7 +647,7 @@ class OrganizationSettingsSettingsOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not a SAML identity provider metadata file was provided to the Datadog organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param enabled: Whether or not a SAML identity provider metadata file was provided to the Datadog organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         value = OrganizationSettingsSettingsSamlIdpInitiatedLogin(enabled=enabled)
 
@@ -660,7 +660,7 @@ class OrganizationSettingsSettingsOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param enabled: Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         value = OrganizationSettingsSettingsSamlStrictMode(enabled=enabled)
 
@@ -815,7 +815,7 @@ class OrganizationSettingsSettingsSaml:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not SAML is enabled for this organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param enabled: Whether or not SAML is enabled for this organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51489f2682f9bf67093a3d7fb96fe358f89423d29100802d2db01dde18248c85)
@@ -830,7 +830,7 @@ class OrganizationSettingsSettingsSaml:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not SAML is enabled for this organization. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -860,8 +860,8 @@ class OrganizationSettingsSettingsSamlAutocreateUsersDomains:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param domains: List of domains where the SAML automated user creation is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#domains OrganizationSettings#domains}
-        :param enabled: Whether or not the automated user creation based on SAML domain is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param domains: List of domains where the SAML automated user creation is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#domains OrganizationSettings#domains}
+        :param enabled: Whether or not the automated user creation based on SAML domain is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0591b2ed70b122eef7f4b5968b121437becf57c10a9635a6cfd373f3df2a07f2)
@@ -877,7 +877,7 @@ class OrganizationSettingsSettingsSamlAutocreateUsersDomains:
     def domains(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of domains where the SAML automated user creation is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#domains OrganizationSettings#domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#domains OrganizationSettings#domains}
         '''
         result = self._values.get("domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -888,7 +888,7 @@ class OrganizationSettingsSettingsSamlAutocreateUsersDomains:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the automated user creation based on SAML domain is enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1002,7 +1002,7 @@ class OrganizationSettingsSettingsSamlIdpInitiatedLogin:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not a SAML identity provider metadata file was provided to the Datadog organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param enabled: Whether or not a SAML identity provider metadata file was provided to the Datadog organization. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bff96c42256f11d86cb1a15f355dd8c626744a22032f65993e83e25cb3d62867)
@@ -1017,7 +1017,7 @@ class OrganizationSettingsSettingsSamlIdpInitiatedLogin:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not a SAML identity provider metadata file was provided to the Datadog organization. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1172,7 +1172,7 @@ class OrganizationSettingsSettingsSamlStrictMode:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        :param enabled: Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__330099d6558762594debe829fb3446f21ed0deef95c37a77f3863b437995cd75)
@@ -1189,7 +1189,7 @@ class OrganizationSettingsSettingsSamlStrictMode:
 
         If true, all users must log in with SAML. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/organization_settings#enabled OrganizationSettings#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

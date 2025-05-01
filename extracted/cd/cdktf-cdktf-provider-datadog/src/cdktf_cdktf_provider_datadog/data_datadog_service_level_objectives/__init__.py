@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_service_level_objectives`
 
-Refer to the Terraform Registry for docs: [`data_datadog_service_level_objectives`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives).
+Refer to the Terraform Registry for docs: [`data_datadog_service_level_objectives`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogServiceLevelObjectives(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogServiceLevelObjectives.DataDatadogServiceLevelObjectives",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives datadog_service_level_objectives}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives datadog_service_level_objectives}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataDatadogServiceLevelObjectives(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives datadog_service_level_objectives} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives datadog_service_level_objectives} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param error_on_empty_result: Throw an error if no results are found. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#error_on_empty_result DataDatadogServiceLevelObjectives#error_on_empty_result}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#id DataDatadogServiceLevelObjectives#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ids: An array of SLO IDs to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#ids DataDatadogServiceLevelObjectives#ids}
-        :param metrics_query: Filter results based on SLO numerator and denominator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#metrics_query DataDatadogServiceLevelObjectives#metrics_query}
-        :param name_query: Filter results based on SLO names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#name_query DataDatadogServiceLevelObjectives#name_query}
-        :param query: The query string to filter results based on SLO names. Some examples of queries include service: and . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#query DataDatadogServiceLevelObjectives#query}
-        :param tags_query: Filter results based on a single SLO tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#tags_query DataDatadogServiceLevelObjectives#tags_query}
+        :param error_on_empty_result: Throw an error if no results are found. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#error_on_empty_result DataDatadogServiceLevelObjectives#error_on_empty_result}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#id DataDatadogServiceLevelObjectives#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ids: An array of SLO IDs to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#ids DataDatadogServiceLevelObjectives#ids}
+        :param metrics_query: Filter results based on SLO numerator and denominator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#metrics_query DataDatadogServiceLevelObjectives#metrics_query}
+        :param name_query: Filter results based on SLO names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#name_query DataDatadogServiceLevelObjectives#name_query}
+        :param query: The query string to filter results based on SLO names. Some examples of queries include service: and . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#query DataDatadogServiceLevelObjectives#query}
+        :param tags_query: Filter results based on a single SLO tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#tags_query DataDatadogServiceLevelObjectives#tags_query}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataDatadogServiceLevelObjectives(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogServiceLevelObjectives to import.
-        :param import_from_id: The id of the existing DataDatadogServiceLevelObjectives that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogServiceLevelObjectives that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogServiceLevelObjectives to import is found.
         '''
         if __debug__:
@@ -352,13 +352,13 @@ class DataDatadogServiceLevelObjectivesConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param error_on_empty_result: Throw an error if no results are found. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#error_on_empty_result DataDatadogServiceLevelObjectives#error_on_empty_result}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#id DataDatadogServiceLevelObjectives#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ids: An array of SLO IDs to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#ids DataDatadogServiceLevelObjectives#ids}
-        :param metrics_query: Filter results based on SLO numerator and denominator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#metrics_query DataDatadogServiceLevelObjectives#metrics_query}
-        :param name_query: Filter results based on SLO names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#name_query DataDatadogServiceLevelObjectives#name_query}
-        :param query: The query string to filter results based on SLO names. Some examples of queries include service: and . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#query DataDatadogServiceLevelObjectives#query}
-        :param tags_query: Filter results based on a single SLO tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#tags_query DataDatadogServiceLevelObjectives#tags_query}
+        :param error_on_empty_result: Throw an error if no results are found. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#error_on_empty_result DataDatadogServiceLevelObjectives#error_on_empty_result}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#id DataDatadogServiceLevelObjectives#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ids: An array of SLO IDs to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#ids DataDatadogServiceLevelObjectives#ids}
+        :param metrics_query: Filter results based on SLO numerator and denominator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#metrics_query DataDatadogServiceLevelObjectives#metrics_query}
+        :param name_query: Filter results based on SLO names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#name_query DataDatadogServiceLevelObjectives#name_query}
+        :param query: The query string to filter results based on SLO names. Some examples of queries include service: and . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#query DataDatadogServiceLevelObjectives#query}
+        :param tags_query: Filter results based on a single SLO tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#tags_query DataDatadogServiceLevelObjectives#tags_query}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -478,14 +478,14 @@ class DataDatadogServiceLevelObjectivesConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Throw an error if no results are found. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#error_on_empty_result DataDatadogServiceLevelObjectives#error_on_empty_result}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#error_on_empty_result DataDatadogServiceLevelObjectives#error_on_empty_result}
         '''
         result = self._values.get("error_on_empty_result")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#id DataDatadogServiceLevelObjectives#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#id DataDatadogServiceLevelObjectives#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -497,7 +497,7 @@ class DataDatadogServiceLevelObjectivesConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An array of SLO IDs to limit the search.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#ids DataDatadogServiceLevelObjectives#ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#ids DataDatadogServiceLevelObjectives#ids}
         '''
         result = self._values.get("ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -506,7 +506,7 @@ class DataDatadogServiceLevelObjectivesConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def metrics_query(self) -> typing.Optional[builtins.str]:
         '''Filter results based on SLO numerator and denominator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#metrics_query DataDatadogServiceLevelObjectives#metrics_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#metrics_query DataDatadogServiceLevelObjectives#metrics_query}
         '''
         result = self._values.get("metrics_query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -515,7 +515,7 @@ class DataDatadogServiceLevelObjectivesConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def name_query(self) -> typing.Optional[builtins.str]:
         '''Filter results based on SLO names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#name_query DataDatadogServiceLevelObjectives#name_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#name_query DataDatadogServiceLevelObjectives#name_query}
         '''
         result = self._values.get("name_query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -524,7 +524,7 @@ class DataDatadogServiceLevelObjectivesConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def query(self) -> typing.Optional[builtins.str]:
         '''The query string to filter results based on SLO names. Some examples of queries include service: and .
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#query DataDatadogServiceLevelObjectives#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#query DataDatadogServiceLevelObjectives#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -533,7 +533,7 @@ class DataDatadogServiceLevelObjectivesConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def tags_query(self) -> typing.Optional[builtins.str]:
         '''Filter results based on a single SLO tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/service_level_objectives#tags_query DataDatadogServiceLevelObjectives#tags_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/service_level_objectives#tags_query DataDatadogServiceLevelObjectives#tags_query}
         '''
         result = self._values.get("tags_query")
         return typing.cast(typing.Optional[builtins.str], result)

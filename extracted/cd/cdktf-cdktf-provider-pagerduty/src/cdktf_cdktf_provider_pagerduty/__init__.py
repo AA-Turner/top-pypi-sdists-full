@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for PagerDuty/pagerduty provider version 3.24.2
+# CDKTF prebuilt bindings for PagerDuty/pagerduty provider version 3.25.0
 
-This repo builds and publishes the [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.24.2/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.25.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform pagerduty provider version
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.24.2)
+* [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.25.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -157,6 +157,8 @@ __all__ = [
     "data_pagerduty_ruleset",
     "data_pagerduty_schedule",
     "data_pagerduty_service",
+    "data_pagerduty_service_custom_field",
+    "data_pagerduty_service_custom_field_value",
     "data_pagerduty_service_integration",
     "data_pagerduty_standards",
     "data_pagerduty_standards_resource_scores",
@@ -195,6 +197,8 @@ __all__ = [
     "ruleset_rule",
     "schedule",
     "service",
+    "service_custom_field",
+    "service_custom_field_value",
     "service_dependency",
     "service_event_rule",
     "service_integration",
@@ -244,6 +248,8 @@ from . import data_pagerduty_priority
 from . import data_pagerduty_ruleset
 from . import data_pagerduty_schedule
 from . import data_pagerduty_service
+from . import data_pagerduty_service_custom_field
+from . import data_pagerduty_service_custom_field_value
 from . import data_pagerduty_service_integration
 from . import data_pagerduty_standards
 from . import data_pagerduty_standards_resource_scores
@@ -282,6 +288,8 @@ from . import ruleset
 from . import ruleset_rule
 from . import schedule
 from . import service
+from . import service_custom_field
+from . import service_custom_field_value
 from . import service_dependency
 from . import service_event_rule
 from . import service_integration

@@ -331,3 +331,69 @@ class PeftParameters(BaseSchema):
             "lora_alpha": 32,
             "lora_dropout": 0.05,
         }
+
+
+#################
+#  AutoAI RAG   #
+#################
+
+
+@dataclass
+class AutoAIRAGModelParams(BaseSchema):
+    decoding_method: str | TextGenDecodingMethod | None = None
+    min_new_tokens: int | None = None
+    max_new_tokens: int | None = None
+    max_sequence_length: int | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for AutoAIRAGModelParams."""
+        return {
+            "decoding_method": list(TextGenDecodingMethod)[1].value,
+            "min_new_tokens": 5,
+            "max_new_tokens": 300,
+            "max_sequence_length": 4096,
+        }
+
+
+@dataclass
+class AutoAIRAGModelConfig(BaseSchema):
+    model_id: str
+    parameters: dict | AutoAIRAGModelParams | None = None
+    prompt_template_text: str | None = None
+    context_template_text: str | None = None
+    word_to_token_ratio: float | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for AutoAIRAGModelConfig."""
+        return {
+            "model_id": "ibm/granite-13b-instruct-v2",
+            "parameters": AutoAIRAGModelParams.get_sample_params(),
+            "prompt_template_text": "My question {question} related to these documents {reference_documents}.",
+            "context_template_text": "My document {document}",
+            "word_to_token_ratio": 1.5,
+        }
+
+
+@dataclass
+class AutoAIRAGCustomModelConfig(BaseSchema):
+    deployment_id: str
+    space_id: str | None = None
+    project_id: str | None = None
+    parameters: dict | AutoAIRAGModelParams | None = None
+    prompt_template_text: str | None = None
+    context_template_text: str | None = None
+    word_to_token_ratio: float | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for AutoAIRAGCustomModelConfig."""
+        return {
+            "deployment_id": "<PASTE_DEPLOYMENT_ID_HERE>",
+            "space_id": "<PASTE_SPACE_ID_HERE>",
+            "parameters": AutoAIRAGModelParams.get_sample_params(),
+            "prompt_template_text": "My question {question} related to these documents {reference_documents}.",
+            "context_template_text": "My document {document}",
+            "word_to_token_ratio": 1.5,
+        }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crowdstrike-falconpy
-Version: 1.4.9
+Version: 1.5.0
 Summary: The CrowdStrike Falcon SDK for Python
 Project-URL: Documentation, https://www.falconpy.io
 Project-URL: Homepage, https://github.com/CrowdStrike/falconpy

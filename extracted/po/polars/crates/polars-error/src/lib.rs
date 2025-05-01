@@ -325,6 +325,11 @@ macro_rules! polars_err {
             InvalidOperation: "{} operation not supported for dtypes `{}` and `{}`", $op, $lhs, $rhs
         )
     };
+    (op = $op:expr, $arg1:expr, $arg2:expr, $arg3:expr) => {
+        $crate::polars_err!(
+            InvalidOperation: "{} operation not supported for dtypes `{}`, `{}` and `{}`", $op, $arg1, $arg2, $arg3
+        )
+    };
     (oos = $($tt:tt)+) => {
         $crate::polars_err!(ComputeError: "out-of-spec: {}", $($tt)+)
     };
@@ -405,13 +410,13 @@ on startup."#.trim_start())
             $dtype,
         )
     };
-    (length_mismatch = $operation:literal, $lhs:expr, $rhs:expr) => {
+    (length_mismatch = $operation:expr, $lhs:expr, $rhs:expr) => {
         $crate::polars_err!(
             ShapeMismatch: "arguments for `{}` have different lengths ({} != {})",
             $operation, $lhs, $rhs
         )
     };
-    (length_mismatch = $operation:literal, $lhs:expr, $rhs:expr, argument = $argument:expr, argument_idx = $argument_idx:expr) => {
+    (length_mismatch = $operation:expr, $lhs:expr, $rhs:expr, argument = $argument:expr, argument_idx = $argument_idx:expr) => {
         $crate::polars_err!(
             ShapeMismatch: "argument {} called '{}' for `{}` have different lengths ({} != {})",
             $argument_idx, $argument, $operation, $lhs, $rhs

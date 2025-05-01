@@ -1166,7 +1166,7 @@ class DataConnection(BaseDataConnection):
                         if not flight_parameters.get("connection_properties"):
                             flight_parameters = (
                                 self._update_flight_parameters_with_connection_details(
-                                    flight_parameters
+                                    flight_parameters, binary
                                 )
                             )
 
@@ -1287,7 +1287,7 @@ class DataConnection(BaseDataConnection):
                     if not flight_parameters.get("connection_properties"):
                         flight_parameters = (
                             self._update_flight_parameters_with_connection_details(
-                                flight_parameters
+                                flight_parameters, binary
                             )
                         )
 
@@ -1752,53 +1752,61 @@ class DataConnection(BaseDataConnection):
         except Exception as e:
             raise NotExistingCOSResource(self.location.bucket, self.location.path)
 
-    def _update_flight_parameters_with_connection_details(self, flight_parameters):
+    def _update_flight_parameters_with_connection_details(
+        self, flight_parameters: dict, is_binary=True
+    ):
         with all_logging_disabled():
             self._check_if_connection_asset_is_s3()
-            connection_properties = {
-                "bucket": self.location.bucket,
-                "url": self.connection.endpoint_url,
-            }
-            if hasattr(self.connection, "auth_endpoint") and hasattr(
-                self.connection, "api_key"
-            ):
-                connection_properties["iam_url"] = self.connection.auth_endpoint
-                connection_properties["api_key"] = self.connection.api_key
-                connection_properties["resource_instance_id"] = (
-                    self.connection.resource_instance_id
-                )
 
-            else:
-                connection_properties["secret_key"] = self.connection.secret_access_key
-                connection_properties["access_key"] = self.connection.access_key_id
+        connection_properties = {
+            "bucket": self.location.bucket,
+            "url": self.connection.endpoint_url,
+        }
 
-            flight_parameters.update({"connection_properties": connection_properties})
-            flight_parameters.update(
-                {"datasource_type": {"entity": {"name": self._datasource_type}}}
+        if all(hasattr(self.connection, key) for key in ["auth_endpoint", "api_key"]):
+            connection_properties["iam_url"] = self.connection.auth_endpoint
+            connection_properties["api_key"] = self.connection.api_key
+            connection_properties["resource_instance_id"] = (
+                self.connection.resource_instance_id
             )
+        else:
+            connection_properties["secret_key"] = self.connection.secret_access_key
+            connection_properties["access_key"] = self.connection.access_key_id
 
-            if self._can_have_headers():
-                flight_parameters.update(
-                    {"interaction_properties": {"first_line_header": True}}
-                )
+        flight_parameters["connection_properties"] = connection_properties
+        flight_parameters["datasource_type"] = {
+            "entity": {"name": self._datasource_type}
+        }
+
+        if (file_format := self._get_file_format(is_binary)) is not None:
+            flight_parameters["interaction_properties"] = {"file_format": file_format}
+
+            if file_format in {"csv", "delimited", "excel"}:
+                flight_parameters["interaction_properties"]["first_line_header"] = True
 
         return flight_parameters
 
-    def _can_have_headers(self) -> bool:
-        """Checks whether data source can be read with `first_line_header` param.
-        It is supported only for specific kinds of files - csv's and MS Excel files.
-        For MS Excel files the path can have the sheet name concatenated at the end,
-        i.e /path/to/file/file.xls(x)/sheet-name, so also the parent's extension needs to be checked.
+    def _get_file_format(self, is_binary: bool) -> str | None:
+        if is_binary:
+            return None
 
-        :return: True if it's either a CSV or an Excel file, else False
-        :rtype: bool
-        """
         try:
             filename = Path(self._get_filename())
-            extension = filename.suffix if filename.suffix else filename.parent.suffix
-            return extension.lower() in (".xlsx", ".xls", ".csv")
+
+            # For MS Excel files, the path can have the sheet name concatenated
+            # at the end, like /path/to/file/file.xls(x)/sheet-name, so the
+            # parent's extension needs to be checked.
+            extension = filename.suffix or filename.parent.suffix
         except (CannotGetFilename, DirectoryHasNoFilename, TypeError):
-            return False
+            return None
+
+        match extension.lower():
+            case ".csv":
+                return "csv"
+            case ".xlsx" | ".xls":
+                return "excel"
+            case _:
+                return None
 
     def download(self, filename: str) -> None:
         """Download a dataset stored in a remote data storage and save to a file.

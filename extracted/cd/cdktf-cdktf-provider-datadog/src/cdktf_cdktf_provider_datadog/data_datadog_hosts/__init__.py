@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_hosts`
 
-Refer to the Terraform Registry for docs: [`data_datadog_hosts`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts).
+Refer to the Terraform Registry for docs: [`data_datadog_hosts`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogHosts(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogHosts.DataDatadogHosts",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts datadog_hosts}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts datadog_hosts}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataDatadogHosts(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts datadog_hosts} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts datadog_hosts} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: String to filter search results. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#filter DataDatadogHosts#filter}
-        :param from_: Number of seconds since UNIX epoch from which you want to search your hosts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#from DataDatadogHosts#from}
-        :param include_muted_hosts_data: Include information on the muted status of hosts and when the mute expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#include_muted_hosts_data DataDatadogHosts#include_muted_hosts_data}
-        :param sort_dir: Direction of sort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#sort_dir DataDatadogHosts#sort_dir}
-        :param sort_field: Sort hosts by this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#sort_field DataDatadogHosts#sort_field}
+        :param filter: String to filter search results. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#filter DataDatadogHosts#filter}
+        :param from_: Number of seconds since UNIX epoch from which you want to search your hosts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#from DataDatadogHosts#from}
+        :param include_muted_hosts_data: Include information on the muted status of hosts and when the mute expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#include_muted_hosts_data DataDatadogHosts#include_muted_hosts_data}
+        :param sort_dir: Direction of sort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#sort_dir DataDatadogHosts#sort_dir}
+        :param sort_field: Sort hosts by this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#sort_field DataDatadogHosts#sort_field}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataDatadogHosts(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogHosts to import.
-        :param import_from_id: The id of the existing DataDatadogHosts that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogHosts that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogHosts to import is found.
         '''
         if __debug__:
@@ -315,11 +315,11 @@ class DataDatadogHostsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: String to filter search results. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#filter DataDatadogHosts#filter}
-        :param from_: Number of seconds since UNIX epoch from which you want to search your hosts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#from DataDatadogHosts#from}
-        :param include_muted_hosts_data: Include information on the muted status of hosts and when the mute expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#include_muted_hosts_data DataDatadogHosts#include_muted_hosts_data}
-        :param sort_dir: Direction of sort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#sort_dir DataDatadogHosts#sort_dir}
-        :param sort_field: Sort hosts by this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#sort_field DataDatadogHosts#sort_field}
+        :param filter: String to filter search results. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#filter DataDatadogHosts#filter}
+        :param from_: Number of seconds since UNIX epoch from which you want to search your hosts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#from DataDatadogHosts#from}
+        :param include_muted_hosts_data: Include information on the muted status of hosts and when the mute expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#include_muted_hosts_data DataDatadogHosts#include_muted_hosts_data}
+        :param sort_dir: Direction of sort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#sort_dir DataDatadogHosts#sort_dir}
+        :param sort_field: Sort hosts by this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#sort_field DataDatadogHosts#sort_field}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -431,7 +431,7 @@ class DataDatadogHostsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional[builtins.str]:
         '''String to filter search results.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#filter DataDatadogHosts#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#filter DataDatadogHosts#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -440,7 +440,7 @@ class DataDatadogHostsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def from_(self) -> typing.Optional[jsii.Number]:
         '''Number of seconds since UNIX epoch from which you want to search your hosts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#from DataDatadogHosts#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#from DataDatadogHosts#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -451,7 +451,7 @@ class DataDatadogHostsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Include information on the muted status of hosts and when the mute expires.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#include_muted_hosts_data DataDatadogHosts#include_muted_hosts_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#include_muted_hosts_data DataDatadogHosts#include_muted_hosts_data}
         '''
         result = self._values.get("include_muted_hosts_data")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -460,7 +460,7 @@ class DataDatadogHostsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sort_dir(self) -> typing.Optional[builtins.str]:
         '''Direction of sort.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#sort_dir DataDatadogHosts#sort_dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#sort_dir DataDatadogHosts#sort_dir}
         '''
         result = self._values.get("sort_dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -469,7 +469,7 @@ class DataDatadogHostsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sort_field(self) -> typing.Optional[builtins.str]:
         '''Sort hosts by this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/hosts#sort_field DataDatadogHosts#sort_field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/hosts#sort_field DataDatadogHosts#sort_field}
         '''
         result = self._values.get("sort_field")
         return typing.cast(typing.Optional[builtins.str], result)

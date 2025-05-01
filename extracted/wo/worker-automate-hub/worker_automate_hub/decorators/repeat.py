@@ -15,11 +15,11 @@ def repeat(times=5, delay=15):
 
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):            
+        async def wrapper(*args, **kwargs):
             for _ in range(times):
-                func(*args, **kwargs)                
+                result = await func(*args, **kwargs)
                 time.sleep(delay)
-            return func(*args, **kwargs)
+            return result
 
         return wrapper
 

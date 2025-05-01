@@ -299,23 +299,27 @@ def str_to_timestamp(date):
     return int(dt.timestamp())
 
 
-upload_url = "https://wereadassets.malinkang.com/"
+upload_url = "https://api.notionhub.app/upload-svg"
 
-
-def upload_image(folder_path, filename, file_path):
-    # 将文件内容编码为Base64
-    with open(file_path, "rb") as file:
-        content_base64 = base64.b64encode(file.read()).decode("utf-8")
-
-    # 构建请求的JSON数据
-    data = {"file": content_base64, "filename": filename, "folder": folder_path}
-
-    response = requests.post(upload_url, json=data)
+def upload_image(github_url, svg_filename):
+    # 使用multipart/form-data格式上传文件
+    with open(svg_filename, "rb") as file:
+        files = {
+            "svgFile": (svg_filename, file, "image/svg+xml")
+        }
+        data = {
+            "github": github_url
+        }
+        headers = {
+            "Accept": "application/json"
+        }
+        response = requests.post(upload_url, files=files, data=data, headers=headers)
 
     if response.status_code == 200:
         print("File uploaded successfully.")
-        return response.text
+        return response.json().get("svgUrl")
     else:
+        print(f"Failed to upload file. Status code: {response.status_code}")
         return None
 
 

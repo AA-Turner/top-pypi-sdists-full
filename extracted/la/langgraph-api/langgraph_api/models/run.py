@@ -302,6 +302,7 @@ async def create_valid_run(
             "feedback_keys": payload.get("feedback_keys"),
             "temporary": temporary,
             "subgraphs": payload.get("stream_subgraphs", False),
+            "checkpoint_during": payload.get("checkpoint_during", False),
         },
         metadata=payload.get("metadata"),
         status="pending",

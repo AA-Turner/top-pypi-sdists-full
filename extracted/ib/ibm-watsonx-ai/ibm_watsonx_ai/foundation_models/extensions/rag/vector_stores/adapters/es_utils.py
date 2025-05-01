@@ -117,9 +117,12 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
             if text_field := bm25_strategy_config.get("text_field"):
                 self._text_field = text_field
 
-        if not use_rrf and any(
-            "boost" not in strategy
-            for _, strategy in self._retrieval_strategies.items()
+        if not use_rrf and (
+            any(
+                "boost" not in strategy
+                for _, strategy in self._retrieval_strategies.items()
+            )
+            and len(self._retrieval_strategies) != 1
         ):
             raise ValueError(
                 "Either all strategies have assigned boost (aka weight) or none."

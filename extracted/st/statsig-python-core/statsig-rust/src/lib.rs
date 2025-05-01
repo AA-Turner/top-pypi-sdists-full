@@ -1,8 +1,9 @@
-pub use client_init_response_formatter::ClientInitResponseOptions;
 pub use evaluation::dynamic_value::DynamicValue;
 pub use evaluation::evaluation_details::EvaluationDetails;
 pub use evaluation::evaluation_types::SecondaryExposure;
 pub use event_logging_adapter::*;
+pub use gcir::gcir_formatter::GCIRResponseFormat;
+pub use gcir::gcir_options::ClientInitResponseOptions;
 pub use hashing::HashAlgorithm;
 pub use id_lists_adapter::{IdListsAdapter, StatsigHttpIdListsAdapter};
 pub use initialize_response::InitializeResponse;
@@ -18,6 +19,8 @@ pub use persistent_storage::persistent_storage_trait::*;
 pub use sampling_processor::SamplingProcessor;
 pub use spec_store::SpecStore;
 pub use specs_adapter::*;
+pub use statsig::FailureDetails;
+pub use statsig::InitializeDetails;
 pub use statsig::Statsig;
 pub use statsig_core_api_options::{
     DynamicConfigEvaluationOptions, ExperimentEvaluationOptions, FeatureGateEvaluationOptions,
@@ -39,19 +42,19 @@ pub mod networking;
 pub mod output_logger;
 pub mod override_adapter;
 pub mod sdk_diagnostics;
-pub mod spec_types;
-pub mod spec_types_encoded;
+pub mod specs_response;
 pub mod statsig_core_api_options;
 pub mod statsig_metadata;
 pub mod statsig_options;
 pub mod statsig_types;
 pub mod user;
 
-mod client_init_response_formatter;
 mod dcs_str;
 mod event_logging;
 mod event_logging_adapter;
+mod gcir;
 mod id_lists_adapter;
+mod initialize_evaluations_response;
 mod initialize_response;
 mod macros;
 mod observability;
@@ -63,3 +66,4 @@ mod statsig;
 mod statsig_err;
 mod statsig_runtime;
 mod statsig_type_factories;
+mod utils;

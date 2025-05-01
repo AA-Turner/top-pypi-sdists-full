@@ -16,7 +16,7 @@ from falconpy import ContentUpdatePolicies
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = ContentUpdatePolicies(auth_object=config)
-AllowedResponses = [200, 201, 207, 400, 403, 429]
+AllowedResponses = [200, 201, 207, 400, 403, 404, 429]
 
 
 class TestContentUpdatePolicies:
@@ -35,6 +35,7 @@ class TestContentUpdatePolicies:
             "updateContentUpdatePolicies": falcon.update_policies(description="whatever", name="whatever", id="12345678"),
             "deleteContentUpdatePolicies": falcon.delete_policies(ids="12345678"),
             "queryContentUpdatePolicyMembers": falcon.query_policy_members(limit=1),
+            "queryPinnableContentVersions": falcon.query_pinnable_content_versions(category="system_critical"),
             "queryContentUpdatePolicies": falcon.query_policies(limit=1),
         }
         for key in tests:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deadline-cloud-test-fixtures
-Version: 0.17.5
+Version: 0.17.6
 Summary: This package contains pytest fixtures that are used to test AWS Deadline Cloud Python packages.
 Project-URL: Homepage, https://github.com/aws-deadline/deadline-cloud-test-fixtures
 Project-URL: Source, https://github.com/aws-deadline/deadline-cloud-test-fixtures

@@ -5,9 +5,10 @@ import collections.abc
 import pathlib
 import typing
 from collections.abc import Mapping
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import app_model.expressions._context
+import numpy
 
 import napari.components._layer_slicer
 import napari.components.camera
@@ -104,7 +105,7 @@ class ViewerModel(
         self,
         data,
         meta: Optional[Mapping[str, Any]] = None,
-        layer_type: Optional[str] = None,
+        layer_type: str | None = None,
     ) -> list[napari.layers.base.base.Layer]:
         """Add arbitrary layer data to the viewer.
 
@@ -158,8 +159,8 @@ class ViewerModel(
         paths: list[typing.Union[str, pathlib.Path]],
         *,
         stack: bool,
-        kwargs: Optional[Dict] = None,
-        plugin: Optional[str] = None,
+        kwargs: Optional[dict] = None,
+        plugin: str | None = None,
         layer_type: Optional[
             Literal[
                 graph,
@@ -210,7 +211,67 @@ class ViewerModel(
 
     def _calc_status_from_cursor(
         self,
-    ) -> Optional[tuple[Union[str, Dict], str]]: ...
+    ) -> tuple[typing.Union[str, dict], str] | None: ...
+    def _calculate_bounding_box(
+        extent: numpy.ndarray,
+        view_direction: tuple[float, float, float],
+        up_direction: tuple[float, float, float],
+    ) -> numpy.ndarray:
+        """Calculate the bounding box of the rotated extent.
+
+        Parameters
+        ----------
+        extent : array, shape (2, D)
+            An array with shape (2, D) where D is the number of dimensions.
+            The min/max coordinate values of the layers in world coordinates.
+            First row contains minimum values, second row contains maximum
+            values.
+        view_direction : 3-tuple of float
+            3D view direction vector of the camera.
+        up_direction : 3-tuple of float
+            3D direction vector pointing up on the canvas.
+
+        Returns
+        -------
+        bounding_box : array, shape (2,)
+            The bounding box of the rotated extent.
+        """
+
+    def _calculate_view_center(self, corner, total_size):
+        """Calculate the center of the view based on the total size."""
+
+    def _get_2d_camera_zoom(
+        self, total_size: numpy.ndarray, scale_factor: float
+    ) -> float:
+        """Get the camera zoom for 2D view."""
+
+    def _get_3d_camera_zoom(
+        self,
+        extent: numpy.ndarray,
+        total_size: numpy.ndarray,
+        scale_factor: float,
+    ) -> float:
+        """Calculate the zoom such that the minimum of the bounding box fits the canvas."""
+
+    def _get_scale_factor(self, margin: float) -> float:
+        """Get the scale factor for camera zoom with a valid margin."""
+
+    def _get_scene_parameters(self):
+        """Get the scene parameters for the current grid mode.
+
+        Returns
+        -------
+        extent : array, shape (2, D)
+            An array with the min/max coordinate values of the layers
+            First row is min values, second row is max values.
+        scene_size : array, shape (D,)
+            Size of the bounding box containing all layers.
+        corner : array, shape (D,)
+            Minimum coordinate values of the bounding box (i.e. extent[0]).
+        total_size : array, shape (D,)
+            Total size of the scene including grid spacing
+        """
+
     def _layer_help_from_mode(layer: napari.layers.base.base.Layer):
         """
         Update layer help text base on layer mode.
@@ -255,8 +316,8 @@ class ViewerModel(
 
     def _open_or_raise_error(
         self,
-        paths: list[typing.Union[pathlib.Path, str]],
-        kwargs: Optional[Dict[str, Any]] = None,
+        paths: list[pathlib.Path | str],
+        kwargs: Optional[dict[str, Any]] = None,
         layer_type: Optional[
             Literal[
                 graph,
@@ -320,7 +381,13 @@ class ViewerModel(
             when multiple readers are available to read the path
         """
 
-    def _subplot(self, layer, position, extent):
+    def _subplot(
+        self,
+        layer: napari.layers.base.base.Layer,
+        position: tuple[int, int],
+        extent: numpy.ndarray,
+        spacing: float,
+    ):
         """Shift a layer to a specified position in a 2D grid.
 
         Parameters
@@ -331,11 +398,18 @@ class ViewerModel(
             New position of layer in grid.
         extent : array, shape (2, D)
             Extent of the world.
+        spacing : float, optional
+            Value for spacing between layers. Negative values will
+            cause layers to overlap. Positive values will cause layers to
+            have space between them.
         """
 
     def _tooltip_visible_update(self, event): ...
     def _update_async(self, event: napari.utils.events.event.Event) -> None:
         """Set layer slicer to force synchronous if async is disabled."""
+
+    def _update_camera_orientation(self):
+        """Update camera orientation based on settings."""
 
     def _update_cursor(self, event):
         """Set the viewer cursor with the `event.cursor` string."""
@@ -395,9 +469,9 @@ class ViewerModel(
         translate=None,
         units=None,
         visible=True,
-    ) -> Union[
-        napari.layers.image.image.Image, list[napari.layers.image.image.Image]
-    ]:
+    ) -> (
+        napari.layers.image.image.Image | list[napari.layers.image.image.Image]
+    ):
         """Add one or more Image layers to the layer list.
 
         Parameters
@@ -1407,6 +1481,19 @@ class ViewerModel(
         layer : :class:`napari.layers.Vectors`
             The newly-created vectors layer."""
 
+    def fit_to_view(self, *, margin: float = 0.05) -> None:
+        """Fit the current data view to the canvas.
+
+        Adjusts the camera zoom and centers the view so that all visible layers
+        are within the canvas, accounting for the current grid mode and margin.
+
+        Parameters
+        ----------
+        margin : float in [0, 1)
+            Margin as fraction of the canvas, showing blank space around the
+            data. Default is 0.05 (5% of the canvas).
+        """
+
     def open(
         self,
         path: Union[
@@ -1415,8 +1502,8 @@ class ViewerModel(
             collections.abc.Sequence[Union[str, pathlib.Path]],
         ],
         *,
-        stack: Union[bool, list[list[Union[str, pathlib.Path]]]] = False,
-        plugin: Optional[str] = 'napari',
+        stack: bool | list[list[typing.Union[str, pathlib.Path]]] = False,
+        plugin: str | None = 'napari',
         layer_type: Optional[
             Literal[
                 graph,
@@ -1475,7 +1562,7 @@ class ViewerModel(
         self,
         plugin: str,
         sample: str,
-        reader_plugin: Optional[str] = None,
+        reader_plugin: str | None = None,
         **kwargs,
     ) -> list[napari.layers.base.base.Layer]:
         """Open `sample` from `plugin` and add it to the viewer.
@@ -1511,16 +1598,22 @@ class ViewerModel(
     def reset_view(
         self, *, margin: float = 0.05, reset_camera_angle: bool = True
     ) -> None:
-        """Reset the camera view.
+        """Reset the camera and fit the current layers to the canvas.
+
+        Resets the angles of the camera, adjust the camera zoom,
+        and centers the view so that all layers are visible,
+        accounting for the current grid mode and margin.
 
         Parameters
         ----------
         margin : float in [0, 1)
             Margin as fraction of the canvas, showing blank space around the
-            data.
+            data. Default is 0.05 (5% of the canvas).
+        reset_camera_angle : bool
+            Whether to reset the camera angles to (0, 0, 90) before fitting
+            to view. Default is True.
         """
 
-    def rounded_division(min_val, max_val, precision): ...
     def update_status_from_cursor(self):
         """Update the status and tooltip from the cursor position."""
 

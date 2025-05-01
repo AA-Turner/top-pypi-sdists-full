@@ -237,7 +237,7 @@ class AgentsforBedrockRuntimeClient(BaseClient):
         self, **kwargs: Unpack[InvokeAgentRequestTypeDef]
     ) -> InvokeAgentResponseTypeDef:
         """
-        Sends a prompt for the agent to process and respond to.
+        <note> </note> <p>Sends a prompt for the agent to process and respond to.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/invoke_agent.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent_runtime/client/#invoke_agent)

@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_monitors`
 
-Refer to the Terraform Registry for docs: [`data_datadog_monitors`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors).
+Refer to the Terraform Registry for docs: [`data_datadog_monitors`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogMonitors(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogMonitors.DataDatadogMonitors",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors datadog_monitors}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors datadog_monitors}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataDatadogMonitors(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors datadog_monitors} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors datadog_monitors} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#id DataDatadogMonitors#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monitor_tags_filter: A list of monitor tags to limit the search. This filters on the tags set on the monitor itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#monitor_tags_filter DataDatadogMonitors#monitor_tags_filter}
-        :param name_filter: A monitor name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#name_filter DataDatadogMonitors#name_filter}
-        :param tags_filter: A list of tags to limit the search. This filters on the monitor scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#tags_filter DataDatadogMonitors#tags_filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#id DataDatadogMonitors#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monitor_tags_filter: A list of monitor tags to limit the search. This filters on the tags set on the monitor itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#monitor_tags_filter DataDatadogMonitors#monitor_tags_filter}
+        :param name_filter: A monitor name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#name_filter DataDatadogMonitors#name_filter}
+        :param tags_filter: A list of tags to limit the search. This filters on the monitor scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#tags_filter DataDatadogMonitors#tags_filter}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataDatadogMonitors(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogMonitors to import.
-        :param import_from_id: The id of the existing DataDatadogMonitors that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogMonitors that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogMonitors to import is found.
         '''
         if __debug__:
@@ -267,10 +267,10 @@ class DataDatadogMonitorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#id DataDatadogMonitors#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monitor_tags_filter: A list of monitor tags to limit the search. This filters on the tags set on the monitor itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#monitor_tags_filter DataDatadogMonitors#monitor_tags_filter}
-        :param name_filter: A monitor name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#name_filter DataDatadogMonitors#name_filter}
-        :param tags_filter: A list of tags to limit the search. This filters on the monitor scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#tags_filter DataDatadogMonitors#tags_filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#id DataDatadogMonitors#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monitor_tags_filter: A list of monitor tags to limit the search. This filters on the tags set on the monitor itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#monitor_tags_filter DataDatadogMonitors#monitor_tags_filter}
+        :param name_filter: A monitor name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#name_filter DataDatadogMonitors#name_filter}
+        :param tags_filter: A list of tags to limit the search. This filters on the monitor scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#tags_filter DataDatadogMonitors#tags_filter}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -377,7 +377,7 @@ class DataDatadogMonitorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#id DataDatadogMonitors#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#id DataDatadogMonitors#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -389,7 +389,7 @@ class DataDatadogMonitorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitor_tags_filter(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of monitor tags to limit the search. This filters on the tags set on the monitor itself.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#monitor_tags_filter DataDatadogMonitors#monitor_tags_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#monitor_tags_filter DataDatadogMonitors#monitor_tags_filter}
         '''
         result = self._values.get("monitor_tags_filter")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -398,7 +398,7 @@ class DataDatadogMonitorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name_filter(self) -> typing.Optional[builtins.str]:
         '''A monitor name to limit the search.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#name_filter DataDatadogMonitors#name_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#name_filter DataDatadogMonitors#name_filter}
         '''
         result = self._values.get("name_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -407,7 +407,7 @@ class DataDatadogMonitorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags_filter(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of tags to limit the search. This filters on the monitor scope.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/monitors#tags_filter DataDatadogMonitors#tags_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/monitors#tags_filter DataDatadogMonitors#tags_filter}
         '''
         result = self._values.get("tags_filter")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

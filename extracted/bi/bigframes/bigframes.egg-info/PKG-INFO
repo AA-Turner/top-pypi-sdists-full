@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bigframes
-Version: 2.1.0
+Version: 2.2.0
 Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
 Home-page: https://github.com/googleapis/python-bigquery-dataframes
 Author: Google LLC
@@ -26,10 +26,11 @@ Requires-Dist: cloudpickle>=2.0.0
 Requires-Dist: fsspec>=2023.3.0
 Requires-Dist: gcsfs>=2023.3.0
 Requires-Dist: geopandas>=0.12.2
-Requires-Dist: google-auth<3.0dev,>=2.15.0
+Requires-Dist: google-auth<3.0,>=2.15.0
 Requires-Dist: google-cloud-bigtable>=2.24.0
 Requires-Dist: google-cloud-pubsub>=2.21.4
 Requires-Dist: google-cloud-bigquery[bqstorage,pandas]>=3.31.0
+Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.30.0
 Requires-Dist: google-cloud-functions>=1.12.0
 Requires-Dist: google-cloud-bigquery-connection>=1.12.0
 Requires-Dist: google-cloud-iam>=2.12.1
@@ -41,7 +42,7 @@ Requires-Dist: pandas-gbq>=0.26.1
 Requires-Dist: pyarrow>=15.0.2
 Requires-Dist: pydata-google-auth>=1.8.2
 Requires-Dist: requests>=2.27.1
-Requires-Dist: shapely>=2.0.0
+Requires-Dist: shapely>=1.8.5
 Requires-Dist: sqlglot>=23.6.3
 Requires-Dist: tabulate>=0.9
 Requires-Dist: ipywidgets>=7.7.1
@@ -55,6 +56,8 @@ Requires-Dist: toolz<2,>=0.11
 Requires-Dist: typing-extensions<5,>=4.5.0
 Requires-Dist: rich<14,>=12.4.4
 Provides-Extra: tests
+Requires-Dist: freezegun; extra == "tests"
+Requires-Dist: pytest-snapshot; extra == "tests"
 Provides-Extra: polars
 Requires-Dist: polars>=1.7.0; extra == "polars"
 Provides-Extra: scikit-learn
@@ -64,7 +67,6 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: nox; extra == "dev"
 Requires-Dist: google-cloud-testutils; extra == "dev"
-Requires-Dist: freezegun; extra == "dev"
 Provides-Extra: all
 Requires-Dist: freezegun; extra == "all"
 Requires-Dist: google-cloud-testutils; extra == "all"
@@ -72,6 +74,7 @@ Requires-Dist: nox; extra == "all"
 Requires-Dist: polars>=1.7.0; extra == "all"
 Requires-Dist: pre-commit; extra == "all"
 Requires-Dist: pytest; extra == "all"
+Requires-Dist: pytest-snapshot; extra == "all"
 Requires-Dist: scikit-learn>=1.2.2; extra == "all"
 
 BigQuery DataFrames

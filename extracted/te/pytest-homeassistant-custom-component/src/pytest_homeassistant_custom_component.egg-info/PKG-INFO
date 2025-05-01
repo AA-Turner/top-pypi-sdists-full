@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-homeassistant-custom-component
-Version: 0.13.236
+Version: 0.13.237
 Summary: Experimental package to automatically extract test plugins for Home Assistant custom components
 Home-page: https://github.com/MatthewFlamm/pytest-homeassistant-custom-component
 Author: Matthew Flamm
@@ -20,9 +20,10 @@ License-File: LICENSE_HA_CORE.md
 Requires-Dist: sqlalchemy
 Requires-Dist: coverage==7.6.12
 Requires-Dist: freezegun==1.5.1
+Requires-Dist: go2rtc-client==0.1.2
 Requires-Dist: license-expression==30.4.1
 Requires-Dist: mock-open==1.4.0
-Requires-Dist: pydantic==2.10.6
+Requires-Dist: pydantic==2.11.3
 Requires-Dist: pylint-per-file-ignores==1.4.0
 Requires-Dist: pipdeptree==2.25.1
 Requires-Dist: pytest-asyncio==0.26.0
@@ -41,8 +42,8 @@ Requires-Dist: requests-mock==1.12.1
 Requires-Dist: respx==0.22.0
 Requires-Dist: syrupy==4.8.1
 Requires-Dist: tqdm==4.67.1
-Requires-Dist: homeassistant==2025.4.4
-Requires-Dist: SQLAlchemy==2.0.39
+Requires-Dist: homeassistant==2025.5.0b0
+Requires-Dist: SQLAlchemy==2.0.40
 Requires-Dist: paho-mqtt==2.1.0
 Requires-Dist: numpy==2.2.2
 Dynamic: author
@@ -59,7 +60,7 @@ Dynamic: summary
 
 # pytest-homeassistant-custom-component
 
-![HA core version](https://img.shields.io/static/v1?label=HA+core+version&message=2025.4.4&labelColor=blue)
+![HA core version](https://img.shields.io/static/v1?label=HA+core+version&message=2025.5.0b0&labelColor=blue)
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/MatthewFlamm/pytest-homeassistant-custom-component)
 

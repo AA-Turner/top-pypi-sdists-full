@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: airbyte-cdk
-Version: 6.48.2
+Version: 6.48.6
 Summary: A framework for writing Airbyte Connectors.
 Home-page: https://airbyte.com
 License: MIT
@@ -66,6 +66,7 @@ Requires-Dist: pytz (==2024.2)
 Requires-Dist: rapidfuzz (>=3.10.1,<4.0.0)
 Requires-Dist: requests
 Requires-Dist: requests_cache
+Requires-Dist: rich
 Requires-Dist: rich-click (>=1.8.8,<2.0.0)
 Requires-Dist: serpyco-rs (>=1.10.2,<2.0.0)
 Requires-Dist: sqlalchemy (>=2.0,<3.0,!=2.0.36) ; extra == "sql"

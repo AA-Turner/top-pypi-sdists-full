@@ -1,7 +1,7 @@
 r'''
 # `datadog_webhook`
 
-Refer to the Terraform Registry for docs: [`datadog_webhook`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook).
+Refer to the Terraform Registry for docs: [`datadog_webhook`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Webhook(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.webhook.Webhook",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook datadog_webhook}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook datadog_webhook}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class Webhook(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook datadog_webhook} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook datadog_webhook} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the webhook. It corresponds with ``<WEBHOOK_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#name Webhook#name}
-        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#url Webhook#url}
-        :param custom_headers: The headers attached to the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#custom_headers Webhook#custom_headers}
-        :param encode_as: Encoding type. Valid values are ``json``, ``form``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#encode_as Webhook#encode_as}
-        :param payload: The payload of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#payload Webhook#payload}
+        :param name: The name of the webhook. It corresponds with ``<WEBHOOK_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#name Webhook#name}
+        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#url Webhook#url}
+        :param custom_headers: The headers attached to the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#custom_headers Webhook#custom_headers}
+        :param encode_as: Encoding type. Valid values are ``json``, ``form``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#encode_as Webhook#encode_as}
+        :param payload: The payload of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#payload Webhook#payload}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class Webhook(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Webhook to import.
-        :param import_from_id: The id of the existing Webhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Webhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Webhook to import is found.
         '''
         if __debug__:
@@ -285,11 +285,11 @@ class WebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the webhook. It corresponds with ``<WEBHOOK_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#name Webhook#name}
-        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#url Webhook#url}
-        :param custom_headers: The headers attached to the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#custom_headers Webhook#custom_headers}
-        :param encode_as: Encoding type. Valid values are ``json``, ``form``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#encode_as Webhook#encode_as}
-        :param payload: The payload of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#payload Webhook#payload}
+        :param name: The name of the webhook. It corresponds with ``<WEBHOOK_NAME>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#name Webhook#name}
+        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#url Webhook#url}
+        :param custom_headers: The headers attached to the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#custom_headers Webhook#custom_headers}
+        :param encode_as: Encoding type. Valid values are ``json``, ``form``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#encode_as Webhook#encode_as}
+        :param payload: The payload of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#payload Webhook#payload}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -400,7 +400,7 @@ class WebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the webhook. It corresponds with ``<WEBHOOK_NAME>``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#name Webhook#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#name Webhook#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -410,7 +410,7 @@ class WebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def url(self) -> builtins.str:
         '''The URL of the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#url Webhook#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#url Webhook#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -420,7 +420,7 @@ class WebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def custom_headers(self) -> typing.Optional[builtins.str]:
         '''The headers attached to the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#custom_headers Webhook#custom_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#custom_headers Webhook#custom_headers}
         '''
         result = self._values.get("custom_headers")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -429,7 +429,7 @@ class WebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encode_as(self) -> typing.Optional[builtins.str]:
         '''Encoding type. Valid values are ``json``, ``form``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#encode_as Webhook#encode_as}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#encode_as Webhook#encode_as}
         '''
         result = self._values.get("encode_as")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -438,7 +438,7 @@ class WebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def payload(self) -> typing.Optional[builtins.str]:
         '''The payload of the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/resources/webhook#payload Webhook#payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/resources/webhook#payload Webhook#payload}
         '''
         result = self._values.get("payload")
         return typing.cast(typing.Optional[builtins.str], result)

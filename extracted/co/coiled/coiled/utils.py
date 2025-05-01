@@ -1162,6 +1162,7 @@ def _get_preferred_instance_types_from_cpu_memory(
     backend: str,
     arch: Literal["x86_64", "arm64"],
     recommended: bool,
+    no_family_filter: bool,
 ) -> List[Tuple[str, VmType]]:
     # Circular imports
     from .core import list_instance_types
@@ -1183,7 +1184,7 @@ def _get_preferred_instance_types_from_cpu_memory(
             for instance_name, instance_specs in list_instance_types(
                 cores=cpu, memory=memory, backend=backend, arch=arch
             ).items()
-            if instance_name.startswith(instance_family)
+            if instance_name.startswith(instance_family) or no_family_filter
         ]
     elif backend == "azure":
         instance_family = ("Standard_D",)  # balanced general purpose
@@ -1199,7 +1200,7 @@ def _get_preferred_instance_types_from_cpu_memory(
             for instance_name, instance_specs in list_instance_types(
                 cores=cpu, memory=memory, backend=backend, arch=arch
             ).items()
-            if instance_name.startswith(instance_family)
+            if instance_name.startswith(instance_family) or no_family_filter
         ]
     elif backend == "aws":
         aws_family_filter = (
@@ -1215,7 +1216,7 @@ def _get_preferred_instance_types_from_cpu_memory(
             for instance_name, instance_specs in list_instance_types(
                 cores=cpu, memory=memory, backend=backend, arch=arch
             ).items()
-            if re.match(aws_family_filter, instance_name)
+            if re.match(aws_family_filter, instance_name) or no_family_filter
         ]
     else:
         raise UnsupportedBackendError(f"Unexpected backend: {backend}")
@@ -1275,6 +1276,7 @@ def get_instance_type_from_cpu_memory(
         arch=arch,
         backend=backend,
         recommended=recommended,
+        no_family_filter=False,
     )
 
     if not instances:
@@ -1290,6 +1292,7 @@ def get_instance_type_from_cpu_memory(
                 arch=arch,
                 backend=backend,
                 recommended=recommended,
+                no_family_filter=False,
             )
             if unbalanced_instances:
                 unbalanced_options_string = "\n".join(
@@ -1318,6 +1321,33 @@ def get_instance_type_from_cpu_memory(
                     "    cpu=[2, 8] or memory=['32 GiB','64GiB']\n"
                 )
                 raise InstanceTypeError(error_message)
+
+        any_instances = _get_preferred_instance_types_from_cpu_memory(
+            include_unbalanced=True,
+            cpu=cpu,
+            memory=memory,
+            gpus=gpus,
+            arch=arch,
+            backend=backend,
+            recommended=recommended,
+            no_family_filter=True,
+        )
+        if any_instances:
+            instance_list = "\n".join(
+                f"    {inst['name']} ({inst['cores']} cpu, {inst['memory'] // 1024} GiB)" for _, inst in any_instances
+            )
+            first_inst = any_instances[0][1]["name"]
+            error_message = (
+                "\n"
+                "Unable to find recommended instance types that match the specification: \n"
+                f"    Cores: {cpu}  Memory: {memory} GPUs: {gpus}  Arch: {arch}\n"
+                "\n"
+                "Some instances that match your requirements are:\n"
+                f"{instance_list}\n"
+                f"You can use (e.g.) `scheduler_vm_types=['{first_inst}']` or `worker_vm_types=['{first_inst}']`\n"
+                "keyword arguments to explicit specify one of these types."
+            )
+            raise InstanceTypeError(error_message)
 
         error_message = (
             "\n"

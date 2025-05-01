@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_dashboard_list`
 
-Refer to the Terraform Registry for docs: [`data_datadog_dashboard_list`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/dashboard_list).
+Refer to the Terraform Registry for docs: [`data_datadog_dashboard_list`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/dashboard_list).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogDashboardList(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogDashboardList.DataDatadogDashboardList",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/dashboard_list datadog_dashboard_list}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/dashboard_list datadog_dashboard_list}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataDatadogDashboardList(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/dashboard_list datadog_dashboard_list} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/dashboard_list datadog_dashboard_list} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: A dashboard list name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/dashboard_list#name DataDatadogDashboardList#name}
+        :param name: A dashboard list name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/dashboard_list#name DataDatadogDashboardList#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataDatadogDashboardList(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogDashboardList to import.
-        :param import_from_id: The id of the existing DataDatadogDashboardList that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/dashboard_list#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogDashboardList that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/dashboard_list#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogDashboardList to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class DataDatadogDashboardListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: A dashboard list name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/dashboard_list#name DataDatadogDashboardList#name}
+        :param name: A dashboard list name to limit the search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/dashboard_list#name DataDatadogDashboardList#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -285,7 +285,7 @@ class DataDatadogDashboardListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''A dashboard list name to limit the search.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/dashboard_list#name DataDatadogDashboardList#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/dashboard_list#name DataDatadogDashboardList#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"

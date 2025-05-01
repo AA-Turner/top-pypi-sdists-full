@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: large-image-converter
-Version: 1.32.1
+Version: 1.32.2
 Summary: Converter for Large Image.
 Author: Kitware Inc
 Author-email: kitware@kitware.com
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: large-image-source-tiff>=1.32.1
+Requires-Dist: large-image-source-tiff>=1.32.2
 Requires-Dist: numpy
 Requires-Dist: psutil
 Requires-Dist: pyvips
@@ -29,14 +29,14 @@ Requires-Dist: glymur; extra == "jp2k"
 Provides-Extra: geospatial
 Requires-Dist: gdal; extra == "geospatial"
 Provides-Extra: sources
-Requires-Dist: large-image[sources]>=1.32.1; extra == "sources"
+Requires-Dist: large-image[sources]>=1.32.2; extra == "sources"
 Provides-Extra: stats
 Requires-Dist: packaging; extra == "stats"
 Requires-Dist: scikit-image; extra == "stats"
 Provides-Extra: all
 Requires-Dist: glymur; extra == "all"
 Requires-Dist: gdal; extra == "all"
-Requires-Dist: large-image[sources]>=1.32.1; extra == "all"
+Requires-Dist: large-image[sources]>=1.32.2; extra == "all"
 Requires-Dist: packaging; extra == "all"
 Requires-Dist: scikit-image; extra == "all"
 Dynamic: author

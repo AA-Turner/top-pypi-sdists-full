@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_synthetics_global_variable`
 
-Refer to the Terraform Registry for docs: [`data_datadog_synthetics_global_variable`](https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/synthetics_global_variable).
+Refer to the Terraform Registry for docs: [`data_datadog_synthetics_global_variable`](https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/synthetics_global_variable).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogSyntheticsGlobalVariable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogSyntheticsGlobalVariable.DataDatadogSyntheticsGlobalVariable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/synthetics_global_variable datadog_synthetics_global_variable}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/synthetics_global_variable datadog_synthetics_global_variable}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataDatadogSyntheticsGlobalVariable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/synthetics_global_variable datadog_synthetics_global_variable} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/synthetics_global_variable datadog_synthetics_global_variable} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The synthetics global variable name to search for. Must only match one global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/synthetics_global_variable#name DataDatadogSyntheticsGlobalVariable#name}
+        :param name: The synthetics global variable name to search for. Must only match one global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/synthetics_global_variable#name DataDatadogSyntheticsGlobalVariable#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataDatadogSyntheticsGlobalVariable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogSyntheticsGlobalVariable to import.
-        :param import_from_id: The id of the existing DataDatadogSyntheticsGlobalVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/synthetics_global_variable#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogSyntheticsGlobalVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/synthetics_global_variable#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogSyntheticsGlobalVariable to import is found.
         '''
         if __debug__:
@@ -190,7 +190,7 @@ class DataDatadogSyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The synthetics global variable name to search for. Must only match one global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/synthetics_global_variable#name DataDatadogSyntheticsGlobalVariable#name}
+        :param name: The synthetics global variable name to search for. Must only match one global variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/synthetics_global_variable#name DataDatadogSyntheticsGlobalVariable#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -290,7 +290,7 @@ class DataDatadogSyntheticsGlobalVariableConfig(_cdktf_9a9027ec.TerraformMetaArg
     def name(self) -> builtins.str:
         '''The synthetics global variable name to search for. Must only match one global variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.60.1/docs/data-sources/synthetics_global_variable#name DataDatadogSyntheticsGlobalVariable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.61.0/docs/data-sources/synthetics_global_variable#name DataDatadogSyntheticsGlobalVariable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"

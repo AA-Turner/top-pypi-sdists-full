@@ -5,7 +5,7 @@
   keywords = ["pulumi", "datadog"]
   readme = "README.md"
   requires-python = ">=3.9"
-  version = "4.49.1"
+  version = "4.50.0"
   [project.license]
     text = "Apache-2.0"
   [project.urls]

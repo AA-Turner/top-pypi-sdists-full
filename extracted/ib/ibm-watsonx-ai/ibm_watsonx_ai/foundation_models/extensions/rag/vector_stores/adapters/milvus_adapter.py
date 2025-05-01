@@ -13,7 +13,6 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vec
 from ibm_watsonx_ai.wml_client_error import (
     MissingExtension,
     InvalidValue,
-    InvalidMultipleArguments,
 )
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 
@@ -245,17 +244,18 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         self._collection_name = collection_name
         self._additional_kwargs = kwargs
 
-        if self._connection_id is None and vector_store is None:
-            raise InvalidMultipleArguments(["connection_id", "vector_store"])
-
         from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (
             VectorStoreConnector,
         )
 
         if vector_store is None:
-            self._datasource_type, connection_properties = self._connect_by_type(
-                cast(str, self._connection_id)
-            )
+            if self._client is not None and self._connection_id is not None:
+                self._datasource_type, connection_properties = self._connect_by_type(
+                    cast(str, self._connection_id)
+                )
+            else:
+                self._datasource_type, connection_properties = "milvus", {}
+
             logger.info(f"Initializing vector store of type: {self._datasource_type}")
 
             self._properties = {

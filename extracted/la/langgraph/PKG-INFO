@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langgraph
-Version: 0.4.0
+Version: 0.4.1
 Summary: Building stateful, multi-actor applications with LLMs
 License: MIT
 Requires-Python: >=3.9
@@ -15,6 +15,7 @@ Requires-Dist: langchain-core (>=0.1) ; python_version < "4.0"
 Requires-Dist: langgraph-checkpoint (>=2.0.10,<3.0.0)
 Requires-Dist: langgraph-prebuilt (>=0.1.8) ; python_version < "4.0"
 Requires-Dist: langgraph-sdk (>=0.1.42) ; python_version < "4.0"
+Requires-Dist: pydantic (>=2.7.4)
 Requires-Dist: xxhash (>=3.5.0,<4.0.0)
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 Description-Content-Type: text/markdown

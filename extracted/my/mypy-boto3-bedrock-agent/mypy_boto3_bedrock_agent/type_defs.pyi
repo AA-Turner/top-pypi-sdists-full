@@ -260,6 +260,7 @@ __all__ = (
     "IngestionJobStatisticsTypeDef",
     "IngestionJobSummaryTypeDef",
     "IngestionJobTypeDef",
+    "InlineCodeFlowNodeConfigurationTypeDef",
     "InlineContentTypeDef",
     "IntermediateStorageTypeDef",
     "KendraKnowledgeBaseConfigurationTypeDef",
@@ -756,6 +757,10 @@ class FlowConditionalConnectionConfigurationTypeDef(TypedDict):
 class FlowDataConnectionConfigurationTypeDef(TypedDict):
     sourceOutput: str
     targetInput: str
+
+class InlineCodeFlowNodeConfigurationTypeDef(TypedDict):
+    code: str
+    language: Literal["Python_3"]
 
 class LambdaFunctionFlowNodeConfigurationTypeDef(TypedDict):
     lambdaArn: str
@@ -2868,6 +2873,7 @@ FlowNodeConfigurationOutputTypeDef = TypedDict(
         "agent": NotRequired[AgentFlowNodeConfigurationTypeDef],
         "collector": NotRequired[Dict[str, Any]],
         "condition": NotRequired[ConditionFlowNodeConfigurationOutputTypeDef],
+        "inlineCode": NotRequired[InlineCodeFlowNodeConfigurationTypeDef],
         "input": NotRequired[Dict[str, Any]],
         "iterator": NotRequired[Dict[str, Any]],
         "knowledgeBase": NotRequired[KnowledgeBaseFlowNodeConfigurationTypeDef],
@@ -3021,6 +3027,7 @@ FlowNodeConfigurationTypeDef = TypedDict(
         "agent": NotRequired[AgentFlowNodeConfigurationTypeDef],
         "collector": NotRequired[Mapping[str, Any]],
         "condition": NotRequired[ConditionFlowNodeConfigurationTypeDef],
+        "inlineCode": NotRequired[InlineCodeFlowNodeConfigurationTypeDef],
         "input": NotRequired[Mapping[str, Any]],
         "iterator": NotRequired[Mapping[str, Any]],
         "knowledgeBase": NotRequired[KnowledgeBaseFlowNodeConfigurationTypeDef],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.cloud-assembly-schema
-Version: 43.5.0
+Version: 43.6.0
 Summary: Schema for the protocol between CDK framework and CDK CLI
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services

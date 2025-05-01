@@ -94,8 +94,7 @@ class SequenceDumper(RecursiveDumper):
                 continue
 
             dumper = self._tx.get_dumper(item, PyFormat.from_pq(self.format))
-            ad = dumper.dump(item)
-            if ad is None:
+            if (ad := dumper.dump(item)) is None:
                 ad = b""
             elif not ad:
                 ad = b'""'
@@ -219,14 +218,16 @@ class RecordBinaryLoader(Loader):
         nfields = unpack_len(data, 0)[0]
         offset = 4
         oids = []
-        record = []
+        record: list[Buffer | None] = []
         for _ in range(nfields):
             oid, length = _unpack_oidlen(data, offset)
             offset += 8
-            record.append(data[offset : offset + length] if length != -1 else None)
             oids.append(oid)
             if length >= 0:
+                record.append(data[offset : offset + length])
                 offset += length
+            else:
+                record.append(None)
 
         key = tuple(oids)
         try:
@@ -235,7 +236,7 @@ class RecordBinaryLoader(Loader):
             tx = self._txs[key] = Transformer(self._ctx)
             tx.set_loader_types(oids, self.format)
 
-        return tx.load_sequence(tuple(record))
+        return tx.load_sequence(record)
 
 
 class CompositeLoader(RecordLoader):
